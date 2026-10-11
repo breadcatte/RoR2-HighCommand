@@ -1,0 +1,8 @@
+_ref/
+_tools/
+bin/
+obj/
+dist/
+.vs/
+*.user
+*.log
