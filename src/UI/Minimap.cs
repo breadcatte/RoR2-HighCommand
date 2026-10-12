@@ -145,23 +145,26 @@ namespace HighCommand.UI
 
         // the view box is written only when the camera really moved (a rect touched every frame rebuilds the canvas)
         private Vector3 boxFocus = new Vector3(float.NaN, 0f, 0f);
-        private float boxDistance = float.NaN, boxYaw = float.NaN;
+        private float boxDistance = float.NaN, boxYaw = float.NaN, boxPitch = float.NaN;
 
         private void PlaceViewBox(RtsCamera camera)
         {
             Vector3 focus = camera.Focus;
-            float distance = camera.Distance, yaw = camera.Yaw;
-            if (boxFocus == focus && boxDistance == distance && boxYaw == yaw) return;
+            float distance = camera.Distance, yaw = camera.Yaw, pitch = camera.Pitch;
+            if (boxFocus == focus && boxDistance == distance && boxYaw == yaw && boxPitch == pitch) return;
             boxFocus = focus;
             boxDistance = distance;
             boxYaw = yaw;
+            boxPitch = pitch;
 
             Rect r = mapRect.rect;
             Vector2 uv = MapInfo.WorldToMinimap01(focus);
             viewBox.anchorMin = viewBox.anchorMax = new Vector2(0.5f, 0.5f);
             viewBox.anchoredPosition = new Vector2((uv.x - 0.5f) * r.width, (uv.y - 0.5f) * r.height);
 
-            float groundHalfHeight = distance * 0.85f;
+            // the depth of the ground in view grows as the camera looks flatter (0.85 is right at the default 58 degrees)
+            float tilt = Mathf.Sin(Mathf.Clamp(pitch, 20f, 89f) * Mathf.Deg2Rad);
+            float groundHalfHeight = distance * 0.85f * (Mathf.Sin(58f * Mathf.Deg2Rad) / tilt);
             float aspect = Screen.height > 0 ? (float)Screen.width / Screen.height : 1.78f;
             float w = groundHalfHeight * 2f * aspect;
             float h = groundHalfHeight * 2f;

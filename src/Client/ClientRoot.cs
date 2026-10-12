@@ -116,7 +116,8 @@ namespace HighCommand.Client
                 Loc.Get("HIGHCOMMAND_HELP_PAN"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_EDGE"), Loc.Get("HIGHCOMMAND_HELP_EDGE"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_WHEEL"), Loc.Get("HIGHCOMMAND_HELP_ZOOM"));
-            HelpOverlay.Add($"{Loc.Get("HIGHCOMMAND_KEY_MMB")} / {Settings.KeyRotateLeft.Value} {Settings.KeyRotateRight.Value}", Loc.Get("HIGHCOMMAND_HELP_ROTATE"));
+            HelpOverlay.Add($"{Loc.Get("HIGHCOMMAND_KEY_MMB_SIDE")} / {Settings.KeyRotateLeft.Value} {Settings.KeyRotateRight.Value}", Loc.Get("HIGHCOMMAND_HELP_ROTATE"));
+            HelpOverlay.Add($"{Loc.Get("HIGHCOMMAND_KEY_MMB_VERT")} / {Settings.KeyTiltUp.Value} {Settings.KeyTiltDown.Value}", Loc.Get("HIGHCOMMAND_HELP_TILT"));
             HelpOverlay.Add(Settings.KeyFocusSelected.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FOCUS"));
             HelpOverlay.Add(Settings.KeyLastAlert.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_ALERT"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_MINIMAP"), Loc.Get("HIGHCOMMAND_HELP_MINIMAP"));

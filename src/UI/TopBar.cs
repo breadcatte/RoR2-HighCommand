@@ -4,47 +4,115 @@ using HighCommand.Mode;
 using RoR2;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace HighCommand.UI
 {
     /// <summary>
-    /// Top strip: stage / time / difficulty on the left; gold, income, army size and the price of the next hero in the
-    /// middle. Clicking the gold block opens the barracks.
+    /// The top strip, three panels of one height: the stage (name, time, difficulty) on the left; in the middle the
+    /// purse, the army and the price of the next hero (a click opens the barracks); on the right the teleporter with
+    /// its progress (a click starts / gathers / leaves). The red defeat line comes below them.
     /// </summary>
     internal sealed class TopBar
     {
-        private readonly RectTransform infoPanel;
-        private readonly TextMeshProUGUI infoText;
-        private readonly RectTransform goldPanel;
+        private const float Height = 60f;
+        private const float Top = 14f;
+        private const float StageW = 400f, EconomyW = 580f, TeleW = 340f;
+
+        private readonly RectTransform stagePanel;
+        private readonly TextMeshProUGUI stageText;
+        private readonly TextMeshProUGUI metaText;
+
+        private readonly RectTransform economyPanel;
         private readonly TextMeshProUGUI goldText;
-        private readonly TextMeshProUGUI subText;
+        private readonly TextMeshProUGUI incomeText;
+        private readonly TextMeshProUGUI armyText;
+        private readonly TextMeshProUGUI armySubText;
+        private readonly TextMeshProUGUI nextLabel;
+        private readonly TextMeshProUGUI nextText;
+        private readonly TextMeshProUGUI keyText;
 
         private readonly RectTransform teleporterPanel;
+        private readonly Image teleporterGlyph;
         private readonly TextMeshProUGUI teleporterText;
         private readonly RectTransform teleporterBarBack;
-        private readonly UnityEngine.UI.Image teleporterBar;
+        private readonly Image teleporterBar;
+
         private readonly TextMeshProUGUI defeatText;
-        private readonly UnityEngine.UI.Image defeatPlate;
+        private readonly Image defeatPlate;
 
         private float shownGold;
 
         internal TopBar(Transform parent)
         {
+            // --- stage ---
+            stagePanel = UiKit.NewPanel("StagePanel", parent, UiKit.PanelColor);
+            UiKit.Place(stagePanel, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -Top), new Vector2(StageW, Height));
+            stageText = UiKit.NewText("Stage", stagePanel, "", 22f, UiKit.Text, TextAlignmentOptions.Left);
+            UiKit.Place(stageText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -6f), new Vector2(StageW - 28f, 28f));
+            stageText.enableAutoSizing = true;
+            stageText.fontSizeMin = 13f;
+            stageText.fontSizeMax = 22f;
+
+            Image clock = UiKit.NewImage("Clock", stagePanel, UiKit.GlyphSprite(Glyph.Clock), UiKit.TextDim);
+            UiKit.Place(clock.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0.5f), new Vector2(16f, 15f), new Vector2(15f, 15f));
+            metaText = UiKit.NewText("Meta", stagePanel, "", 17f, UiKit.TextDim, TextAlignmentOptions.Left);
+            UiKit.Place(metaText.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(38f, 5f), new Vector2(StageW - 52f, 22f));
+
+            // --- purse, army, next hero ---
+            economyPanel = UiKit.NewPanel("EconomyPanel", parent, UiKit.PanelColor);
+            UiKit.Place(economyPanel, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -Top), new Vector2(EconomyW, Height));
+
+            // the purse
+            Image coin = UiKit.NewImage("Coin", economyPanel, UiKit.GlyphSprite(Glyph.Coin), UiKit.Gold);
+            UiKit.Place(coin.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(16f, 5f), new Vector2(26f, 26f));
+            goldText = UiKit.NewText("Gold", economyPanel, "", 32f, UiKit.Gold, TextAlignmentOptions.Left);
+            UiKit.Place(goldText.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(50f, 6f), new Vector2(170f, 40f));
+            incomeText = UiKit.NewText("Income", economyPanel, "", 14f, UiKit.Good, TextAlignmentOptions.Left);
+            UiKit.Place(incomeText.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(52f, 4f), new Vector2(160f, 18f));
+            Divider(economyPanel, 224f);
+
+            // the army
+            Image person = UiKit.NewImage("Person", economyPanel, UiKit.GlyphSprite(Glyph.Person), UiKit.TextDim);
+            UiKit.Place(person.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(240f, 5f), new Vector2(24f, 24f));
+            armyText = UiKit.NewText("Army", economyPanel, "", 28f, UiKit.Text, TextAlignmentOptions.Left);
+            UiKit.Place(armyText.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(272f, 6f), new Vector2(90f, 36f));
+            armySubText = UiKit.NewText("ArmySub", economyPanel, "", 14f, UiKit.TextDim, TextAlignmentOptions.Left);
+            UiKit.Place(armySubText.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(242f, 4f), new Vector2(120f, 18f));
+            Divider(economyPanel, 372f);
+
+            // the next hero and the key of the barracks
+            nextLabel = UiKit.NewText("NextLabel", economyPanel, "", 14f, UiKit.TextDim, TextAlignmentOptions.Left);
+            UiKit.Place(nextLabel.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(388f, -7f), new Vector2(150f, 18f));
+            nextLabel.enableAutoSizing = true;
+            nextLabel.fontSizeMin = 10f;
+            nextLabel.fontSizeMax = 14f;
+            nextText = UiKit.NewText("Next", economyPanel, "", 24f, UiKit.Gold, TextAlignmentOptions.Left);
+            UiKit.Place(nextText.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(388f, 5f), new Vector2(110f, 30f));
+
+            Image cap = UiKit.NewImage("KeyCap", economyPanel, UiKit.White, new Color(0.02f, 0.03f, 0.05f, 0.85f));
+            UiKit.Place(cap.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-16f, 0f), new Vector2(26f, 24f));
+            keyText = UiKit.NewText("Key", cap.rectTransform, "", 15f, UiKit.TextDim, TextAlignmentOptions.Center);
+            UiKit.Stretch(keyText.rectTransform, 0, 0, 0, 0);
+
+            // --- teleporter ---
             teleporterPanel = UiKit.NewPanel("TeleporterPanel", parent, UiKit.PanelColor);
-            UiKit.Place(teleporterPanel, new Vector2(0.5f, 1f), new Vector2(0f, 1f), new Vector2(276f, -16f), new Vector2(330f, 72f));
-            teleporterText = UiKit.NewText("Text", teleporterPanel, "", 20f, UiKit.Text, TextAlignmentOptions.Left);
-            UiKit.Place(teleporterText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(14f, -8f), new Vector2(304f, 28f));
+            UiKit.Place(teleporterPanel, new Vector2(0.5f, 1f), new Vector2(0f, 1f), new Vector2(EconomyW * 0.5f + 8f, -Top), new Vector2(TeleW, Height));
+            teleporterGlyph = UiKit.NewImage("Glyph", teleporterPanel, UiKit.GlyphSprite(Glyph.Teleporter), UiKit.TextDim);
+            UiKit.Place(teleporterGlyph.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(14f, 0f), new Vector2(28f, 28f));
+            teleporterText = UiKit.NewText("Text", teleporterPanel, "", 17f, UiKit.Text, TextAlignmentOptions.Left);
+            UiKit.Place(teleporterText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(54f, -8f), new Vector2(TeleW - 68f, 24f));
             teleporterText.enableAutoSizing = true;
-            teleporterText.fontSizeMin = 11f;
-            teleporterText.fontSizeMax = 20f;
-            teleporterBarBack = UiKit.NewImage("BarBack", teleporterPanel, UiKit.White, new Color(0.14f, 0.15f, 0.18f, 1f)).rectTransform;
-            UiKit.Place(teleporterBarBack, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(14f, 12f), new Vector2(302f, 14f));
+            teleporterText.fontSizeMin = 10f;
+            teleporterText.fontSizeMax = 17f;
+            teleporterBarBack = UiKit.NewImage("BarBack", teleporterPanel, UiKit.White, new Color(0.1f, 0.12f, 0.16f, 1f)).rectTransform;
+            UiKit.Place(teleporterBarBack, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(54f, 11f), new Vector2(TeleW - 68f, 9f));
             teleporterBar = UiKit.NewImage("Bar", teleporterBarBack, UiKit.White, new Color(0.45f, 0.75f, 1f, 1f));
             teleporterBar.rectTransform.anchorMin = Vector2.zero;
             teleporterBar.rectTransform.anchorMax = new Vector2(0f, 1f);
             teleporterBar.rectTransform.offsetMin = teleporterBar.rectTransform.offsetMax = Vector2.zero;
 
-            // a dark plate under the red text, so it reads over any ground
+            // --- defeat line: a dark plate under the red text, so it reads over any ground ---
             defeatPlate = UiKit.NewImage("DefeatPlate", parent, UiKit.White, new Color(0.09f, 0.02f, 0.03f, 0.84f));
             UiKit.StyleOutline(defeatPlate, 10f);
             UiKit.Place(defeatPlate.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -144f), new Vector2(900f, 56f));
@@ -53,31 +121,21 @@ namespace HighCommand.UI
             UiKit.Place(defeatText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -150f), new Vector2(1500f, 44f));
             defeatText.enabled = false;
 
-            infoPanel = UiKit.NewPanel("InfoPanel", parent, UiKit.PanelColor);
-            UiKit.Place(infoPanel, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -16f), new Vector2(430f, 64f));
-            infoText = UiKit.NewText("Info", infoPanel, "", 22f, UiKit.Text, TextAlignmentOptions.Left);
-            UiKit.Stretch(infoText.rectTransform, 14, 4, 10, 4);
-            infoText.enableWordWrapping = false;
-
-            goldPanel = UiKit.NewPanel("GoldPanel", parent, UiKit.PanelColor);
-            UiKit.Place(goldPanel, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(520f, 72f));
-            goldText = UiKit.NewText("Gold", goldPanel, "", 34f, UiKit.Gold, TextAlignmentOptions.Left);
-            UiKit.Place(goldText.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(16f, 6f), new Vector2(240f, 44f));
-            subText = UiKit.NewText("Sub", goldPanel, "", 19f, UiKit.TextDim, TextAlignmentOptions.Left);
-            UiKit.Place(subText.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(16f, -22f), new Vector2(490f, 26f));
-            // big numbers (a rich army, a high income) must shrink the line, not run out of the panel
-            subText.enableAutoSizing = true;
-            subText.fontSizeMin = 12f;
-            subText.fontSizeMax = 19f;
-
             ClientInput.RegisterUiHitTest(Contains);
         }
 
+        private static void Divider(RectTransform panel, float x)
+        {
+            Image line = UiKit.NewImage("Divider", panel, UiKit.White, new Color(0.6f, 0.7f, 0.82f, 0.22f));
+            UiKit.Place(line.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(x, 0f), new Vector2(1f, Height - 22f));
+        }
+
         internal bool Contains(Vector2 screenPoint) =>
-            UiKit.Contains(infoPanel, screenPoint) || UiKit.Contains(goldPanel, screenPoint) || UiKit.Contains(teleporterPanel, screenPoint)
+            UiKit.Contains(stagePanel, screenPoint) || UiKit.Contains(economyPanel, screenPoint) || UiKit.Contains(teleporterPanel, screenPoint)
             || DefeatContains(screenPoint);
 
-        internal bool GoldPanelContains(Vector2 screenPoint) => UiKit.Contains(goldPanel, screenPoint);
+        /// <summary>The purse / army panel: a click opens the barracks.</summary>
+        internal bool GoldPanelContains(Vector2 screenPoint) => UiKit.Contains(economyPanel, screenPoint);
 
         /// <summary>The red "all heroes have fallen" strip: shown only while the defeat countdown runs; a click revives.</summary>
         internal bool DefeatContains(Vector2 screenPoint) => defeatPlate.enabled && UiKit.Contains(defeatPlate.rectTransform, screenPoint);
@@ -89,8 +147,8 @@ namespace HighCommand.UI
         internal void SetVisible(bool visible)
         {
             visibleFlag = visible;
-            if (infoPanel.gameObject.activeSelf != visible) infoPanel.gameObject.SetActive(visible);
-            if (goldPanel.gameObject.activeSelf != visible) goldPanel.gameObject.SetActive(visible);
+            if (stagePanel.gameObject.activeSelf != visible) stagePanel.gameObject.SetActive(visible);
+            if (economyPanel.gameObject.activeSelf != visible) economyPanel.gameObject.SetActive(visible);
             if (!visible)
             {
                 if (teleporterPanel.gameObject.activeSelf) teleporterPanel.gameObject.SetActive(false);
@@ -104,7 +162,7 @@ namespace HighCommand.UI
             Run run = Run.instance;
             if (!run || !visibleFlag) return;
 
-            // --- info (rebuilt when stage, second or difficulty changes) ---
+            // --- stage (rebuilt when stage, second or difficulty changes) ---
             SceneInfo info = SceneInfo.instance;
             SceneDef scene = info && info.sceneDef ? info.sceneDef : null;
             int seconds = (int)run.GetRunStopwatch();
@@ -122,12 +180,19 @@ namespace HighCommand.UI
                 string difficulty = "";
                 DifficultyDef dd = DifficultyCatalog.GetDifficultyDef(difficultyIndex);
                 if (dd != null) difficulty = Language.GetString(dd.nameToken);
-                UiKit.SetText(infoText, $"{Loc.Format("HIGHCOMMAND_TOP_STAGE", cleared + 1)}  {stage}\n<size=80%><color=#A6B3C7>{time}   {difficulty}</color></size>");
+                UiKit.SetText(stageText, $"{Loc.Format("HIGHCOMMAND_TOP_STAGE", cleared + 1)}  <color=#A6B3C7>{stage}</color>");
+                UiKit.SetText(metaText, $"{time}    {difficulty}");
             }
 
-            // --- gold ---
+            // --- purse ---
             HcState state = HcState.Instance;
-            if (state == null) { UiKit.SetText(goldText, ""); UiKit.SetText(subText, ""); return; }
+            if (state == null)
+            {
+                UiKit.SetText(goldText, "");
+                UiKit.SetText(armyText, "");
+                UiKit.SetText(nextText, "");
+                return;
+            }
 
             shownGold = Mathf.MoveTowards(shownGold, state.Gold, Mathf.Max(8f, Mathf.Abs(state.Gold - shownGold) * 6f) * dt);
             int gold = Mathf.RoundToInt(shownGold);
@@ -137,6 +202,7 @@ namespace HighCommand.UI
                 UiKit.SetText(goldText, "$" + gold);
             }
 
+            // --- army and the next hero ---
             var heroList = state.Heroes;
             int heroes = heroList.Count;
             int alive = 0;
@@ -144,19 +210,30 @@ namespace HighCommand.UI
             int income = Mathf.RoundToInt(Economy.IncomePerMinute());
             int limit = state.ArmyLimit;
             int price = state.NextHeroPrice();
+            bool affordable = state.Gold >= (uint)price;
+            bool full = heroes >= limit;
             if (alive != subAlive || heroes != subHeroes || limit != subLimit || income != subIncome || price != subPrice
-                || subText.text.Length == 0)
+                || affordable != subAffordable || armyText.text.Length == 0)
             {
                 subAlive = alive;
                 subHeroes = heroes;
                 subLimit = limit;
                 subIncome = income;
                 subPrice = price;
-                string incomeText = income > 0 ? $"  +{income}/{Loc.Get("HIGHCOMMAND_TOP_PERMIN")}" : "";
-                UiKit.SetText(subText, Loc.Format("HIGHCOMMAND_TOP_ARMY", alive, heroes, limit)
-                                       + "   " + Loc.Format("HIGHCOMMAND_TOP_NEXT", price) + incomeText
-                                       + "   [" + Settings.KeyBarracks.Value + "]");
+                subAffordable = affordable;
+
+                UiKit.SetText(incomeText, income > 0 ? Loc.Format("HIGHCOMMAND_TOP_INCOME", income) : "");
+                UiKit.SetText(armyText, alive + "/" + heroes);
+                armyText.color = alive < heroes ? UiKit.Bad : UiKit.Text;
+                UiKit.SetText(armySubText, Loc.Format("HIGHCOMMAND_TOP_ARMYLIMIT", limit));
+                UiKit.SetText(nextLabel, Loc.Get("HIGHCOMMAND_TOP_NEXTHERO"));
+                UiKit.SetText(nextText, "$" + price);
+                nextText.color = full ? UiKit.TextDim : affordable ? UiKit.Good : UiKit.Gold;
+                UiKit.SetText(keyText, Settings.KeyBarracks.Value.ToString());
             }
+
+            if (UiKit.Contains(economyPanel, ClientInput.Mouse) && !ClientInput.MouseBlocked)
+                Tooltip.Show(Loc.Get("HIGHCOMMAND_TOP_NEXTHERO") + ": $" + price, Loc.Get("HIGHCOMMAND_TOP_BARRACKS_TIP") + "\n\n[" + Settings.KeyBarracks.Value + "]");
 
             TickTeleporter(state);
             TickDefeat(state);
@@ -168,6 +245,7 @@ namespace HighCommand.UI
         private DifficultyIndex infoDifficulty = DifficultyIndex.Invalid;
         private int shownGoldInt = int.MinValue;
         private int subAlive = -1, subHeroes = -1, subLimit = -1, subIncome = -1, subPrice = -1;
+        private bool subAffordable;
         private int teleporterKey = int.MinValue;
         private int defeatKey = int.MinValue;
 
@@ -217,6 +295,8 @@ namespace HighCommand.UI
                 UiKit.SetText(teleporterText, text);
             }
             teleporterBar.color = barColor;
+            Color glyphColor = state.Teleporter == HcState.TeleState.Idle ? UiKit.TextDim : barColor;
+            if (teleporterGlyph.color != glyphColor) teleporterGlyph.color = glyphColor;
             float anchor = Mathf.Clamp01(fraction);
             if (Mathf.Abs(teleporterBar.rectTransform.anchorMax.x - anchor) > 0.0005f)
                 teleporterBar.rectTransform.anchorMax = new Vector2(anchor, 1f);
@@ -255,8 +335,8 @@ namespace HighCommand.UI
         internal void Destroy()
         {
             ClientInput.UnregisterUiHitTest(Contains);
-            if (infoPanel) Object.Destroy(infoPanel.gameObject);
-            if (goldPanel) Object.Destroy(goldPanel.gameObject);
+            if (stagePanel) Object.Destroy(stagePanel.gameObject);
+            if (economyPanel) Object.Destroy(economyPanel.gameObject);
             if (teleporterPanel) Object.Destroy(teleporterPanel.gameObject);
             if (defeatText) Object.Destroy(defeatText.gameObject);
             if (defeatPlate) Object.Destroy(defeatPlate.gameObject);

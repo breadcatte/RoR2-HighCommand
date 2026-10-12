@@ -24,7 +24,9 @@ namespace HighCommand
         internal static ConfigEntry<int> EdgeScrollPixels;
 
         // ---- keys ----
-        internal static ConfigEntry<KeyCode> KeyUp, KeyDown, KeyLeft, KeyRight, KeyRotateLeft, KeyRotateRight;
+        internal static ConfigEntry<KeyCode> KeyUp, KeyDown, KeyLeft, KeyRight, KeyRotateLeft, KeyRotateRight, KeyTiltUp, KeyTiltDown;
+        internal static ConfigEntry<float> CameraTiltSpeed;
+        internal static ConfigEntry<bool> InvertTilt;
         internal static ConfigEntry<KeyCode> KeyFocusSelected, KeyHelp, KeyFastCamera;
         internal static ConfigEntry<KeyCode> KeyAttackMove, KeyStop, KeyHold, KeyFocusFire, KeyRetreat, KeyPatrol, KeyRally;
         internal static ConfigEntry<KeyCode> KeyCastSecondary, KeyCastUtility, KeyCastSpecial, KeyCastEquipment;
@@ -101,7 +103,9 @@ namespace HighCommand
             CameraZoomSpeed = F("Camera", "ZoomSpeed", 1.0f, 0.2f, 4f, "Mouse wheel zoom speed multiplier.");
             CameraMinDistance = F("Camera", "MinDistance", 10f, 4f, 60f, "Closest camera distance to the ground focus point, meters.");
             CameraMaxDistance = F("Camera", "MaxDistance", 95f, 30f, 300f, "Farthest camera distance, meters.");
-            CameraPitch = F("Camera", "Pitch", 58f, 25f, 85f, "Camera tilt in degrees (90 = straight down).");
+            CameraPitch = F("Camera", "Pitch", 58f, 25f, 85f, "Camera tilt in degrees (90 = straight down). The starting tilt: middle mouse drag up / down and PageUp / PageDown change it during the game.");
+            CameraTiltSpeed = F("Camera", "TiltSpeed", 1.0f, 0.2f, 4f, "Tilt speed multiplier for middle mouse drag up / down and the tilt keys.");
+            InvertTilt = cfg.Bind("Camera", "InvertTilt", false, "Swap the direction of the tilt (middle mouse drag up looks more down).");
             CameraFov = F("Camera", "FieldOfView", 50f, 20f, 100f, "Camera field of view in degrees.");
             CameraRotateSpeed = F("Camera", "RotateSpeed", 1.0f, 0.2f, 4f, "Rotation speed multiplier for middle mouse drag and the rotate keys.");
             CameraSmoothing = F("Camera", "Smoothing", 0.12f, 0f, 0.6f, "Camera smoothing time in seconds (0 = snappy).");
@@ -114,6 +118,8 @@ namespace HighCommand
             KeyRight = cfg.Bind("Keys", "CameraRight", KeyCode.D, "Camera right.");
             KeyRotateLeft = cfg.Bind("Keys", "RotateLeft", KeyCode.LeftBracket, "Rotate the camera left (middle mouse drag also rotates).");
             KeyRotateRight = cfg.Bind("Keys", "RotateRight", KeyCode.RightBracket, "Rotate the camera right.");
+            KeyTiltUp = cfg.Bind("Keys", "TiltUp", KeyCode.PageUp, "Tilt the camera up: a flatter view towards the horizon (middle mouse drag up does the same).");
+            KeyTiltDown = cfg.Bind("Keys", "TiltDown", KeyCode.PageDown, "Tilt the camera down: a view more from above (middle mouse drag down).");
 
             KeyAttackMove = cfg.Bind("Keys", "AttackMove", KeyCode.Q, "Attack-move: press, then left click a point (A would clash with camera panning).");
             KeyStop = cfg.Bind("Keys", "Stop", KeyCode.E, "Stop: drop all orders.");

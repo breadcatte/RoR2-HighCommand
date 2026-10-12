@@ -29,6 +29,13 @@ Interface
   Follow, Use, Select ("(queued)" with Shift). While a targeting mode waits for a click it shows that mode.
 * A thin line runs from every selected hero (the first six) to the point under the pointer, from the end of the queue
   when Shift is held.
+* Camera tilt: the middle mouse button already turned the view sideways, now dragging it up / down tilts it (up = flatter,
+  down = more from above; 25-85 degrees), also PageUp / PageDown (`Keys/TiltUp`, `Keys/TiltDown`), speed
+  `Camera/TiltSpeed`, direction `Camera/InvertTilt`. `Camera/Pitch` is the starting tilt. The minimap's view box and the
+  marks on the ground follow the tilt. The screen edge no longer pans the camera while the middle button is held.
+* The top strip is three panels of one height with pictures: stage (name, clock, difficulty), purse with the income,
+  army (alive / total, limit), the next hero's price (green when affordable) with the barracks key, and the
+  teleporter with its own picture and bar. The teleporter texts are shorter so that they are not shrunk to tiny type.
 * Minimap: a proper frame (cut corners, clipped contents), the picture is now a soft relief of the walkable ground
   (colour by height, haze, light edge, faint grid) instead of a cloud of dots, the stage name and "N" in the corners,
   dots have a dark rim, selected heroes get a ring, the camera box is a view finder (tint, hairlines, corner brackets).
@@ -40,7 +47,8 @@ Dev
 * `hc_cam sweep <dx> <dz> <seconds>` pans along a line through the keyboard pan's code and logs the heights (with what
   the old code would have picked); `hc_drag ... hold` keeps the mouse button down until `hc_input_end`.
 * Scenarios `tools\qa\camera.txt`, `tools\qa\select.txt`, `tools\qa\uishot.txt` (a screenshot per interface state) and
-  `tools\qa\cursor.txt` (pointer badge, preview line, orders list).
+  `tools\qa\cursor.txt` (pointer badge, preview line, orders list) and `tools\qa\tilt.txt` (camera tilt; `hc_drag ... mid`
+  drags with the middle button, `hc_cam info` prints the pitch).
 * `hc_mouse <x> <y> [shift]`, `hc_mouse_hero <id>`, `hc_mouse_enemy` move the synthetic pointer without clicking;
   `hc_cursor` prints what the badge shows.
 * `tools\glyph-preview` renders every command-card picture into one PNG without the game

@@ -20,6 +20,9 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_HELP_EDGE", "Move the camera", "Двигать камеру");
             Loc.Add("HIGHCOMMAND_HELP_ZOOM", "Zoom in / out", "Приблизить / отдалить");
             Loc.Add("HIGHCOMMAND_HELP_ROTATE", "Rotate the camera", "Повернуть камеру");
+            Loc.Add("HIGHCOMMAND_HELP_TILT", "Tilt the camera (flatter / from above)", "Наклонить камеру (ниже / сверху)");
+            Loc.Add("HIGHCOMMAND_KEY_MMB_SIDE", "Middle mouse, sideways", "Средняя кнопка, вбок");
+            Loc.Add("HIGHCOMMAND_KEY_MMB_VERT", "Middle mouse, up / down", "Средняя кнопка, вверх-вниз");
             Loc.Add("HIGHCOMMAND_HELP_FOCUS", "Fly to the army", "Перелёт к армии");
             Loc.Add("HIGHCOMMAND_HELP_MINIMAP", "Fly the camera there", "Перелёт камеры в эту точку");
             Loc.Add("HIGHCOMMAND_HELP_HELP", "This sheet", "Эта шпаргалка");
@@ -214,6 +217,12 @@ namespace HighCommand
                 "Стоп, держать, отход, патруль, фокус, точка сбора, строй. Остальное делает правая кнопка мыши: идти, атаковать, следовать, использовать.");
             Loc.Add("HIGHCOMMAND_MENU_STANCE", "Stance", "Стойка");
 
+            // the top strip
+            Loc.Add("HIGHCOMMAND_TOP_ARMYLIMIT", "limit {0}", "лимит {0}");
+            Loc.Add("HIGHCOMMAND_TOP_NEXTHERO", "Next hero", "Следующий герой");
+            Loc.Add("HIGHCOMMAND_TOP_INCOME", "+{0}/min", "+{0}/мин");
+            Loc.Add("HIGHCOMMAND_TOP_BARRACKS_TIP", "Open the barracks: recruit heroes and buy army upgrades.", "Открыть казарму: нанять героев и купить улучшения армии.");
+
             // revival and teleporter
             Loc.Add("HIGHCOMMAND_REVIVE_NONE", "Nobody has fallen", "Никто не пал");
             Loc.Add("HIGHCOMMAND_REVIVE_ALIVE", "The hero is alive", "Герой жив");
@@ -237,10 +246,10 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_TP_TITLE", "Teleporter", "Телепорт");
             Loc.Add("HIGHCOMMAND_TP_DESC", "One button for the whole teleporter routine: the nearest hero activates it, the army gathers inside the zone while it charges, and once it is charged and the boss is dead the same button takes the army to the next stage.",
                 "Одна кнопка на весь телепорт: ближайший герой запускает его, армия собирается в зоне, пока он заряжается, а когда он заряжен и босс убит, та же кнопка уводит армию на следующую стадию.");
-            Loc.Add("HIGHCOMMAND_TP_STATE_IDLE", "Teleporter found: click or press [{0}] to start", "Телепорт найден: нажмите или [{0}], чтобы запустить");
+            Loc.Add("HIGHCOMMAND_TP_STATE_IDLE", "Teleporter: click or [{0}] to start", "Телепорт: клик или [{0}] — запуск");
             Loc.Add("HIGHCOMMAND_TP_STATE_CHARGING", "Teleporter charging: {0}%", "Телепорт заряжается: {0}%");
             Loc.Add("HIGHCOMMAND_TP_STATE_BOSS", "Zone full - kill the boss!", "Зона заряжена - убейте босса!");
-            Loc.Add("HIGHCOMMAND_TP_STATE_CHARGED", "Charged! Click or press [{0}] to leave", "Заряжен! Нажмите или [{0}], чтобы уйти");
+            Loc.Add("HIGHCOMMAND_TP_STATE_CHARGED", "Charged! Click or [{0}] to leave", "Заряжен! Клик или [{0}] — уйти");
             Loc.Add("HIGHCOMMAND_TP_STATE_LEAVING", "Leaving the stage...", "Уходим со стадии...");
             Loc.Add("HIGHCOMMAND_DEFEAT_CAN_REVIVE", "ALL HEROES HAVE FALLEN! Revive one within {0} s [{1}] or the run is lost (or click here)",
                 "ВСЕ ГЕРОИ ПАЛИ! Воскресите одного за {0} с [{1}], иначе забег проигран (или нажмите сюда)");

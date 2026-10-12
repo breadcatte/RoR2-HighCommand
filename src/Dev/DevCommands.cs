@@ -208,7 +208,7 @@ namespace HighCommand.Dev
                 case "info":
                 {
                     Vector3? army = Client.ClientRoot.ArmyCenter();
-                    Debug.Log($"HighCommand camera: focus={cam.Focus:0} distance={cam.Distance:0.0} yaw={cam.Yaw:0} " +
+                    Debug.Log($"HighCommand camera: focus={cam.Focus:0} distance={cam.Distance:0.0} yaw={cam.Yaw:0} pitch={cam.Pitch:0.0} " +
                               $"scene camera at {(cam.SceneCam ? cam.SceneCam.transform.position : Vector3.zero):0} army={(army.HasValue ? army.Value : Vector3.zero):0}");
                     break;
                 }
@@ -687,11 +687,11 @@ namespace HighCommand.Dev
             Client.ClientInput.InjectClick(new Vector2(x, y), button, shift, ctrl);
         }
 
-        [ConCommand(commandName = "hc_drag", flags = HostOnly, helpText = "hc_drag <x1> <y1> <x2> <y2> [shift] [hold]: injects a left-button drag; with hold the button stays down until hc_input_end.")]
+        [ConCommand(commandName = "hc_drag", flags = HostOnly, helpText = "hc_drag <x1> <y1> <x2> <y2> [shift] [hold] [mid]: injects a left-button drag (mid: the middle button, which turns / tilts the camera); with hold the button stays down until hc_input_end.")]
         private static void CcDrag(ConCommandArgs args)
         {
             Client.ClientInput.InjectDrag(new Vector2(args.GetArgFloat(0), args.GetArgFloat(1)),
-                new Vector2(args.GetArgFloat(2), args.GetArgFloat(3)), 0, HasFlag(args, 4, "shift"), !HasFlag(args, 4, "hold"));
+                new Vector2(args.GetArgFloat(2), args.GetArgFloat(3)), HasFlag(args, 4, "mid") ? 2 : 0, HasFlag(args, 4, "shift"), !HasFlag(args, 4, "hold"));
         }
 
         [ConCommand(commandName = "hc_key", flags = HostOnly, helpText = "hc_key <KeyCode> [ctrl] [shift] [alt]: injects a key press.")]

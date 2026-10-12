@@ -1,0 +1,36 @@
+# Camera tilt: middle mouse drag up / down and PageUp / PageDown (screenshots tilt_*.png).
+@wait 4
+@log === T0 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 20
+hc_cam army
+@wait 3
+@log === T1 start tilt (config default 58)
+hc_cam info
+hc_screenshot tilt_start
+@log === T2 middle mouse dragged DOWN 160 px (look more from above: pitch goes up)
+hc_drag 960 400 960 240 mid
+@wait 2
+hc_cam info
+hc_screenshot tilt_down
+@log === T3 middle mouse dragged UP 400 px (flatter: pitch goes down, stops at the 25 degree limit)
+hc_drag 960 300 960 700 mid
+@wait 2
+hc_cam info
+hc_screenshot tilt_flat
+@log === T4 PageDown held for a moment (more from above)
+hc_key PageDown
+@wait 1
+hc_cam info
+@log === T5 a click on the map still works after tilting (minimap of the view box follows)
+hc_screenshot tilt_minimap
+@log === END
+hc_input_end
+disconnect
+@norun
+@wait 4
+@quit

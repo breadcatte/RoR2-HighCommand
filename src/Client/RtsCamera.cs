@@ -25,20 +25,30 @@ namespace HighCommand.Client
 
         internal float Yaw => smoothYaw;
 
+        /// <summary>The tilt in degrees (90 = straight down), as shown now.</summary>
+        internal float Pitch => pitchReady ? smoothPitch : Settings.CameraPitch.Value;
+
         internal float Distance => smoothDistance;
 
         // wanted state
         private Vector3 focus;
         private float yaw = 25f;
         private float distance = 48f;
+        private float pitch;
+        private bool pitchReady;
+        private float configPitch;
+
+        private const float MinPitch = 25f, MaxPitch = 85f;
 
         // smoothed state
         private Vector3 smoothFocus;
         private float smoothYaw;
         private float smoothDistance;
+        private float smoothPitch;
         private Vector3 focusVelocity;
         private float yawVelocity;
         private float distanceVelocity;
+        private float pitchVelocity;
 
         // height of the focus (see FocusHeight)
         private const float AbyssDrop = 12f;        // ground this far below the level the camera is on counts as a chasm
@@ -174,7 +184,9 @@ namespace HighCommand.Client
             if (ClientInput.Key(Settings.KeyRight.Value)) move.x += 1f;
             if (ClientInput.Key(Settings.KeyLeft.Value)) move.x -= 1f;
 
-            if (Settings.EdgeScroll.Value && ClientInput.PointerInWindow && !ClientInput.PointerOverUi && !ClientInput.MouseBlocked)
+            // (not while the middle button turns / tilts the view: the hand may reach the screen edge then)
+            if (Settings.EdgeScroll.Value && ClientInput.PointerInWindow && !ClientInput.PointerOverUi && !ClientInput.MouseBlocked
+                && !ClientInput.MouseHeld(2))
             {
                 int e = Settings.EdgeScrollPixels.Value;
                 if (mouse.x <= e) move.x -= 1f;
@@ -220,10 +232,30 @@ namespace HighCommand.Client
 
             // --- rotate ---
             float rotate = Settings.CameraRotateSpeed.Value;
-            if (ClientInput.MouseHeld(2) && !ClientInput.PointerOverUi && !PauseManager.isPaused)
+            float tilt = Settings.CameraTiltSpeed.Value;
+            bool dragging = ClientInput.MouseHeld(2) && !ClientInput.PointerOverUi && !PauseManager.isPaused;
+            if (dragging)
+            {
                 yaw += mouseDelta.x * 0.22f * rotate;
+                // the mouse up looks more level, down looks more from above (InvertTilt swaps them)
+                float sign = Settings.InvertTilt.Value ? 1f : -1f;
+                pitch += mouseDelta.y * 0.2f * tilt * sign;
+            }
             if (ClientInput.Key(Settings.KeyRotateLeft.Value)) yaw -= 90f * rotate * dt;
             if (ClientInput.Key(Settings.KeyRotateRight.Value)) yaw += 90f * rotate * dt;
+            if (ClientInput.Key(Settings.KeyTiltUp.Value)) pitch -= 45f * tilt * dt;
+            if (ClientInput.Key(Settings.KeyTiltDown.Value)) pitch += 45f * tilt * dt;
+
+            // the start tilt of the options is applied at the start and whenever it is changed there
+            float configNow = Settings.CameraPitch.Value;
+            if (!pitchReady || !Mathf.Approximately(configNow, configPitch))
+            {
+                configPitch = configNow;
+                pitch = configNow;
+                if (!pitchReady) smoothPitch = configNow;
+                pitchReady = true;
+            }
+            pitch = Mathf.Clamp(pitch, MinPitch, MaxPitch);
 
             // --- smoothing ---
             float smooth = Settings.CameraSmoothing.Value;
@@ -232,11 +264,13 @@ namespace HighCommand.Client
                 smoothFocus = focus;
                 smoothYaw = yaw;
                 smoothDistance = distance;
+                smoothPitch = pitch;
             }
             else
             {
                 smoothYaw = Mathf.SmoothDampAngle(smoothYaw, yaw, ref yawVelocity, smooth, float.PositiveInfinity, dt);
                 smoothDistance = Mathf.SmoothDamp(smoothDistance, distance, ref distanceVelocity, smooth * 0.8f, float.PositiveInfinity, dt);
+                smoothPitch = Mathf.SmoothDamp(smoothPitch, pitch, ref pitchVelocity, smooth, float.PositiveInfinity, dt);
             }
 
             // Sideways the focus follows the hand closely, but its height moves slowly and at a limited speed: a step,
@@ -308,8 +342,7 @@ namespace HighCommand.Client
         {
             if (!initialised) return;
 
-            float pitch = Settings.CameraPitch.Value;
-            Quaternion rotation = Quaternion.Euler(pitch, smoothYaw, 0f);
+            Quaternion rotation = Quaternion.Euler(Pitch, smoothYaw, 0f);
             Vector3 forward = rotation * Vector3.forward;
 
             Vector3 lookAt = smoothFocus + Vector3.up * 1.0f;

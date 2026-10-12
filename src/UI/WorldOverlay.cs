@@ -127,6 +127,13 @@ namespace HighCommand.UI
 
         private const int PreviewLimit = 6;
 
+        // the camera can be tilted during the game: ground marks are flattened by the tilt it has now
+        private static float CurrentPitch()
+        {
+            RtsCamera camera = RtsCamera.Instance;
+            return camera ? camera.Pitch : Settings.CameraPitch.Value;
+        }
+
         private void DrawOrders(Selection selection, OrderController.CursorInfo cursor)
         {
             var sel = selection.Heroes;
@@ -253,7 +260,7 @@ namespace HighCommand.UI
                 Color c = p.color;
                 c.a = (1f - t) * 0.95f;
                 img.color = c;
-                float pitch = Settings.CameraPitch.Value * Mathf.Deg2Rad;
+                float pitch = CurrentPitch() * Mathf.Deg2Rad;
                 float inv = 1f / Mathf.Max(0.0001f, layer.lossyScale.x);
                 float w = Mathf.Max(16f, px * 2f) * inv;
                 img.rectTransform.sizeDelta = new Vector2(w, w * Mathf.Clamp(Mathf.Sin(pitch), 0.35f, 1f));
@@ -389,7 +396,7 @@ namespace HighCommand.UI
             if (!WorldPicker.Project(foot, radius, out Vector2 s, out float px)) return;
             if (!WorldPicker.IsOnScreen(s, px)) return;
 
-            float pitch = Settings.CameraPitch.Value * Mathf.Deg2Rad;
+            float pitch = CurrentPitch() * Mathf.Deg2Rad;
             float inv = 1f / Mathf.Max(0.0001f, layer.lossyScale.x); // screen pixels -> canvas units
             float w = Mathf.Max(14f, px * 2f) * inv;
             float h = w * Mathf.Clamp(Mathf.Sin(pitch), 0.35f, 1f);
