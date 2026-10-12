@@ -1,0 +1,22 @@
+# Title menu: a real click on Extra Game Mode must show our button; clicking it must open the lobby and start a run.
+@wait 6
+@log === M1 real click on Extra Game Mode
+hc_menu_extra real
+@wait 3
+hc_menu_buttons
+hc_screenshot menu_extra
+@log === M2 click the High Command button
+hc_menu_extra click
+@scene lobby
+@wait 3
+hc_screenshot menu_lobby
+pregame_start_run
+@run
+@wait 20
+hc_status
+@log === M3 back to the menu
+disconnect
+@norun
+@wait 4
+@log === END
+@quit

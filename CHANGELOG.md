@@ -3,6 +3,7 @@
 ## 0.9.1 - QA pass (single player)
 
 Fixes
+* The High Command button was not added to the Extra Game Mode menu on a real mouse click (the button switches the screen directly, the old hook never ran). Now added when the screen is opened.
 * The camera hands the stock camera rig back when the mode ends; bigger obstruction buffer for the camera.
 * A manual cast cut short by another order no longer leaks its timer; a cast is no longer reported "not ready" while held.
 * Help sheet (F1): two columns, opaque, no overflow.

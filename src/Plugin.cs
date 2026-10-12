@@ -49,7 +49,7 @@ namespace HighCommand
             TryPatch(typeof(Mode.LobbyPatches.MultiplayerMenu), "game mode in the multiplayer menu");
             TryPatch(typeof(Mode.LobbyPatches.LocalMultiplayerMenu), "game mode in the local multiplayer menu");
             TryPatch(typeof(Mode.RunRulePatch), "forced rule choices");
-            TryPatch(typeof(Mode.MenuButton), "Extra Game Mode menu button");
+            TryPatch(typeof(Mode.MenuButton), "Extra Game Mode menu button (on the screen switch)");
             TryPatch(typeof(Mode.RunPatches.NoCommanderBody), "commander has no body");
             TryPatch(typeof(Mode.RunPatches.LivingPlayerCount), "living player count = living heroes");
             TryPatch(typeof(Mode.LobbyRules.InitPatch), "lobby rules category");

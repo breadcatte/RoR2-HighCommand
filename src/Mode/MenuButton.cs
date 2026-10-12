@@ -14,17 +14,20 @@ namespace HighCommand.Mode
     /// The button is a clone of the Eclipse button with a new label and click action; it is created lazily, just
     /// before the screen opens, so the title scene does not have to be touched at load time.
     /// </summary>
-    [HarmonyPatch(typeof(TitleMenuController), nameof(TitleMenuController.OnExtraGameModeButtonPressed))]
+    // The title menu's "Extra Game Mode" button does not call TitleMenuController.OnExtraGameModeButtonPressed: its
+    // click runs MainMenuController.SetDesiredMenuScreen(extraGameModeMenuScreen) directly (seen with hc_menu_buttons).
+    // So the screen switch itself is what is watched.
+    [HarmonyPatch(typeof(MainMenuController), nameof(MainMenuController.SetDesiredMenuScreen))]
     internal static class MenuButton
     {
         private const string ButtonName = "GenericMenuButton (HighCommand)";
 
-        private static void Prefix(TitleMenuController __instance)
+        private static void Prefix(MainMenuController __instance, BaseMainMenuScreen newDesiredMenuScreen)
         {
             try
             {
-                BaseMainMenuScreen screen = __instance.mainMenuController ? __instance.mainMenuController.extraGameModeMenuScreen : null;
-                if (screen) Inject(screen.transform);
+                if (!__instance || !newDesiredMenuScreen || newDesiredMenuScreen != __instance.extraGameModeMenuScreen) return;
+                Inject(newDesiredMenuScreen.transform);
             }
             catch (Exception e)
             {

@@ -825,7 +825,24 @@ namespace HighCommand.Dev
         [ConCommand(commandName = "hc_menu_extra", flags = HostOnly, helpText = "Presses the title menu's Extra Game Mode button (and, with an argument 'click', the High Command button).")]
         private static void CcMenuExtra(ConCommandArgs args)
         {
-            bool click = args.Count > 0 && args.GetArgString(0) == "click";
+            string mode = args.Count > 0 ? args.GetArgString(0) : "";
+            bool click = mode == "click";
+            if (mode == "real")
+            {
+                // what a mouse click on the title menu's button really runs (its persistent listeners)
+                foreach (var button in Resources.FindObjectsOfTypeAll<RoR2.UI.HGButton>())
+                {
+                    if (!button.gameObject.scene.IsValid() || !button.gameObject.activeInHierarchy) continue;
+                    var label = button.GetComponentInChildren<RoR2.UI.LanguageTextMeshController>(true);
+                    if (label && label.token == "TITLE_EXTRAGAMEMODE")
+                    {
+                        Debug.Log("HighCommand: invoking the real title button " + button.name);
+                        button.onClick.Invoke();
+                        return;
+                    }
+                }
+                throw new ConCommandException("The title menu's Extra Game Mode button was not found.");
+            }
             if (!click)
             {
                 RoR2.UI.MainMenu.TitleMenuController title = null;
@@ -847,6 +864,26 @@ namespace HighCommand.Dev
                 }
                 throw new ConCommandException("High Command button not found.");
             }
+        }
+
+        [ConCommand(commandName = "hc_menu_buttons", flags = HostOnly, helpText = "Lists the visible menu buttons with their label token and what their click runs.")]
+        private static void CcMenuButtons(ConCommandArgs args)
+        {
+            var sb = new StringBuilder("HighCommand menu buttons:\n");
+            foreach (var button in Resources.FindObjectsOfTypeAll<RoR2.UI.HGButton>())
+            {
+                if (!button.gameObject.scene.IsValid() || !button.gameObject.activeInHierarchy) continue;
+                var label = button.GetComponentInChildren<RoR2.UI.LanguageTextMeshController>(true);
+                sb.Append($"  {button.name} [parent {(button.transform.parent ? button.transform.parent.name : "-")}] token={(label ? label.token : "-")} click=");
+                int n = button.onClick.GetPersistentEventCount();
+                for (int i = 0; i < n; i++)
+                {
+                    Object target = button.onClick.GetPersistentTarget(i);
+                    sb.Append($"[{(target ? target.GetType().Name : "null")}.{button.onClick.GetPersistentMethodName(i)}] ");
+                }
+                sb.AppendLine();
+            }
+            Debug.Log(sb.ToString());
         }
 
         [ConCommand(commandName = "hc_dump_ai", flags = HostOnly, helpText = "hc_dump_ai <MasterName|all>: prints the AI skill drivers of a master prefab (in evaluation order).")]
