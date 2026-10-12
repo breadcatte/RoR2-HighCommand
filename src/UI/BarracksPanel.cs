@@ -34,6 +34,8 @@ namespace HighCommand.UI
         private readonly RectTransform grid;
         private readonly TextMeshProUGUI title;
         private readonly TextMeshProUGUI detail;
+        private static readonly IReadOnlyList<Hero> NoHeroes = new List<Hero>();
+
         private readonly List<Card> cards = new List<Card>();
         private int builtForCount = -1;
         private float panelWidth;
@@ -154,10 +156,10 @@ namespace HighCommand.UI
             if (!Visible) return;
 
             HcState state = HcState.Instance;
-            IReadOnlyList<Hero> heroes = state != null ? state.Heroes : new List<Hero>();
+            IReadOnlyList<Hero> heroes = state != null ? state.Heroes : NoHeroes;
             Vector2 mouse = ClientInput.Mouse;
 
-            title.text = Loc.Format("HIGHCOMMAND_BARRACKS_TITLE", state != null ? state.NextHeroPrice() : 0, state != null ? state.Gold : 0u);
+            UiKit.SetText(title, Loc.Format("HIGHCOMMAND_BARRACKS_TITLE", state != null ? state.NextHeroPrice() : 0, state != null ? state.Gold : 0u));
 
             hovered = null;
             foreach (Card c in cards)
@@ -186,7 +188,7 @@ namespace HighCommand.UI
                         break;
                 }
                 c.frame.color = frame;
-                c.status.text = text;
+                UiKit.SetText(c.status, text);
                 c.portrait.color = status == RecruitStatus.Locked || status == RecruitStatus.NotAllowed ? new Color(0.25f, 0.25f, 0.25f, 1f) : Color.white;
 
                 if (over && ClientInput.MouseDown(0) && status == RecruitStatus.Available)
@@ -200,9 +202,9 @@ namespace HighCommand.UI
                 string desc = hovered.descriptionToken != null ? Language.GetString(hovered.descriptionToken) : "";
                 desc = Tags.Replace(desc, "");
                 if (desc.Length > 330) desc = desc.Substring(0, 330) + "...";
-                detail.text = desc;
+                UiKit.SetText(detail, desc);
             }
-            else detail.text = Loc.Get("HIGHCOMMAND_BARRACKS_HINT");
+            else UiKit.SetText(detail, Loc.Get("HIGHCOMMAND_BARRACKS_HINT"));
         }
 
         private static void Request(SurvivorDef def)

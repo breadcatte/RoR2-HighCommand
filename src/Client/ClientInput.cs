@@ -21,6 +21,9 @@ namespace HighCommand.Client
         /// <summary>True while pause / chat / console have the keyboard.</summary>
         internal static bool KeyboardBlocked { get; private set; }
 
+        /// <summary>True while the pause screen or the console is up: the mode ignores clicks and the wheel then.</summary>
+        internal static bool MouseBlocked { get; private set; }
+
         /// <summary>True while the mouse is over one of the mode's own UI panels.</summary>
         internal static bool PointerOverUi { get; private set; }
 
@@ -156,10 +159,12 @@ namespace HighCommand.Client
             PointerInWindow = fakeMouse.HasValue || (Application.isFocused
                               && Mouse.x >= 0f && Mouse.y >= 0f && Mouse.x <= Screen.width - 1 && Mouse.y <= Screen.height - 1);
 
-            bool blocked = PauseManager.isPaused || Util.IsChatWindowOpen() || ConsoleWindow.instance != null;
+            // The pause screen and the console own both devices; the chat window owns the keyboard only.
+            bool overlay = PauseManager.isPaused || ConsoleWindow.instance != null;
             LocalUser user = LocalUserManager.GetFirstLocalUser();
-            if (user != null && user.pauseScreenController != null) blocked = true;
-            KeyboardBlocked = blocked;
+            if (user != null && user.pauseScreenController != null) overlay = true;
+            MouseBlocked = overlay;
+            KeyboardBlocked = overlay || Util.IsChatWindowOpen();
 
             bool over = false;
             for (int i = 0; i < UiHitTests.Count && !over; i++)
@@ -174,24 +179,27 @@ namespace HighCommand.Client
 
         internal static bool MouseDown(int button)
         {
+            if (MouseBlocked) return false;
             if (fakeMouse.HasValue) return fakeDown == button;
             return Input.GetMouseButtonDown(button);
         }
 
         internal static bool MouseUp(int button)
         {
+            if (MouseBlocked) return false;
             if (fakeMouse.HasValue) return fakeUp == button;
             return Input.GetMouseButtonUp(button);
         }
 
         internal static bool MouseHeld(int button)
         {
+            if (MouseBlocked) return false;
             if (fakeMouse.HasValue)
                 return button == 0 ? fakeButton0 : button == 1 ? fakeButton1 : fakeButton2;
             return Input.GetMouseButton(button);
         }
 
-        internal static float Scroll => fakeMouse.HasValue ? fakeScroll : Input.mouseScrollDelta.y;
+        internal static float Scroll => MouseBlocked ? 0f : fakeMouse.HasValue ? fakeScroll : Input.mouseScrollDelta.y;
 
         /// <summary>Raw key state, ignoring the blocked gate (callers that need the gate use <see cref="Key"/>).</summary>
         internal static bool RawKey(KeyCode key)

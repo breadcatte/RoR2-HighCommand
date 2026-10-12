@@ -91,7 +91,8 @@ namespace HighCommand.Client
 
             if (Mode != Pending.None)
             {
-                if (ClientInput.MouseDown(1) || ClientInput.RawKeyDown(KeyCode.Escape)) { CancelMode(); return; }
+                // (Esc is handled by ClientRoot.ConsumeEscape, together with the panels)
+                if (ClientInput.MouseDown(1)) { CancelMode(); return; }
                 if (ClientInput.MouseDown(0) && OrderState.WantsLeftClick) { ConfirmMode(heroes); return; }
             }
             else if (ClientInput.MouseDown(1))

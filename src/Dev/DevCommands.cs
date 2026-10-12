@@ -21,6 +21,9 @@ namespace HighCommand.Dev
             sb.Append($"HighCommand {Plugin.Version} | game build {RoR2Application.GetBuildId()}");
             sb.Append($" | run={(Run.instance ? Run.instance.name : "none")}");
             sb.Append($" | scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
+            sb.Append($" | paused={PauseManager.isPaused}");
+            Client.ClientRoot root = Client.ClientRoot.Instance;
+            if (root) sb.Append(" | ui: ").Append(root.Describe());
             Debug.Log(sb.ToString());
         }
 
@@ -443,6 +446,7 @@ namespace HighCommand.Dev
                 case "herobaseprice": Settings.HeroBasePrice.Value = int.Parse(value); break;
                 case "autoretreat": Settings.AutoRetreat.Value = bool.Parse(value); break;
                 case "verbose": Settings.VerboseLog.Value = bool.Parse(value); break;
+                case "uiscale": Settings.UiScale.Value = float.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
                 case "allowhidden": Settings.AllowHiddenSurvivors.Value = bool.Parse(value); break;
                 default: throw new ConCommandException("Unknown setting.");
             }

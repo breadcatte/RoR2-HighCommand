@@ -141,14 +141,14 @@ namespace HighCommand.Client
 
         private void HandleKeys(IReadOnlyList<Hero> heroes, RtsCamera camera)
         {
-            if (ClientInput.Ctrl && ClientInput.RawKeyDown(KeyCode.A))
+            if (ClientInput.Ctrl && ClientInput.RawKeyDown(Settings.KeySelectAll.Value))
             {
                 scratch.Clear();
                 for (int i = 0; i < heroes.Count; i++) if (heroes[i].IsAlive) scratch.Add(heroes[i]);
                 selection.Set(scratch);
             }
 
-            if (ClientInput.RawKeyDown(KeyCode.Tab)) CycleSelection(heroes, ClientInput.Shift ? -1 : 1);
+            if (ClientInput.RawKeyDown(Settings.KeyCycleSelection.Value)) CycleSelection(heroes, ClientInput.Shift ? -1 : 1);
 
             for (int g = 0; g < GroupKeys.Length; g++)
             {

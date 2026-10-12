@@ -57,6 +57,7 @@ namespace HighCommand.Client
 
             canvas = UiKit.CreateCanvas("HighCommand.UI", 100);
             canvas.transform.SetParent(transform, false);
+            canvasGroup = canvas.gameObject.AddComponent<CanvasGroup>();
             canvas.gameObject.AddComponent<MPEventSystemProvider>();
             canvas.gameObject.AddComponent<MPEventSystemLocator>();
             // The stock cursor opener shows the OS-confined mouse cursor the same way menus do.
@@ -118,10 +119,10 @@ namespace HighCommand.Client
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_LMB"), Loc.Get("HIGHCOMMAND_HELP_SELECT"));
             HelpOverlay.Add("Shift + " + Loc.Get("HIGHCOMMAND_KEY_LMB"), Loc.Get("HIGHCOMMAND_HELP_SELECT_ADD"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_DOUBLE"), Loc.Get("HIGHCOMMAND_HELP_SELECT_TYPE"));
-            HelpOverlay.Add("Ctrl + A", Loc.Get("HIGHCOMMAND_HELP_SELECT_ALL"));
+            HelpOverlay.Add("Ctrl + " + Settings.KeySelectAll.Value, Loc.Get("HIGHCOMMAND_HELP_SELECT_ALL"));
             HelpOverlay.Add("Ctrl + 1..9", Loc.Get("HIGHCOMMAND_HELP_GROUP_SET"));
             HelpOverlay.Add("1..9 (x2)", Loc.Get("HIGHCOMMAND_HELP_GROUP_RECALL"));
-            HelpOverlay.Add("Tab", Loc.Get("HIGHCOMMAND_HELP_CYCLE"));
+            HelpOverlay.Add(Settings.KeyCycleSelection.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_CYCLE"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_RMB"), Loc.Get("HIGHCOMMAND_HELP_RMB"));
             HelpOverlay.Add("Shift + " + Loc.Get("HIGHCOMMAND_KEY_RMB"), Loc.Get("HIGHCOMMAND_HELP_QUEUE"));
             HelpOverlay.Add(Settings.KeyAttackMove.Value + " + " + Loc.Get("HIGHCOMMAND_KEY_LMB"), Loc.Get("HIGHCOMMAND_HELP_ATTACKMOVE"));
@@ -140,6 +141,43 @@ namespace HighCommand.Client
                 Loc.Get("HIGHCOMMAND_HELP_ABILITIES"));
             HelpOverlay.Add(Settings.KeyHelp.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_HELP"));
             HelpOverlay.Add("Esc", Loc.Get("HIGHCOMMAND_HELP_PAUSE"));
+        }
+
+        /// <summary>True when the Esc / pause key is intercepted by a Harmony patch (so Esc closes our panels first).</summary>
+        internal static bool EscapeGuardActive;
+
+        /// <summary>
+        /// Esc closes the topmost thing of the mode: a pending targeting mode, the help sheet, the item panel or the
+        /// recruiting panel. Returns true when something was closed (then the game must not open its pause menu).
+        /// </summary>
+        internal bool ConsumeEscape()
+        {
+            if (orders != null && orders.Mode != OrderController.Pending.None) { orders.CancelMode(); return true; }
+            if (help != null && help.Visible) { help.Hide(); return true; }
+            if (inventory != null && inventory.Visible) { inventory.Hide(); return true; }
+            if (barracks != null && barracks.Visible) { barracks.Hide(); return true; }
+            return false;
+        }
+
+        /// <summary>Testing: which panels are open and which targeting mode waits for a click.</summary>
+        internal string Describe()
+        {
+            return $"mode={orders.Mode} help={help.Visible} barracks={barracks.Visible} inventory={inventory.Visible} " +
+                   $"selected={Selection.Count} scale={appliedUiScale:0.00} screen={Screen.width}x{Screen.height}";
+        }
+
+        private CanvasGroup canvasGroup;
+
+        private float appliedUiScale = -1f;
+
+        // The whole interface is laid out for 1920x1080; UiScale shrinks or grows the reference area.
+        private void ApplyUiScale()
+        {
+            float scale = Mathf.Clamp(Settings.UiScale.Value, 0.6f, 1.6f);
+            if (Mathf.Approximately(scale, appliedUiScale)) return;
+            appliedUiScale = scale;
+            var scaler = canvas ? canvas.GetComponent<UnityEngine.UI.CanvasScaler>() : null;
+            if (scaler) scaler.referenceResolution = new Vector2(1920f, 1080f) / scale;
         }
 
         /// <summary>Testing: hides / shows the whole interface (measures what drawing it costs).</summary>
@@ -170,6 +208,12 @@ namespace HighCommand.Client
             long perfStart = Dev.Perf.Begin();
             Dev.Perf.Frame();
             ClientInput.Refresh();
+            ApplyUiScale();
+
+            // The pause screen and the console are drawn below this canvas: dim the mode's interface while they are
+            // up, so they stay readable.
+            float wantAlpha = ClientInput.MouseBlocked ? 0.35f : 1f;
+            if (canvasGroup && !Mathf.Approximately(canvasGroup.alpha, wantAlpha)) canvasGroup.alpha = wantAlpha;
 
             // The map picture is built once the stage's node graph exists.
             if (mapDirty && SceneInfo.instance && SceneInfo.instance.groundNodes)
@@ -191,18 +235,19 @@ namespace HighCommand.Client
             if (!focusedThisStage && inStage && Camera)
                 TryInitialFocus();
 
+            // Esc closes the topmost thing of the mode. Normally the pause key is intercepted (see EscapeGuard) so that
+            // the same press does not also open the pause menu; this is the fallback when that patch is missing.
+            if (!EscapeGuardActive && ClientInput.RawKeyDown(KeyCode.Escape) && !ClientInput.KeyboardBlocked) ConsumeEscape();
+
             if (ClientInput.KeyDown(Settings.KeyHelp.Value)) help.Toggle();
-            if (help.Visible && ClientInput.RawKeyDown(KeyCode.Escape)) help.Hide();
 
             if (inStage)
             {
                 if (ClientInput.KeyDown(Settings.KeyBarracks.Value)) barracks.Toggle();
                 if (ClientInput.MouseDown(0) && topBar.GoldPanelContains(ClientInput.Mouse)) barracks.Toggle();
                 if (ClientInput.MouseDown(0) && topBar.TeleporterPanelContains(ClientInput.Mouse)) orders.TeleporterAction();
-                if (barracks.Visible && ClientInput.RawKeyDown(KeyCode.Escape)) barracks.Hide();
 
                 if (ClientInput.KeyDown(Settings.KeyInventory.Value)) { inventory.Toggle(); barracks.Hide(); }
-                if (inventory.Visible && ClientInput.RawKeyDown(KeyCode.Escape)) inventory.Hide();
                 if (barracks.Visible) inventory.Hide();
             }
             else
@@ -249,6 +294,7 @@ namespace HighCommand.Client
             selectionPanel.Tick(Selection, inStage);
             lootFeed.Tick();
             toast.Tick();
+            if (ClientInput.MouseBlocked) Tooltip.Clear(); // a pause screen or the console is on top: no tooltips
             tooltip.Tick(); // last: shows what the panels above asked for this frame
             Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartOther], t);
             Dev.Perf.End(ref Dev.Perf.Ui, perfStart);
@@ -259,7 +305,9 @@ namespace HighCommand.Client
         {
             bool inStage = Stage.instance != null && Run.instance != null && !Run.instance.isGameOverServer;
             long t = Dev.Perf.Begin();
-            if (inStage && Camera && Camera.SceneCam) overlay.Draw(Camera, Selection, CurrentHeroes(), orders.ModeHint);
+            // (rings and bars would lie over the pause menu / console, so they are not drawn while those are up)
+            if (inStage && !ClientInput.MouseBlocked && Camera && Camera.SceneCam)
+                overlay.Draw(Camera, Selection, CurrentHeroes(), orders.ModeHint);
             else overlay.Draw(null, Selection, CurrentHeroes(), "");
             Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartOverlay], t);
 

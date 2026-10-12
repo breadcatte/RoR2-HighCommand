@@ -38,6 +38,9 @@ namespace HighCommand
                 IntSlider(Settings.EdgeScrollPixels, 1, 40);
                 Check(Settings.ListenerAtFocus);
 
+                // interface
+                Slider(Settings.UiScale, 0.6f, 1.6f);
+
                 // minimap
                 Check(Settings.MinimapEnabled);
                 Slider(Settings.MinimapSize, 140f, 520f, "{0:0}");

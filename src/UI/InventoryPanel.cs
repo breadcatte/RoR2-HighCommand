@@ -70,6 +70,9 @@ namespace HighCommand.UI
         private readonly RawImage ghostIcon;
         private readonly TextMeshProUGUI ghostCount;
 
+        private static readonly IReadOnlyList<Hero> NoHeroes = new List<Hero>();
+        private static readonly IReadOnlyList<EquipmentIndex> NoEquipment = new List<EquipmentIndex>();
+
         private readonly List<Row> rows = new List<Row>();
         private readonly List<Cell> spareCells = new List<Cell>();
         private int lastSignature = int.MinValue;
@@ -450,9 +453,12 @@ namespace HighCommand.UI
         {
             if (!Visible) return;
 
+            // a pause screen or the console in the middle of a drag cancels it (nothing is handed over)
+            if (dragging && ClientInput.MouseBlocked) CancelDrag();
+
             HcState state = HcState.Instance;
-            IReadOnlyList<Hero> heroes = state != null ? state.Heroes : new List<Hero>();
-            IReadOnlyList<EquipmentIndex> spare = state != null ? state.SpareEquipment : new List<EquipmentIndex>();
+            IReadOnlyList<Hero> heroes = state != null ? state.Heroes : NoHeroes;
+            IReadOnlyList<EquipmentIndex> spare = state != null ? state.SpareEquipment : NoEquipment;
 
             int signature = Signature(heroes, spare) * 31 + (IsMirror(state) ? 1 : 0);
             if (signature != lastSignature)
@@ -470,7 +476,7 @@ namespace HighCommand.UI
                 bool over = UiKit.Contains(r.root, mouse);
                 bool target = dragging && over && r.hero != dragFrom;
                 r.frame.color = target ? UiKit.Accent : UiKit.Border;
-                r.info.text = r.hero.IsAlive ? "" : Loc.Get("HIGHCOMMAND_INV_DEAD");
+                UiKit.SetText(r.info, r.hero.IsAlive ? "" : Loc.Get("HIGHCOMMAND_INV_DEAD"));
                 r.info.color = UiKit.Bad;
             }
 

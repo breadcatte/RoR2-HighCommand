@@ -1,0 +1,81 @@
+# Interface test: scale, resolutions, pause / Esc handling. Restores the resolution at the end (1920x1080x165).
+@wait 4
+@log === UI start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 20
+hc_gold 6000
+hc_recruit Commando
+hc_recruit Huntress
+hc_recruit Bandit2
+hc_recruit Mage
+hc_recruit Toolbot
+@wait 25
+hc_select all
+hc_ping
+@log === U1 1920x1080 scale 1.0
+hc_screenshot ui_1080
+@log === U2 scale 1.4 and 0.7
+hc_cfg uiscale 1.4
+@wait 2
+hc_screenshot ui_scale14
+hc_ping
+hc_cfg uiscale 0.7
+@wait 2
+hc_screenshot ui_scale07
+hc_cfg uiscale 1
+@wait 1
+@log === U3 resolution 1280x720
+resolution 1280x720x165
+@wait 5
+hc_screenshot ui_720
+hc_ping
+@log === U4 resolution 1024x768 (4:3)
+resolution 1024x768x165
+@wait 5
+hc_screenshot ui_4x3
+hc_ping
+resolution 1920x1080x165
+@wait 5
+hc_ping
+@log === U5 Esc guard: help sheet, then pause key
+hc_key F1
+@wait 1
+hc_ping
+pause
+@wait 1
+@log (the help sheet must be closed and the game NOT paused)
+hc_ping
+@log === U6 Esc guard: attack-move mode, then pause key
+hc_key Q
+@wait 1
+hc_ping
+pause
+@wait 1
+@log (the mode must be None and the game NOT paused)
+hc_ping
+@log === U7 pause with nothing open, clicks must not reach the mode
+hc_status
+pause
+@wait 2
+@log (paused=True now)
+hc_ping
+hc_screenshot ui_paused
+hc_click 1620 830 0
+hc_click 1700 830 0
+hc_key B
+@wait 1
+hc_ping
+@log (still paused, no panel opened, no order given)
+pause
+@wait 2
+hc_ping
+hc_status
+@log === UI end
+disconnect
+@norun
+@wait 4
+@quit

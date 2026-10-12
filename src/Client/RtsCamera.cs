@@ -117,7 +117,7 @@ namespace HighCommand.Client
             if (ClientInput.Key(Settings.KeyRight.Value)) move.x += 1f;
             if (ClientInput.Key(Settings.KeyLeft.Value)) move.x -= 1f;
 
-            if (Settings.EdgeScroll.Value && ClientInput.PointerInWindow && !ClientInput.PointerOverUi && !PauseManager.isPaused)
+            if (Settings.EdgeScroll.Value && ClientInput.PointerInWindow && !ClientInput.PointerOverUi && !ClientInput.MouseBlocked)
             {
                 int e = Settings.EdgeScrollPixels.Value;
                 if (mouse.x <= e) move.x -= 1f;

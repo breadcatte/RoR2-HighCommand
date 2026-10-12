@@ -149,6 +149,22 @@ namespace HighCommand.Mode
             }
         }
 
+        /// <summary>
+        /// Esc is the game's pause key. While one of the mode's own things is open (a targeting mode, the help sheet,
+        /// the item or recruiting panel) the key closes that instead and the pause menu stays shut.
+        /// </summary>
+        [HarmonyPatch(typeof(PauseManager), nameof(PauseManager.TogglePauseScreen))]
+        internal static class EscapeGuard
+        {
+            private static bool Prefix()
+            {
+                if (!HighCommandRun.IsActive || PauseManager.isPaused || PauseManager.PauseScreenIsOpen()) return true;
+                Client.ClientRoot root = Client.ClientRoot.Instance;
+                if (!root) return true;
+                return !root.ConsumeEscape();
+            }
+        }
+
         /// <summary>The combat director picks a player body to spawn monsters around; give it hero bodies.</summary>
         [HarmonyPatch(typeof(CombatDirector), "PickPlayerAsSpawnTarget")]
         internal static class DirectorSpawnTarget

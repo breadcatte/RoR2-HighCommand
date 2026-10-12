@@ -53,7 +53,8 @@ namespace HighCommand.UI
             }
 
             Label = UiKit.NewText("Label", Root, "", 17f, UiKit.Text, TextAlignmentOptions.Center);
-            UiKit.Stretch(Label.rectTransform, 3, 3, 3, 3);
+            // the top strip belongs to the hotkey hint: a long caption must not run under it
+            UiKit.Stretch(Label.rectTransform, 3, 3, 3, 11);
             Label.enableAutoSizing = true;
             Label.fontSizeMin = 10f;
             Label.fontSizeMax = 17f;

@@ -33,6 +33,10 @@ namespace HighCommand
         internal static ConfigEntry<KeyCode> KeyRevive, KeyTeleporter;
         internal static readonly ConfigEntry<KeyCode>[] KeyAbility = new ConfigEntry<KeyCode>[4];
         internal static ConfigEntry<KeyCode> KeyFormationCycle;
+        internal static ConfigEntry<KeyCode> KeyCycleSelection, KeySelectAll;
+
+        // ---- interface ----
+        internal static ConfigEntry<float> UiScale;
 
         // ---- economy / army ----
         internal static ConfigEntry<int> StartingGold;
@@ -134,6 +138,11 @@ namespace HighCommand
             KeyFocusSelected = cfg.Bind("Keys", "FocusSelected", KeyCode.Space, "Fly the camera to the selected heroes (or the whole army).");
             KeyHelp = cfg.Bind("Keys", "Help", KeyCode.F1, "Show / hide the hotkey cheat sheet.");
             KeyFastCamera = cfg.Bind("Keys", "FastCamera", KeyCode.LeftShift, "Hold to pan the camera faster.");
+            KeyCycleSelection = cfg.Bind("Keys", "CycleSelection", KeyCode.Tab, "Select the next hero (hold Shift: the previous one).");
+            KeySelectAll = cfg.Bind("Keys", "SelectAll", KeyCode.A, "Together with Ctrl: select the whole army. (Digits 1-0 are the control groups: Ctrl+digit sets, digit recalls.)");
+
+            UiScale = F("Interface", "UiScale", 1.0f, 0.6f, 1.6f,
+                "Size of the whole interface of the mode: 1 = normal, 1.25 = bigger text and panels, 0.8 = smaller. It comes on top of the automatic scaling to the screen resolution.");
 
             StartingGold = I("Economy", "StartingGold", 100, 0, 100000, "Gold the army starts the run with.");
             GoldMultiplier = F("Economy", "GoldMultiplier", 1.0f, 0.1f, 10f, "Multiplier on all gold the army receives.");
