@@ -236,6 +236,7 @@ namespace HighCommand.Client
                     if (havePoint)
                     {
                         RallyPoint = point;
+                        OrderService.Submit(new OrderCommand { SetRally = true, Point = point });
                         Feedback.Ping(point, new Color(0.4f, 0.8f, 1f, 1f), 1.2f);
                         Toast.Show(Loc.Get("HIGHCOMMAND_RALLY_SET"));
                     }
@@ -360,6 +361,22 @@ namespace HighCommand.Client
         }
 
         internal static readonly List<PingMarker> Pings = new List<PingMarker>(16);
+
+        internal struct PopupText
+        {
+            internal string text;
+            internal Vector3 position;
+            internal Color color;
+            internal float born;
+        }
+
+        internal static readonly List<PopupText> Popups = new List<PopupText>(16);
+
+        internal static void Popup(string text, Vector3 world, Color color)
+        {
+            if (Popups.Count > 40) Popups.RemoveAt(0);
+            Popups.Add(new PopupText { text = text, position = world, color = color, born = Time.unscaledTime });
+        }
 
         internal static void Ping(Vector3 world, Color color, float size)
         {

@@ -69,6 +69,34 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_SLOT_UTILITY", "utility", "рывок");
             Loc.Add("HIGHCOMMAND_SLOT_SPECIAL", "special", "особое");
             Loc.Add("HIGHCOMMAND_SLOT_EQUIPMENT", "equipment", "экипировка");
+
+            // economy / barracks
+            Loc.Add("HIGHCOMMAND_TOP_STAGE", "Stage {0}", "Стадия {0}");
+            Loc.Add("HIGHCOMMAND_TOP_ARMY", "Army {0}/{1} (limit {2})", "Армия {0}/{1} (лимит {2})");
+            Loc.Add("HIGHCOMMAND_TOP_NEXT", "next hero: ${0}", "след. герой: ${0}");
+            Loc.Add("HIGHCOMMAND_TOP_PERMIN", "min", "мин");
+            Loc.Add("HIGHCOMMAND_HELP_BARRACKS", "Barracks: recruit heroes", "Казарма: вербовка героев");
+            Loc.Add("HIGHCOMMAND_BARRACKS_TITLE", "Barracks - next hero costs ${0}   (gold: ${1})", "Казарма - следующий герой стоит ${0}   (золото: ${1})");
+            Loc.Add("HIGHCOMMAND_BARRACKS_HINT", "Click a survivor to recruit them. Esc closes this window.", "Нажмите на выжившего, чтобы нанять. Esc закрывает окно.");
+            Loc.Add("HIGHCOMMAND_RECRUIT_BUY", "Recruit - ${0}", "Нанять - ${0}");
+            Loc.Add("HIGHCOMMAND_RECRUIT_PRICE", "${0}", "${0}");
+            Loc.Add("HIGHCOMMAND_RECRUIT_LOCKED", "Locked", "Закрыт");
+            Loc.Add("HIGHCOMMAND_RECRUIT_NOTALLOWED", "Unavailable", "Недоступен");
+            Loc.Add("HIGHCOMMAND_RECRUIT_OWNED", "In the army", "Уже в армии");
+            Loc.Add("HIGHCOMMAND_RECRUIT_FULL", "Army is full", "Армия заполнена");
+            Loc.Add("HIGHCOMMAND_RECRUIT_NEEDGOLD", "Not enough gold: ${0}", "Не хватает золота: ${0}");
+            Loc.Add("HIGHCOMMAND_RECRUITED", "Recruited: {0}", "Нанят: {0}");
+            Loc.Add("HIGHCOMMAND_ERR_NORUN", "No run in progress", "Забег не идёт");
+            Loc.Add("HIGHCOMMAND_ERR_FAILED", "Could not recruit (gold refunded)", "Не удалось нанять (золото возвращено)");
+            Loc.Add("HIGHCOMMAND_ROLE_RANGED", "Ranged damage", "Дальний урон");
+            Loc.Add("HIGHCOMMAND_ROLE_ASSASSIN", "Assassin", "Убийца");
+            Loc.Add("HIGHCOMMAND_ROLE_TANK", "Tank", "Танк");
+            Loc.Add("HIGHCOMMAND_ROLE_MELEE", "Melee", "Ближний бой");
+            Loc.Add("HIGHCOMMAND_ROLE_CASTER", "Caster", "Заклинатель");
+            Loc.Add("HIGHCOMMAND_ROLE_SNIPER", "Sniper", "Снайпер");
+            Loc.Add("HIGHCOMMAND_ROLE_SUPPORT", "Support", "Поддержка");
+            Loc.Add("HIGHCOMMAND_ROLE_SUMMONER", "Summoner", "Призыватель");
+            Loc.Add("HIGHCOMMAND_ROLE_GENERIC", "Survivor", "Выживший");
         }
     }
 }

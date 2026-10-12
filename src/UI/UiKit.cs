@@ -155,8 +155,9 @@ namespace HighCommand.UI
             TextAlignmentOptions alignment = TextAlignmentOptions.Left)
         {
             RectTransform rt = NewRect(name, parent);
-            var t = rt.gameObject.AddComponent<TextMeshProUGUI>();
-            if (Font) t.font = Font;
+            // HGTextMeshProUGUI picks the game's font for the current language (Cyrillic, CJK ...) on Awake.
+            var t = rt.gameObject.AddComponent<RoR2.UI.HGTextMeshProUGUI>();
+            if (!RoR2.UI.HGTextMeshProUGUI.defaultLanguageFont && Font) t.font = Font;
             t.text = text;
             t.fontSize = size;
             t.color = color;

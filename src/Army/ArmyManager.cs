@@ -20,6 +20,9 @@ namespace HighCommand.Army
 
         public IReadOnlyList<Hero> Heroes => heroes;
 
+        /// <summary>Equipment the army owns but no hero holds yet.</summary>
+        public readonly List<EquipmentIndex> EquipmentPool = new List<EquipmentIndex>();
+
         public int Count => heroes.Count;
 
         public int AliveCount
@@ -59,6 +62,7 @@ namespace HighCommand.Army
 
         public void Clear()
         {
+            EquipmentPool.Clear();
             heroes.Clear();
             nextId = 1;
         }

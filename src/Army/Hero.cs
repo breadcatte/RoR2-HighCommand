@@ -1,5 +1,6 @@
 using RoR2;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace HighCommand.Army
 {
@@ -10,8 +11,35 @@ namespace HighCommand.Army
     public sealed class Hero
     {
         public int Id;
-        public CharacterMaster Master;
         public SurvivorDef Survivor;
+
+        /// <summary>Network id of the master; lets a client find the hero's master once it has been spawned.</summary>
+        public NetworkInstanceId MasterId = NetworkInstanceId.Invalid;
+
+        private CharacterMaster master;
+
+        /// <summary>The hero's CharacterMaster (resolved lazily on clients).</summary>
+        public CharacterMaster Master
+        {
+            get
+            {
+                if (!master && MasterId != NetworkInstanceId.Invalid)
+                {
+                    GameObject go = Util.FindNetworkObject(MasterId);
+                    if (go) master = go.GetComponent<CharacterMaster>();
+                }
+                return master;
+            }
+            set
+            {
+                master = value;
+                if (master)
+                {
+                    NetworkIdentity id = master.GetComponent<NetworkIdentity>();
+                    if (id) MasterId = id.netId;
+                }
+            }
+        }
         public BodyIndex BodyIndex = BodyIndex.None;
 
         /// <summary>Order in which the hero joined the army (the first one is the starting survivor).</summary>

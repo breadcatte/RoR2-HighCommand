@@ -199,6 +199,83 @@ namespace HighCommand.Dev
             }
         }
 
+        [ConCommand(commandName = "hc_gold", flags = HostOnly, helpText = "hc_gold <amount>: gives the army gold (host).")]
+        private static void CcGold(ConCommandArgs args)
+        {
+            if (!UnityEngine.Networking.NetworkServer.active || !Mode.HighCommandRun.IsActive)
+                throw new ConCommandException("Only the host can do this during a High Command run.");
+            uint amount = (uint)Mathf.Max(0, args.GetArgInt(0));
+            Army.Economy.Add(amount, null, applyMultiplier: false);
+            Debug.Log($"HighCommand: gold is now {Army.Economy.Gold}.");
+        }
+
+        [ConCommand(commandName = "hc_recruit", flags = HostOnly, helpText = "hc_recruit <SurvivorName>: recruits through the normal rules (gold, limit).")]
+        private static void CcRecruit(ConCommandArgs args)
+        {
+            if (!UnityEngine.Networking.NetworkServer.active || !Mode.HighCommandRun.IsActive)
+                throw new ConCommandException("Only the host can do this during a High Command run.");
+            SurvivorDef def = SurvivorCatalog.FindSurvivorDef(args.GetArgString(0));
+            if (!def) throw new ConCommandException("Unknown survivor: " + args.GetArgString(0));
+            string error = Army.ArmyService.TryRecruit(def, Army.ArmyService.LoadoutFor(def));
+            Debug.Log(error == null ? $"HighCommand: recruited {def.cachedName}." : "HighCommand: recruit failed: " + error);
+        }
+
+        [ConCommand(commandName = "hc_pool", flags = HostOnly, helpText = "Prints the army's item pool (commander inventory) and equipment pool.")]
+        private static void CcPool(ConCommandArgs args)
+        {
+            var inv = Army.LootService.Pool;
+            if (!inv) throw new ConCommandException("No item pool (not in a High Command run).");
+            var sb = new StringBuilder("HighCommand pool:");
+            int total = 0;
+            foreach (ItemIndex idx in ItemCatalog.allItems)
+            {
+                int n = inv.GetItemCountPermanent(idx);
+                if (n <= 0) continue;
+                total += n;
+                var def = ItemCatalog.GetItemDef(idx);
+                sb.Append($" {def.name}x{n}");
+            }
+            var run = Mode.HighCommandRun.Instance;
+            sb.Append($" | total items={total} equipment={(run != null ? run.Army.EquipmentPool.Count : 0)}");
+            Debug.Log(sb.ToString());
+        }
+
+        [ConCommand(commandName = "hc_drop", flags = HostOnly, helpText = "hc_drop <ItemName>: adds an item to the pool as if it dropped.")]
+        private static void CcDrop(ConCommandArgs args)
+        {
+            if (!UnityEngine.Networking.NetworkServer.active || !Mode.HighCommandRun.IsActive)
+                throw new ConCommandException("Only the host can do this during a High Command run.");
+            ItemIndex idx = ItemCatalog.FindItemIndex(args.GetArgString(0));
+            if (idx == ItemIndex.None) throw new ConCommandException("Unknown item: " + args.GetArgString(0));
+            PickupIndex pickup = PickupCatalog.FindPickupIndex(idx);
+            bool ok = Army.LootService.Grant(new UniquePickup(pickup), null);
+            Debug.Log("HighCommand: drop " + (ok ? "granted" : "failed"));
+        }
+
+        [ConCommand(commandName = "hc_interactables", flags = HostOnly, helpText = "Counts interactables on the map by name.")]
+        private static void CcInteractables(ConCommandArgs args)
+        {
+            var counts = new System.Collections.Generic.Dictionary<string, int>();
+            foreach (var p in UnityEngine.Object.FindObjectsOfType<PurchaseInteraction>())
+            {
+                string n = p.gameObject.name.Replace("(Clone)", "");
+                counts[n] = counts.TryGetValue(n, out int c) ? c + 1 : 1;
+            }
+            var sb = new StringBuilder("HighCommand interactables:");
+            foreach (var kv in counts) sb.Append($" {kv.Key}x{kv.Value}");
+            if (counts.Count == 0) sb.Append(" (none)");
+            Debug.Log(sb.ToString());
+        }
+
+        [ConCommand(commandName = "hc_economy", flags = HostOnly, helpText = "Prints gold, income and prices.")]
+        private static void CcEconomy(ConCommandArgs args)
+        {
+            var s = Mode.HcState.Instance;
+            if (!s) throw new ConCommandException("Not in a High Command run.");
+            Debug.Log($"HighCommand economy: gold={s.Gold} bought={s.Bought} nextHero=${s.NextHeroPrice()} revive=${s.RevivePrice()} " +
+                      $"income/min={Army.Economy.IncomePerMinute():0} limit={s.ArmyLimit} heroes={s.Heroes.Count}");
+        }
+
         [ConCommand(commandName = "hc_sel", flags = HostOnly, helpText = "Prints the current selection and control groups.")]
         private static void CcSel(ConCommandArgs args)
         {

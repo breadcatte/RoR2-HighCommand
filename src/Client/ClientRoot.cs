@@ -11,7 +11,8 @@ namespace HighCommand.Client
 {
     /// <summary>
     /// Everything that runs on the player's machine while a High Command run is live: the RTS camera, the input gate,
-    /// the UI canvas with its cursor, minimap, selection and help sheet. Created by HighCommandRun, destroyed with it.
+    /// the UI canvas with its cursor, minimap, selection, orders, economy panels and help sheet.
+    /// Created by HighCommandRun, destroyed with it.
     /// </summary>
     [DefaultExecutionOrder(10000)] // after the stock camera rig has placed the camera: overlays use this frame's pose
     internal sealed class ClientRoot : MonoBehaviour
@@ -30,6 +31,9 @@ namespace HighCommand.Client
         private SelectionController selectionController;
         private OrderController orders;
         private ToastView toast;
+        private TopBar topBar;
+        private BarracksPanel barracks;
+        private LootFeed lootFeed;
 
         private bool mapDirty = true;
         private bool focusedThisStage;
@@ -53,24 +57,34 @@ namespace HighCommand.Client
             overlay = new WorldOverlay(canvas.transform);   // first: it draws underneath the panels
             minimap = new Minimap(canvas.transform);
             selectionPanel = new SelectionPanel(canvas.transform);
+            topBar = new TopBar(canvas.transform);
+            barracks = new BarracksPanel(canvas.transform);
             help = new HelpOverlay(canvas.transform);
+            toast = new ToastView(canvas.transform);
+            lootFeed = new LootFeed(canvas.transform);
             selectionController = new SelectionController(Selection, overlay);
             orders = new OrderController(Selection, minimap, overlay);
-            toast = new ToastView(canvas.transform);
 
             RegisterHelp();
             Stage.onStageStartGlobal += OnStageStart;
+            Economy.OnGoldGained += OnGoldGained;
         }
 
         private void OnDestroy()
         {
             Stage.onStageStartGlobal -= OnStageStart;
+            Economy.OnGoldGained -= OnGoldGained;
             minimap?.Destroy();
             help?.Destroy();
             overlay?.Destroy();
             selectionPanel?.Destroy();
+            topBar?.Destroy();
+            barracks?.Destroy();
+            lootFeed?.Destroy();
             toast?.Destroy();
             Toast.Clear();
+            Feedback.Pings.Clear();
+            Feedback.Popups.Clear();
             if (Instance == this) Instance = null;
         }
 
@@ -99,19 +113,10 @@ namespace HighCommand.Client
             HelpOverlay.Add(Settings.KeyStop.Value + " / " + Settings.KeyHold.Value, Loc.Get("HIGHCOMMAND_HELP_STOPHOLD"));
             HelpOverlay.Add(Settings.KeyRetreat.Value + " / " + Settings.KeyPatrol.Value + " / " + Settings.KeyRally.Value, Loc.Get("HIGHCOMMAND_HELP_RETREAT"));
             HelpOverlay.Add(Settings.KeyCastSecondary.Value + " " + Settings.KeyCastUtility.Value + " " + Settings.KeyCastSpecial.Value + " " + Settings.KeyCastEquipment.Value, Loc.Get("HIGHCOMMAND_HELP_CAST"));
-            HelpOverlay.Add(Settings.KeyToggleAuto.Value + " + Z/X/C/B", Loc.Get("HIGHCOMMAND_HELP_AUTO"));
+            HelpOverlay.Add(Settings.KeyToggleAuto.Value + " + Z/X/C/Y", Loc.Get("HIGHCOMMAND_HELP_AUTO"));
             HelpOverlay.Add(Settings.KeyStanceAggressive.Value + " / " + Settings.KeyStanceDefensive.Value + " / " + Settings.KeyStancePassive.Value, Loc.Get("HIGHCOMMAND_HELP_STANCE"));
             HelpOverlay.Add(Settings.KeyFormationCycle.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FORMATION"));
-            HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_RMB"), Loc.Get("HIGHCOMMAND_HELP_RMB"));
-            HelpOverlay.Add("Shift + " + Loc.Get("HIGHCOMMAND_KEY_RMB"), Loc.Get("HIGHCOMMAND_HELP_QUEUE"));
-            HelpOverlay.Add(Settings.KeyAttackMove.Value + " + " + Loc.Get("HIGHCOMMAND_KEY_LMB"), Loc.Get("HIGHCOMMAND_HELP_ATTACKMOVE"));
-            HelpOverlay.Add(Settings.KeyFocusFire.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FOCUSFIRE"));
-            HelpOverlay.Add(Settings.KeyStop.Value + " / " + Settings.KeyHold.Value, Loc.Get("HIGHCOMMAND_HELP_STOPHOLD"));
-            HelpOverlay.Add(Settings.KeyRetreat.Value + " / " + Settings.KeyPatrol.Value + " / " + Settings.KeyRally.Value, Loc.Get("HIGHCOMMAND_HELP_RETREAT"));
-            HelpOverlay.Add(Settings.KeyCastSecondary.Value + " " + Settings.KeyCastUtility.Value + " " + Settings.KeyCastSpecial.Value + " " + Settings.KeyCastEquipment.Value, Loc.Get("HIGHCOMMAND_HELP_CAST"));
-            HelpOverlay.Add(Settings.KeyToggleAuto.Value + " + Z/X/C/B", Loc.Get("HIGHCOMMAND_HELP_AUTO"));
-            HelpOverlay.Add(Settings.KeyStanceAggressive.Value + " / " + Settings.KeyStanceDefensive.Value + " / " + Settings.KeyStancePassive.Value, Loc.Get("HIGHCOMMAND_HELP_STANCE"));
-            HelpOverlay.Add(Settings.KeyFormationCycle.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FORMATION"));
+            HelpOverlay.Add(Settings.KeyBarracks.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_BARRACKS"));
             HelpOverlay.Add(Settings.KeyHelp.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_HELP"));
             HelpOverlay.Add("Esc", Loc.Get("HIGHCOMMAND_HELP_PAUSE"));
         }
@@ -122,10 +127,15 @@ namespace HighCommand.Client
             focusedThisStage = false;
         }
 
+        private static void OnGoldGained(uint amount, Vector3? at)
+        {
+            if (at.HasValue) Feedback.Popup("+$" + amount, at.Value, UiKit.Gold);
+        }
+
         private IReadOnlyList<Hero> CurrentHeroes()
         {
-            HighCommandRun run = HighCommandRun.Instance;
-            return run != null ? run.Army.Heroes : NoHeroes;
+            HcState state = HcState.Instance;
+            return state != null ? state.Heroes : NoHeroes;
         }
 
         private void Update()
@@ -147,12 +157,21 @@ namespace HighCommand.Client
             // Show the interface only while a stage is running (not in loading screens / game over).
             bool inStage = Stage.instance != null && Run.instance != null && !Run.instance.isGameOverServer;
             minimap.SetVisible(inStage);
+            topBar.SetVisible(inStage);
 
             if (!focusedThisStage && inStage && Camera)
                 TryInitialFocus();
 
             if (ClientInput.KeyDown(Settings.KeyHelp.Value)) help.Toggle();
             if (help.Visible && ClientInput.RawKeyDown(KeyCode.Escape)) help.Hide();
+
+            if (inStage)
+            {
+                if (ClientInput.KeyDown(Settings.KeyBarracks.Value)) barracks.Toggle();
+                if (ClientInput.MouseDown(0) && topBar.GoldPanelContains(ClientInput.Mouse)) barracks.Toggle();
+                if (barracks.Visible && ClientInput.RawKeyDown(KeyCode.Escape)) barracks.Hide();
+            }
+            else barracks.Hide();
 
             IReadOnlyList<Hero> heroes = CurrentHeroes();
             bool inputAllowed = inStage && !PauseManager.isPaused && !help.Visible;
@@ -163,11 +182,14 @@ namespace HighCommand.Client
                 if (ClientInput.KeyDown(Settings.KeyFocusSelected.Value)) FocusSelectionOrArmy();
             }
 
-            orders.Tick(heroes, inStage && inputAllowed);
-            selectionController.Tick(heroes, Camera, inStage && inputAllowed);
-            toast.Tick();
+            orders.Tick(heroes, inputAllowed);
+            selectionController.Tick(heroes, Camera, inputAllowed);
 
+            topBar.Tick(Time.unscaledDeltaTime);
+            barracks.Tick();
             selectionPanel.Tick(Selection, inStage);
+            lootFeed.Tick();
+            toast.Tick();
         }
 
         // Overlays use the camera pose of this very frame (this component runs after the stock camera rig).

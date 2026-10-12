@@ -53,6 +53,13 @@ namespace HighCommand
             TryPatch(typeof(Mode.RunPatches.NoCommanderBody), "commander has no body");
             TryPatch(typeof(Mode.RunPatches.LivingPlayerCount), "living player count = living heroes");
             TryPatch(typeof(Mode.RunPatches.DirectorSpawnTarget), "director spawns around heroes");
+            TryPatch(typeof(Army.EconomyPatches.KillGold), "kill gold goes to the army purse");
+            TryPatch(typeof(Army.EconomyPatches.RememberVictim), "gold popup position");
+            TryPatch(typeof(Army.EconomyPatches.DirectGold), "direct gold goes to the army purse");
+            TryPatch(typeof(Army.LootPatches.Droplets), "item droplets go to the pool");
+            TryPatch(typeof(Army.LootPatches.WorldPickups), "world pickups go to the pool");
+            TryPatch(typeof(Army.LootPatches.KillDrops), "enemies drop items");
+            TryPatch(typeof(Army.LootPatches.NoPaidInteractables), "no chests and other paid interactables");
 
             try { Dev.AutoExec.Install(); }
             catch (Exception e) { Log.LogWarning("AutoExec not installed: " + e.Message); }

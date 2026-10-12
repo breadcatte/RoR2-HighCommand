@@ -83,6 +83,7 @@ namespace HighCommand.Orders
         public byte Formation;      // 0 blob, 1 line, 2 column
         public bool SetAutoSlot;    // toggle auto-use of a slot instead of ordering
         public bool AutoValue;
+        public bool SetRally;       // move the army's rally point to Point (no hero involved)
 
         public void Write(NetworkWriter w)
         {
@@ -100,6 +101,7 @@ namespace HighCommand.Orders
             w.Write(Formation);
             w.Write(SetAutoSlot);
             w.Write(AutoValue);
+            w.Write(SetRally);
         }
 
         public static OrderCommand Read(NetworkReader r)
@@ -121,6 +123,7 @@ namespace HighCommand.Orders
             c.Formation = r.ReadByte();
             c.SetAutoSlot = r.ReadBoolean();
             c.AutoValue = r.ReadBoolean();
+            c.SetRally = r.ReadBoolean();
             return c;
         }
     }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using HighCommand.Army;
+using HighCommand.Orders;
 using RoR2;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -31,6 +32,29 @@ namespace HighCommand.Mode
 
         private bool subscribed;
 
+        private HcState state;
+
+        /// <summary>The replicated state (gold, roster, prices) that lives on the same object.</summary>
+        public HcState State => state ? state : (state = GetComponent<HcState>());
+
+        /// <summary>Server: where reinforcements land and where retreating heroes run to.</summary>
+        public Vector3 RallyPoint { get; set; }
+
+        /// <summary>Server: the item pool changed (an item was gained). Triggers redistribution among heroes.</summary>
+        public void OnPoolChanged()
+        {
+            // the item distributor hooks in here (inventory milestone)
+            PoolChanged?.Invoke();
+        }
+
+        public event System.Action PoolChanged;
+
+        /// <summary>Server: sends the current roster to the clients.</summary>
+        public void PublishRoster()
+        {
+            if (NetworkServer.active && State != null) State.ServerPublishRoster(Army);
+        }
+
         private void OnEnable()
         {
             Instance = this;
@@ -40,6 +64,7 @@ namespace HighCommand.Mode
             {
                 Stage.onServerStageBegin += OnServerStageBegin;
                 subscribed = true;
+                Economy.ResetForNewRun();
             }
             if (NetworkClient.active) CreateClientSide();
         }
@@ -103,11 +128,13 @@ namespace HighCommand.Mode
                 Quaternion rotation = Quaternion.identity;
                 Transform spawn = stage.GetPlayerSpawnTransform();
                 if (spawn) { position = spawn.position; rotation = spawn.rotation; }
+                if (created == 0) RallyPoint = Formation.SnapToGround(position);
 
                 Loadout loadout = commander ? commander.loadout : null;
                 bool pod = stage.usePod && Run.instance && Run.instance.spawnWithPod;
                 if (RecruitHero(survivor, loadout, position, rotation, pod) != null) created++;
             }
+            PublishRoster();
             Plugin.Log.LogInfo($"Starting army created: {created} hero(es).");
         }
 

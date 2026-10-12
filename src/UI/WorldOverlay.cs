@@ -62,6 +62,7 @@ namespace HighCommand.UI
                 DrawBars(camera, selection);
                 DrawOrders(selection);
                 DrawPings();
+                DrawPopups();
             }
 
             LastBars = barsUsed;
@@ -180,6 +181,40 @@ namespace HighCommand.UI
                 img.rectTransform.sizeDelta = new Vector2(w, w * Mathf.Clamp(Mathf.Sin(pitch), 0.35f, 1f));
                 img.rectTransform.position = new Vector3(s.x, s.y, 0f);
             }
+        }
+
+        private readonly List<TMPro.TextMeshProUGUI> popupTexts = new List<TMPro.TextMeshProUGUI>(16);
+        private int popupsUsed;
+
+        private void DrawPopups()
+        {
+            popupsUsed = 0;
+            float now = Time.unscaledTime;
+            var list = Feedback.Popups;
+            for (int i = list.Count - 1; i >= 0; i--)
+            {
+                var p = list[i];
+                float age = now - p.born;
+                if (age > 1.1f) { list.RemoveAt(i); continue; }
+                Vector3 world = p.position + Vector3.up * (1.2f + age * 2.2f);
+                if (!WorldPicker.Project(world, 0.3f, out Vector2 s, out float _)) continue;
+
+                if (popupsUsed >= popupTexts.Count)
+                {
+                    var created = UiKit.NewText("Popup", layer, "", 24f, Color.white, TMPro.TextAlignmentOptions.Center);
+                    created.rectTransform.sizeDelta = new Vector2(200f, 34f);
+                    popupTexts.Add(created);
+                }
+                var label = popupTexts[popupsUsed++];
+                label.enabled = true;
+                if (label.text != p.text) label.text = p.text;
+                Color c = p.color;
+                c.a = Mathf.Clamp01(1.5f - age * 1.3f);
+                label.color = c;
+                label.rectTransform.position = new Vector3(s.x, s.y, 0f);
+            }
+            for (int i = popupsUsed; i < popupTexts.Count; i++)
+                if (popupTexts[i].enabled) popupTexts[i].enabled = false;
         }
 
         private void DrawModeHint(string hint)

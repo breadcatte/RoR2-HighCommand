@@ -29,8 +29,43 @@ namespace HighCommand
         internal static ConfigEntry<KeyCode> KeyAttackMove, KeyStop, KeyHold, KeyFocusFire, KeyRetreat, KeyPatrol, KeyRally;
         internal static ConfigEntry<KeyCode> KeyCastSecondary, KeyCastUtility, KeyCastSpecial, KeyCastEquipment;
         internal static ConfigEntry<KeyCode> KeyStanceAggressive, KeyStanceDefensive, KeyStancePassive;
-        internal static ConfigEntry<KeyCode> KeyToggleAuto;
+        internal static ConfigEntry<KeyCode> KeyToggleAuto, KeyBarracks;
         internal static ConfigEntry<KeyCode> KeyFormationCycle;
+
+        // ---- economy / army ----
+        internal static ConfigEntry<int> StartingGold;
+        internal static ConfigEntry<float> GoldMultiplier;
+        internal static ConfigEntry<int> HeroBasePrice;
+        internal static ConfigEntry<float> HeroPriceGrowth;
+        internal static ConfigEntry<float> PriceMultiplier;
+        internal static ConfigEntry<int> ArmyLimit;
+        internal static ConfigEntry<bool> AllowDuplicates;
+        internal static ConfigEntry<bool> IgnoreUnlocks;
+        internal static ConfigEntry<bool> AllowHiddenSurvivors;
+        internal static ConfigEntry<float> ReviveCostFraction;
+
+        // ---- loot ----
+        internal static ConfigEntry<bool> ItemDropsEnabled;
+        internal static ConfigEntry<float> ItemGoldFactor;
+        internal static ConfigEntry<float> ItemDropMultiplier;
+        internal static ConfigEntry<bool> RemovePaidInteractables;
+        internal static ConfigEntry<string> KeepInteractables;
+
+        private static string[] keepCache;
+        private static string keepCacheSource;
+
+        /// <summary>Name fragments of paid interactables that stay on the map anyway.</summary>
+        internal static string[] KeptInteractables()
+        {
+            string raw = KeepInteractables.Value ?? string.Empty;
+            if (keepCache == null || keepCacheSource != raw)
+            {
+                keepCacheSource = raw;
+                keepCache = raw.Split(new[] { ',', ';' }, System.StringSplitOptions.RemoveEmptyEntries);
+                for (int i = 0; i < keepCache.Length; i++) keepCache[i] = keepCache[i].Trim();
+            }
+            return keepCache;
+        }
 
         // ---- minimap ----
         internal static ConfigEntry<bool> MinimapEnabled;
@@ -74,15 +109,33 @@ namespace HighCommand
             KeyCastSecondary = cfg.Bind("Keys", "CastSecondary", KeyCode.Z, "Use the selected heroes' secondary skill (then click a target).");
             KeyCastUtility = cfg.Bind("Keys", "CastUtility", KeyCode.X, "Use the selected heroes' utility skill.");
             KeyCastSpecial = cfg.Bind("Keys", "CastSpecial", KeyCode.C, "Use the selected heroes' special skill.");
-            KeyCastEquipment = cfg.Bind("Keys", "CastEquipment", KeyCode.B, "Use the selected heroes' equipment.");
+            KeyCastEquipment = cfg.Bind("Keys", "CastEquipment", KeyCode.Y, "Use the selected heroes' equipment.");
+            KeyBarracks = cfg.Bind("Keys", "Barracks", KeyCode.B, "Open / close the recruiting panel.");
             KeyStanceAggressive = cfg.Bind("Keys", "StanceAggressive", KeyCode.F2, "Stance: aggressive (chase anything seen).");
             KeyStanceDefensive = cfg.Bind("Keys", "StanceDefensive", KeyCode.F3, "Stance: defensive (fight near the post, then return).");
             KeyStancePassive = cfg.Bind("Keys", "StancePassive", KeyCode.F4, "Stance: passive (never start a fight).");
-            KeyToggleAuto = cfg.Bind("Keys", "ToggleAutoSkills", KeyCode.Y, "Hold with Z / X / C / B to switch that skill's automatic use on or off.");
+            KeyToggleAuto = cfg.Bind("Keys", "ToggleAutoSkills", KeyCode.LeftAlt, "Hold with Z / X / C / Y to switch that skill's automatic use on or off.");
             KeyFormationCycle = cfg.Bind("Keys", "FormationCycle", KeyCode.N, "Cycle the formation used by move orders: blob / line / column.");
             KeyFocusSelected = cfg.Bind("Keys", "FocusSelected", KeyCode.Space, "Fly the camera to the selected heroes (or the whole army).");
             KeyHelp = cfg.Bind("Keys", "Help", KeyCode.F1, "Show / hide the hotkey cheat sheet.");
             KeyFastCamera = cfg.Bind("Keys", "FastCamera", KeyCode.LeftShift, "Hold to pan the camera faster.");
+
+            StartingGold = I("Economy", "StartingGold", 0, 0, 100000, "Gold the army starts the run with.");
+            GoldMultiplier = F("Economy", "GoldMultiplier", 1.0f, 0.1f, 10f, "Multiplier on all gold the army receives.");
+            HeroBasePrice = I("Economy", "HeroBasePrice", 300, 10, 100000, "Price of the first recruit at the start of the run (scales with the run's difficulty).");
+            HeroPriceGrowth = F("Economy", "HeroPriceGrowth", 1.4f, 1f, 4f, "Every hero bought makes the next one this many times more expensive.");
+            PriceMultiplier = F("Economy", "PriceMultiplier", 1.0f, 0.1f, 10f, "Multiplier on all hero prices (recruiting and reviving).");
+            ArmyLimit = I("Army", "ArmyLimit", 6, 1, 20, "Largest army size (including the starting hero).");
+            AllowDuplicates = cfg.Bind("Army", "AllowDuplicates", false, "Allow recruiting several heroes of the same kind.");
+            IgnoreUnlocks = cfg.Bind("Army", "IgnoreUnlocks", false, "Offer survivors you have not unlocked yet.");
+            AllowHiddenSurvivors = cfg.Bind("Army", "AllowHiddenSurvivors", false, "Offer hidden survivors (for example Heretic).");
+            ReviveCostFraction = F("Economy", "ReviveCostFraction", 0.4f, 0f, 3f, "A fallen hero's revival costs this fraction of the price of the next recruit.");
+
+            ItemDropsEnabled = cfg.Bind("Loot", "ItemDropsEnabled", true, "Enemies drop items straight into the army's pool.");
+            ItemGoldFactor = F("Loot", "ItemGoldFactor", 2.5f, 0.2f, 30f, "An item is worth this many chests' worth of gold: bigger = fewer drops. At 2.5 a normal run gives about as many items as vanilla.");
+            ItemDropMultiplier = F("Loot", "ItemDropMultiplier", 1.0f, 0f, 10f, "Multiplier on the chance of every item drop.");
+            RemovePaidInteractables = cfg.Bind("Loot", "RemovePaidInteractables", true, "Do not place chests, printers, shrines of chance and other interactables that cost something.");
+            KeepInteractables = cfg.Bind("Loot", "KeepInteractables", "", "Comma separated name fragments of paid interactables that should stay (for example: ShrineBoss,Duplicator).");
 
             MinimapEnabled = cfg.Bind("Minimap", "Enabled", true, "Show the minimap.");
             MinimapSize = F("Minimap", "Size", 260f, 140f, 520f, "Minimap size in reference pixels (1080p).");

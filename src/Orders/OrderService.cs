@@ -26,6 +26,12 @@ namespace HighCommand.Orders
             HighCommandRun run = HighCommandRun.Instance;
             if (run == null) return;
 
+            if (command.SetRally)
+            {
+                run.RallyPoint = command.Point;
+                return;
+            }
+
             var heroes = new List<Hero>(command.HeroIds.Length);
             foreach (int id in command.HeroIds)
             {

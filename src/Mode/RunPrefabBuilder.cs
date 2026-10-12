@@ -65,6 +65,7 @@ namespace HighCommand.Mode
             run.userPickable = true;
 
             clone.AddComponent<HighCommandRun>();
+            clone.AddComponent<HcState>();
 
             NetworkIdentity identity = clone.GetComponent<NetworkIdentity>();
             if (!identity) throw new InvalidOperationException("ClassicRun prefab has no NetworkIdentity.");

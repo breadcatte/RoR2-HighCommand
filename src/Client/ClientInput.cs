@@ -196,13 +196,13 @@ namespace HighCommand.Client
         /// <summary>Raw key state, ignoring the blocked gate (callers that need the gate use <see cref="Key"/>).</summary>
         internal static bool RawKey(KeyCode key)
         {
-            if (fakeMouse.HasValue && fakeKeyHeld == key) return true;
+            if (fakeKeyHeld == key && key != KeyCode.None) return true;
             return Input.GetKey(key);
         }
 
         internal static bool RawKeyDown(KeyCode key)
         {
-            if (fakeMouse.HasValue && fakeKeyDown == key) return true;
+            if (fakeKeyDown == key && key != KeyCode.None) return true;
             return Input.GetKeyDown(key);
         }
 
