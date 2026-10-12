@@ -1,0 +1,84 @@
+# Context pointer badge, path preview and the orders list of the command card (screenshots cur_*.png).
+# Screen coordinates are 1920x1080 with the origin at the bottom left. The orders button is at (1657, 127); the list
+# opens above it, its rows (8, 32 px each, first = attack-move) are at x = 1686, y = 399 - 32 * row.
+@wait 4
+@log === C0 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 20
+hc_gold 3000
+hc_recruit Commando
+hc_recruit Mage
+@wait 22
+hc_cam army
+hc_cam dist 32
+@wait 3
+hc_select none
+@log === C1 nothing selected, pointer on a hero (expect Select)
+hc_mouse_hero 2
+@wait 0.6
+hc_cursor
+hc_screenshot cur_select
+@log === C2 hero 1 selected, pointer on the ground (expect Move)
+hc_select 1
+hc_mouse 960 300
+@wait 0.6
+hc_cursor
+hc_screenshot cur_move
+@log === C3 the same with Shift (expect Move (queued))
+hc_mouse 1100 330 shift
+@wait 0.6
+hc_cursor
+hc_screenshot cur_queue
+@log === C4 pointer on another hero (expect Follow)
+hc_mouse_hero 2
+@wait 0.6
+hc_cursor
+hc_screenshot cur_follow
+@log === C5 pointer on the selected hero itself (expect Select)
+hc_mouse_hero 1
+@wait 0.6
+hc_cursor
+@log === C6 pointer on an enemy (expect Attack)
+hc_spawn 3
+@wait 2
+hc_mouse_enemy
+@wait 0.6
+hc_cursor
+hc_screenshot cur_attack
+@log === C7 attack-move mode armed with the hotkey
+hc_key Q
+@wait 0.5
+hc_mouse 1100 420
+@wait 0.6
+hc_cursor
+hc_screenshot cur_mode
+hc_click 960 540 1
+@wait 0.5
+hc_ping
+@log === C8 the orders list: open, screenshot, click Hold (row 3)
+hc_click 1657 127
+@wait 1
+hc_ping
+hc_screenshot cur_menu
+hc_click 1686 303
+@wait 1
+hc_ping
+hc_status
+@log === C9 the list again, closed by Esc (the pause key)
+hc_click 1657 127
+@wait 1
+hc_ping
+pause
+@wait 1
+@log (the list must be closed and the game NOT paused)
+hc_ping
+@log === END
+hc_input_end
+disconnect
+@norun
+@wait 4
+@quit

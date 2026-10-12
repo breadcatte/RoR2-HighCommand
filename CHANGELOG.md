@@ -20,10 +20,15 @@ Interface
 
 * One look for the whole interface: panels, cards and buttons have two cut corners and a thin steel outline, the big
   panels carry a short orange tick, the titles of the command card have an orange bar and a hairline.
-* Command card: every order and stance button has a picture (crossed swords, stop, pause, crosshair, U-turn, double arrow,
-  flag, formation dots, chevrons, shield, "no entry", portal) and the commander's abilities have their own (orbital
-  strike, cross, horn, diamond). The hotkey sits on a small key cap, the cooldown is a radial sweep with the seconds in
-  the middle. The pictures are drawn in code.
+* Command card, made short (about 160 px instead of 290): the selected hero's skills, one "Orders" button that opens a
+  list (attack-move, focus, stop, hold, retreat, patrol, rally point, formation: each with a picture, its name and the
+  hotkey; a click on a row or Esc closes it), a three-way stance switch and, above, the commander's abilities. The
+  teleporter button is gone: the strip at the top is clickable and the hotkey stays. The hotkey sits on a small key cap,
+  the cooldown is a radial sweep with the seconds in the middle. The pictures are drawn in code.
+* The pointer shows what a right click would do: a small badge with a picture and a word next to it - Move, Attack,
+  Follow, Use, Select ("(queued)" with Shift). While a targeting mode waits for a click it shows that mode.
+* A thin line runs from every selected hero (the first six) to the point under the pointer, from the end of the queue
+  when Shift is held.
 * Minimap: a proper frame (cut corners, clipped contents), the picture is now a soft relief of the walkable ground
   (colour by height, haze, light edge, faint grid) instead of a cloud of dots, the stage name and "N" in the corners,
   dots have a dark rim, selected heroes get a ring, the camera box is a view finder (tint, hairlines, corner brackets).
@@ -34,7 +39,10 @@ Interface
 Dev
 * `hc_cam sweep <dx> <dz> <seconds>` pans along a line through the keyboard pan's code and logs the heights (with what
   the old code would have picked); `hc_drag ... hold` keeps the mouse button down until `hc_input_end`.
-* Scenarios `tools\qa\camera.txt`, `tools\qa\select.txt` and `tools\qa\uishot.txt` (a screenshot per interface state).
+* Scenarios `tools\qa\camera.txt`, `tools\qa\select.txt`, `tools\qa\uishot.txt` (a screenshot per interface state) and
+  `tools\qa\cursor.txt` (pointer badge, preview line, orders list).
+* `hc_mouse <x> <y> [shift]`, `hc_mouse_hero <id>`, `hc_mouse_enemy` move the synthetic pointer without clicking;
+  `hc_cursor` prints what the badge shows.
 * `tools\glyph-preview` renders every command-card picture into one PNG without the game
   (`dotnet run --project tools\glyph-preview -- <file.png>`).
 

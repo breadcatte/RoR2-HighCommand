@@ -8,6 +8,7 @@ namespace HighCommand.UI
         AttackMove, Stop, Hold, Focus, Retreat, Patrol, Rally, Formation,
         Aggressive, Defensive, Passive, Teleporter,
         OrbitalStrike, Medic, WarCry, Mark,
+        Move, Attack, Follow, Interact, Select, ChevronDown,
         Count
     }
 
@@ -129,6 +130,54 @@ namespace HighCommand.UI
                     p.Poly(new[] { 32f, 60f, 56f, 32f, 32f, 4f, 8f, 32f });
                     p.Erase(new[] { 32f, 60f, 56f, 32f, 32f, 4f, 8f, 32f }, 0.62f, 32f, 32f);
                     p.Disc(32f, 32f, 7f);
+                    break;
+
+                case Glyph.Move:
+                    p.Seg(12f, 12f, 38f, 38f, 8f);
+                    p.Tri(58f, 58f, 26f, 50f, 50f, 26f);
+                    p.Disc(11f, 11f, 6f);
+                    break;
+
+                case Glyph.Attack:
+                    p.Sword(10f, 8f, 56f, 56f);
+                    break;
+
+                case Glyph.Follow:
+                    for (int i = 0; i < 2; i++)
+                    {
+                        float x = 8f + i * 22f;
+                        p.Seg(x, 10f, x + 20f, 32f, 8f);
+                        p.Seg(x, 54f, x + 20f, 32f, 8f);
+                    }
+                    break;
+
+                case Glyph.Interact:
+                    // a cog: a ring with eight teeth
+                    p.Ring(32f, 32f, 13f, 9f);
+                    for (int i = 0; i < 8; i++)
+                    {
+                        double a = i * Math.PI / 4.0;
+                        float cos = (float)Math.Cos(a), sin = (float)Math.Sin(a);
+                        p.Seg(32f + cos * 17f, 32f + sin * 17f, 32f + cos * 26f, 32f + sin * 26f, 8f);
+                    }
+                    break;
+
+                case Glyph.Select:
+                    // four corner brackets round a dot
+                    for (int cx = 0; cx < 2; cx++)
+                        for (int cy = 0; cy < 2; cy++)
+                        {
+                            float x = cx == 0 ? 7f : 57f, y = cy == 0 ? 7f : 57f;
+                            float dx = cx == 0 ? 18f : -18f, dy = cy == 0 ? 18f : -18f;
+                            p.Seg(x, y - (cy == 0 ? 2.5f : -2.5f), x + dx, y - (cy == 0 ? 2.5f : -2.5f), 5f);
+                            p.Seg(x - (cx == 0 ? 2.5f : -2.5f), y, x - (cx == 0 ? 2.5f : -2.5f), y + dy, 5f);
+                        }
+                    p.Disc(32f, 32f, 6f);
+                    break;
+
+                case Glyph.ChevronDown:
+                    p.Seg(10f, 42f, 32f, 20f, 8f);
+                    p.Seg(54f, 42f, 32f, 20f, 8f);
                     break;
             }
             return p.Alpha;

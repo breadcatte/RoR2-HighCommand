@@ -79,6 +79,186 @@ namespace HighCommand.Client
             OrderState.WantsLeftClick = false;
         }
 
+        // ---- what a click would do: the badge next to the pointer and the path preview ------------------------
+
+        /// <summary>Everything the overlay needs to draw the pointer badge and the preview line this frame.</summary>
+        internal struct CursorInfo
+        {
+            internal bool Show;
+            internal Glyph Glyph;
+            internal Color Color;
+            internal string Label;
+            internal bool HasPoint;      // the point the preview line runs to
+            internal Vector3 Point;
+            internal bool Preview;       // draw the line from the selected heroes
+            internal bool Queued;        // Shift held: the line starts at the end of the queue
+        }
+
+        internal CursorInfo Cursor { get; private set; }
+
+        private enum Hover { None, Select, Move, Attack, Follow, Interact }
+
+        private static readonly Color MoveColor = new Color(0.4f, 1f, 0.5f, 1f);
+        private static readonly Color AttackColor = new Color(1f, 0.35f, 0.3f, 1f);
+        private static readonly Color FollowColor = new Color(0.5f, 0.8f, 1f, 1f);
+        private static readonly Color InteractColor = new Color(1f, 0.9f, 0.3f, 1f);
+        private static readonly Color OrangeColor = new Color(1f, 0.6f, 0.25f, 1f);
+
+        // labels are built once per (kind, queued): the badge asks every frame
+        private readonly string[] labelCache = new string[12];
+
+        private string LabelFor(Hover kind, bool queued)
+        {
+            int key = (int)kind * 2 + (queued ? 1 : 0);
+            string text = labelCache[key];
+            if (text != null) return text;
+
+            switch (kind)
+            {
+                case Hover.Move: text = Loc.Get("HIGHCOMMAND_CURSOR_MOVE"); break;
+                case Hover.Attack: text = Loc.Get("HIGHCOMMAND_CURSOR_ATTACK"); break;
+                case Hover.Follow: text = Loc.Get("HIGHCOMMAND_CURSOR_FOLLOW"); break;
+                case Hover.Interact: text = Loc.Get("HIGHCOMMAND_CURSOR_INTERACT"); break;
+                case Hover.Select: return labelCache[key] = Loc.Get("HIGHCOMMAND_CURSOR_SELECT");
+                default: text = ""; break;
+            }
+            if (queued && text.Length > 0) text += Loc.Get("HIGHCOMMAND_CURSOR_QUEUE");
+            return labelCache[key] = text;
+        }
+
+        /// <summary>
+        /// Works out what a right click would do under the pointer (the same priorities as <see cref="ContextOrder"/>) or,
+        /// while a targeting mode waits, what the next left click would do. Call once per frame after the selection
+        /// controller has set the hovered hero.
+        /// </summary>
+        internal void UpdateHover(IReadOnlyList<Hero> heroes, bool inputAllowed)
+        {
+            var info = new CursorInfo { Queued = ClientInput.Shift };
+            Cursor = info;
+            if (!inputAllowed || ClientInput.MouseBlocked || !ClientInput.PointerInWindow) return;
+            if (overlay.DragRect.HasValue) return;
+
+            Vector2 mouse = ClientInput.Mouse;
+            Vector3? onMap = minimap.ScreenToWorld(mouse);
+            bool overUi = ClientInput.PointerOverUi && !onMap.HasValue;
+
+            // a targeting mode waits for a click: show what it will do and where
+            if (Mode != Pending.None)
+            {
+                info.Show = true;
+                info.Label = ModeHint;
+                info.Glyph = ModeGlyph(out info.Color);
+                if (!overUi) FindPoint(mouse, onMap, ref info);
+                bool lineMode = Mode == Pending.AttackMove || Mode == Pending.Patrol;
+                info.Preview = lineMode && info.HasPoint && selection.Count > 0;
+                Cursor = info;
+                return;
+            }
+
+            Hover kind = Hover.None;
+            if (selection.Count == 0)
+            {
+                if (!overUi && overlay.HoveredHero != null) kind = Hover.Select;
+            }
+            else if (onMap.HasValue)
+            {
+                kind = Hover.Move;
+                info.HasPoint = true;
+                info.Point = Orders.Formation.SnapToGround(WithGround(onMap.Value));
+            }
+            else if (!overUi)
+            {
+                CharacterBody enemy = overlay.HoveredHero == null ? overlay.HoveredEnemy : WorldPicker.PickEnemy(mouse);
+                Hero friend = null;
+                if (!enemy)
+                {
+                    friend = overlay.HoveredHero != null ? overlay.HoveredHero : WorldPicker.PickHero(mouse, heroes);
+                    if (friend != null && (selection.Contains(friend) || !friend.Body)) friend = null;
+                }
+
+                if (enemy)
+                {
+                    kind = Hover.Attack;
+                    info.HasPoint = true;
+                    info.Point = enemy.corePosition;
+                }
+                else if (friend != null)
+                {
+                    kind = Hover.Follow;
+                    info.HasPoint = true;
+                    info.Point = friend.Body.corePosition;
+                }
+                else
+                {
+                    GameObject interactable = WorldPicker.PickInteractable(mouse);
+                    if (interactable)
+                    {
+                        kind = Hover.Interact;
+                        info.HasPoint = true;
+                        info.Point = interactable.transform.position;
+                    }
+                    else if (overlay.HoveredHero != null)
+                    {
+                        kind = Hover.Select; // a selected hero: a click would only select it
+                    }
+                    else if (WorldPicker.GroundPoint(mouse, out Vector3 ground))
+                    {
+                        kind = Hover.Move;
+                        info.HasPoint = true;
+                        info.Point = ground;
+                    }
+                }
+            }
+
+            if (kind == Hover.None) return;
+
+            info.Show = true;
+            info.Label = LabelFor(kind, info.Queued && kind != Hover.Select);
+            switch (kind)
+            {
+                case Hover.Select: info.Glyph = Glyph.Select; info.Color = Color.white; break;
+                case Hover.Move: info.Glyph = Glyph.Move; info.Color = MoveColor; break;
+                case Hover.Attack: info.Glyph = Glyph.Attack; info.Color = AttackColor; break;
+                case Hover.Follow: info.Glyph = Glyph.Follow; info.Color = FollowColor; break;
+                case Hover.Interact: info.Glyph = Glyph.Interact; info.Color = InteractColor; break;
+            }
+            info.Preview = kind != Hover.Select && info.HasPoint;
+            Cursor = info;
+        }
+
+        private void FindPoint(Vector2 mouse, Vector3? onMap, ref CursorInfo info)
+        {
+            if (onMap.HasValue)
+            {
+                info.HasPoint = true;
+                info.Point = Orders.Formation.SnapToGround(WithGround(onMap.Value));
+            }
+            else if (WorldPicker.GroundPoint(mouse, out Vector3 ground))
+            {
+                info.HasPoint = true;
+                info.Point = ground;
+            }
+        }
+
+        private Glyph ModeGlyph(out Color color)
+        {
+            switch (Mode)
+            {
+                case Pending.AttackMove: color = OrangeColor; return Glyph.AttackMove;
+                case Pending.Focus: color = AttackColor; return Glyph.Focus;
+                case Pending.Patrol: color = InteractColor; return Glyph.Patrol;
+                case Pending.Rally: color = FollowColor; return Glyph.Rally;
+                case Pending.AbilityPoint:
+                case Pending.AbilityTarget:
+                {
+                    Glyph[] abilities = { Glyph.OrbitalStrike, Glyph.Medic, Glyph.WarCry, Glyph.Mark };
+                    color = OrangeColor;
+                    return abilities[Mathf.Clamp(abilityIndex, 0, abilities.Length - 1)];
+                }
+                default: color = OrangeColor; return Glyph.Focus;
+            }
+        }
+
         internal void Tick(IReadOnlyList<Hero> heroes, bool inputAllowed)
         {
             OrderState.WantsLeftClick = false;

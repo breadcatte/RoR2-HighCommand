@@ -100,6 +100,29 @@ namespace HighCommand.UI
                 keyCap.rectTransform.sizeDelta = new Vector2(Mathf.Clamp(key.Length * 7f + 6f, 14f, 46f), 14f);
         }
 
+        /// <summary>
+        /// A wide, low button (a list row): the picture at one end, the caption next to it and the key cap at the far end,
+        /// all on one line. Call after <see cref="SetGlyph"/>.
+        /// </summary>
+        internal void SetRowLayout(float glyphSize, bool glyphAtRight = false, bool keyCap = true)
+        {
+            float x = glyphAtRight ? 1f : 0f;
+            UiKit.Place(GlyphImage.rectTransform, new Vector2(x, 0.5f), new Vector2(x, 0.5f),
+                new Vector2(glyphAtRight ? -9f : 9f, 0f), new Vector2(glyphSize, glyphSize));
+
+            float side = glyphSize + 16f;
+            float left = glyphAtRight ? 10f : side;
+            float right = glyphAtRight ? side : (keyCap ? 40f : 8f);
+            UiKit.Stretch(Label.rectTransform, left, 2, right, 2);
+            Label.alignment = TextAlignmentOptions.Left;
+            Label.fontSizeMax = 16f;
+            Label.fontSizeMin = 10f;
+
+            this.keyCap.rectTransform.anchorMin = this.keyCap.rectTransform.anchorMax = new Vector2(1f, 0.5f);
+            this.keyCap.rectTransform.pivot = new Vector2(1f, 0.5f);
+            this.keyCap.rectTransform.anchoredPosition = new Vector2(-6f, 0f);
+        }
+
         /// <summary>A drawn picture above the caption instead of a game icon.</summary>
         internal void SetGlyph(Glyph glyph, float size = 24f)
         {

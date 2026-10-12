@@ -757,6 +757,63 @@ namespace HighCommand.Dev
             Client.ClientInput.InjectClick(at, button);
         }
 
+        [ConCommand(commandName = "hc_mouse", flags = HostOnly, helpText = "hc_mouse <x> <y> [shift]: moves the synthetic pointer there and leaves it (hc_input_end releases it).")]
+        private static void CcMouse(ConCommandArgs args)
+        {
+            Client.ClientInput.InjectMove(new Vector2(args.GetArgFloat(0), args.GetArgFloat(1)), HasFlag(args, 2, "shift"));
+        }
+
+        [ConCommand(commandName = "hc_mouse_enemy", flags = HostOnly, helpText = "hc_mouse_enemy [shift]: moves the synthetic pointer onto the enemy nearest to the camera focus.")]
+        private static void CcMouseEnemy(ConCommandArgs args)
+        {
+            var cam = Client.RtsCamera.Instance;
+            if (!cam) throw new ConCommandException("No camera.");
+            CharacterBody best = null;
+            float bestD = float.MaxValue;
+            foreach (TeamIndex team in new[] { TeamIndex.Monster, TeamIndex.Lunar, TeamIndex.Void })
+            {
+                foreach (TeamComponent tc in TeamComponent.GetTeamMembers(team))
+                {
+                    if (!tc || !tc.body || !tc.body.healthComponent || !tc.body.healthComponent.alive) continue;
+                    if (!Client.WorldPicker.Project(tc.body.corePosition, 1f, out Vector2 s, out float _)) continue;
+                    if (!Client.WorldPicker.IsOnScreen(s, -60f)) continue;
+                    float d = (tc.body.corePosition - cam.Focus).sqrMagnitude;
+                    if (d < bestD) { bestD = d; best = tc.body; }
+                }
+            }
+            if (!best) throw new ConCommandException("No enemy on screen.");
+            Client.WorldPicker.Project(best.corePosition, 1f, out Vector2 at, out float _);
+            Debug.Log($"HighCommand: pointer on enemy {best.name} at ({at.x:0},{at.y:0})");
+            Client.ClientInput.InjectMove(at, HasFlag(args, 0, "shift"));
+        }
+
+        [ConCommand(commandName = "hc_mouse_hero", flags = HostOnly, helpText = "hc_mouse_hero <heroId>: moves the synthetic pointer onto the hero's body.")]
+        private static void CcMouseHero(ConCommandArgs args)
+        {
+            var run = Mode.HighCommandRun.Instance;
+            if (run == null) throw new ConCommandException("Not in a High Command run.");
+            int id = args.GetArgInt(0);
+            foreach (var h in run.Army.Heroes)
+            {
+                if (h.Id != id) continue;
+                if (!h.Body) throw new ConCommandException("Hero has no body.");
+                if (!Client.WorldPicker.Project(h.Body.corePosition, 1f, out Vector2 s, out float _))
+                    throw new ConCommandException("Hero is behind the camera.");
+                Client.ClientInput.InjectMove(s);
+                return;
+            }
+            throw new ConCommandException("No such hero.");
+        }
+
+        [ConCommand(commandName = "hc_cursor", flags = HostOnly, helpText = "Prints what the pointer badge shows now.")]
+        private static void CcCursor(ConCommandArgs args)
+        {
+            var root = Client.ClientRoot.Instance;
+            if (!root) throw new ConCommandException("Not in a High Command run.");
+            var c = root.CursorInfo;
+            Debug.Log($"HighCommand cursor: show={c.Show} glyph={c.Glyph} label='{c.Label}' preview={c.Preview} point={c.Point:0} queued={c.Queued} mouse={Client.ClientInput.Mouse:0}");
+        }
+
         [ConCommand(commandName = "hc_input_end", flags = HostOnly, helpText = "Ends synthetic input; the real mouse works again.")]
         private static void CcInputEnd(ConCommandArgs args) => Client.ClientInput.EndSynthetic();
 

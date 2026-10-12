@@ -87,6 +87,12 @@ namespace HighCommand.Client
             Script.Enqueue(new Step { mouse = to, buttonDown = -1, buttonUp = -1 });
         }
 
+        /// <summary>Puts the (synthetic) pointer somewhere and leaves it there until <see cref="EndSynthetic"/>.</summary>
+        internal static void InjectMove(Vector2 at, bool shift = false)
+        {
+            Script.Enqueue(new Step { mouse = at, buttonDown = -1, buttonUp = -1, shift = shift, keepModifiers = true });
+        }
+
         internal static void InjectKey(KeyCode key, bool ctrl = false, bool shift = false, bool alt = false)
         {
             Script.Enqueue(new Step { keyDown = key, buttonDown = -1, buttonUp = -1, ctrl = ctrl, shift = shift, alt = alt, keepModifiers = true });

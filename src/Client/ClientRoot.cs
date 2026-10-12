@@ -157,16 +157,20 @@ namespace HighCommand.Client
         internal bool ConsumeEscape()
         {
             if (orders != null && orders.Mode != OrderController.Pending.None) { orders.CancelMode(); return true; }
+            if (commandCard != null && commandCard.CloseMenu()) return true;
             if (help != null && help.Visible) { help.Hide(); return true; }
             if (inventory != null && inventory.Visible) { inventory.Hide(); return true; }
             if (barracks != null && barracks.Visible) { barracks.Hide(); return true; }
             return false;
         }
 
+        /// <summary>Testing: what the pointer badge shows now.</summary>
+        internal OrderController.CursorInfo CursorInfo => orders != null ? orders.Cursor : default;
+
         /// <summary>Testing: which panels are open and which targeting mode waits for a click.</summary>
         internal string Describe()
         {
-            return $"mode={orders.Mode} help={help.Visible} barracks={barracks.Visible} inventory={inventory.Visible} " +
+            return $"mode={orders.Mode} help={help.Visible} barracks={barracks.Visible} inventory={inventory.Visible} menu={commandCard.MenuOpen} " +
                    $"selected={Selection.Count} scale={appliedUiScale:0.00} screen={Screen.width}x{Screen.height}";
         }
 
@@ -286,6 +290,7 @@ namespace HighCommand.Client
 
             t = Dev.Perf.Begin();
             selectionController.Tick(heroes, Camera, inputAllowed);
+            orders.UpdateHover(heroes, inputAllowed && Camera && Camera.SceneCam);
             Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartPick], t);
 
             t = Dev.Perf.Begin();
@@ -322,8 +327,8 @@ namespace HighCommand.Client
             long t = Dev.Perf.Begin();
             // (rings and bars would lie over the pause menu / console, so they are not drawn while those are up)
             if (inStage && !ClientInput.MouseBlocked && Camera && Camera.SceneCam)
-                overlay.Draw(Camera, Selection, CurrentHeroes(), orders.ModeHint);
-            else overlay.Draw(null, Selection, CurrentHeroes(), "");
+                overlay.Draw(Camera, Selection, CurrentHeroes(), orders.Cursor);
+            else overlay.Draw(null, Selection, CurrentHeroes());
             Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartOverlay], t);
 
             t = Dev.Perf.Begin();

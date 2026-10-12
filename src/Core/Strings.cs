@@ -201,6 +201,19 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_HINT_ABILITY_TARGET", "Click an enemy to mark it (right click cancels)", "Нажмите на врага, чтобы пометить (правая кнопка - отмена)");
             Loc.Add("HIGHCOMMAND_HELP_ABILITIES", "Commander abilities", "Способности командира");
 
+            // what a right click would do (the small badge next to the pointer) and the orders menu
+            Loc.Add("HIGHCOMMAND_CURSOR_MOVE", "Move", "Идти");
+            Loc.Add("HIGHCOMMAND_CURSOR_ATTACK", "Attack", "Атаковать");
+            Loc.Add("HIGHCOMMAND_CURSOR_FOLLOW", "Follow", "Следовать");
+            Loc.Add("HIGHCOMMAND_CURSOR_INTERACT", "Use", "Использовать");
+            Loc.Add("HIGHCOMMAND_CURSOR_SELECT", "Select", "Выбрать");
+            Loc.Add("HIGHCOMMAND_CURSOR_QUEUE", " (queued)", " (в очередь)");
+            Loc.Add("HIGHCOMMAND_MENU_ORDERS", "Orders", "Приказы");
+            Loc.Add("HIGHCOMMAND_MENU_ORDERS_DESC",
+                "Stop, hold, retreat, patrol, focus fire, rally point, formation. The right mouse button already does the rest: move, attack, follow, use.",
+                "Стоп, держать, отход, патруль, фокус, точка сбора, строй. Остальное делает правая кнопка мыши: идти, атаковать, следовать, использовать.");
+            Loc.Add("HIGHCOMMAND_MENU_STANCE", "Stance", "Стойка");
+
             // revival and teleporter
             Loc.Add("HIGHCOMMAND_REVIVE_NONE", "Nobody has fallen", "Никто не пал");
             Loc.Add("HIGHCOMMAND_REVIVE_ALIVE", "The hero is alive", "Герой жив");

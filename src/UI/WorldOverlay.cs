@@ -87,7 +87,7 @@ namespace HighCommand.UI
         }
 
         /// <summary>Redraws everything. Call after the camera has been positioned for this frame.</summary>
-        internal void Draw(RtsCamera camera, Selection selection, IReadOnlyList<Hero> heroes, string modeHint = "")
+        internal void Draw(RtsCamera camera, Selection selection, IReadOnlyList<Hero> heroes, OrderController.CursorInfo cursor = default)
         {
             barsUsed = 0;
             ringsUsed = 0;
@@ -100,7 +100,7 @@ namespace HighCommand.UI
             {
                 DrawRings(selection, heroes);
                 DrawBars(camera, selection);
-                DrawOrders(selection);
+                DrawOrders(selection, cursor);
                 DrawPings();
                 DrawPopups();
             }
@@ -109,7 +109,7 @@ namespace HighCommand.UI
             LastRings = ringsUsed;
             HideUnused();
             DrawDragRect();
-            DrawModeHint(modeHint);
+            DrawCursorBadge(cursor);
         }
 
         // ---- orders: destination markers, lines and pings ----------------------------------------
@@ -117,11 +117,20 @@ namespace HighCommand.UI
         private readonly List<Image> lines = new List<Image>(32);
         private readonly List<Image> pings = new List<Image>(16);
         private int linesUsed, pingsUsed;
-        private TMPro.TextMeshProUGUI hintText;
+        // the pointer badge: a small dark plate with a picture and a word ("Attack", "Move (queued)" ...)
+        private RectTransform badge;
+        private Image badgePlate;
+        private Image badgeGlyph;
+        private TMPro.TextMeshProUGUI badgeLabel;
+        private string badgeShownLabel;
+        private float badgeWidth;
 
-        private void DrawOrders(Selection selection)
+        private const int PreviewLimit = 6;
+
+        private void DrawOrders(Selection selection, OrderController.CursorInfo cursor)
         {
             var sel = selection.Heroes;
+            int previews = 0;
             for (int i = 0; i < sel.Count; i++)
             {
                 Hero hero = sel[i];
@@ -135,15 +144,40 @@ namespace HighCommand.UI
                 // the rest of the queue (Shift orders), dimmer, leg after leg. The queue lives in the server's brain:
                 // the mode is single-player, so the host reads it directly.
                 Orders.HeroBrain brain = hero.Brain;
-                if (brain == null) continue;
-                IReadOnlyList<Orders.Order> queue = brain.Queue;
-                for (int q = 0; q < queue.Count && q < 8; q++)
+                if (brain != null)
                 {
-                    Orders.Order o = queue[q];
-                    if (o == null) continue;
-                    DrawOrderLeg(last, o.Kind, o.Destination(), out last, 0.55f);
+                    IReadOnlyList<Orders.Order> queue = brain.Queue;
+                    for (int q = 0; q < queue.Count && q < 8; q++)
+                    {
+                        Orders.Order o = queue[q];
+                        if (o == null) continue;
+                        DrawOrderLeg(last, o.Kind, o.Destination(), out last, 0.55f);
+                    }
+                }
+
+                // where a click would send this hero: from its feet, or from the end of its queue with Shift held
+                if (cursor.Preview && cursor.HasPoint && previews < PreviewLimit)
+                {
+                    previews++;
+                    Color c = cursor.Color;
+                    c.a = 0.4f;
+                    DrawPreview(cursor.Queued ? last : from, cursor.Point, c);
                 }
             }
+        }
+
+        private void DrawPreview(Vector3 from, Vector3 to, Color color)
+        {
+            if (!WorldPicker.Project(from, 0.1f, out Vector2 a, out float _)) return;
+            if (!WorldPicker.Project(to, 0.1f, out Vector2 b, out float _)) return;
+            DrawLine(a, b, color, 2f);
+
+            Image marker = AcquireRing();
+            Color m = color;
+            m.a = 0.6f;
+            marker.color = m;
+            marker.rectTransform.sizeDelta = new Vector2(18f, 10f);
+            marker.rectTransform.position = new Vector3(b.x, b.y, 0f);
         }
 
         private void DrawOrderLeg(Vector3 from, Orders.OrderKind kind, Vector3 point, out Vector3 end, float alpha = 1f)
@@ -261,21 +295,60 @@ namespace HighCommand.UI
                 if (popupTexts[i].enabled) popupTexts[i].enabled = false;
         }
 
-        private void DrawModeHint(string hint)
+        private void EnsureBadge()
         {
-            if (!hintText)
+            if (badge) return;
+            badge = UiKit.NewRect("CursorBadge", layer);
+            badge.anchorMin = badge.anchorMax = Vector2.zero;
+            badge.pivot = new Vector2(0f, 1f);
+            badge.sizeDelta = new Vector2(80f, 32f);
+
+            badgePlate = badge.gameObject.AddComponent<Image>();
+            UiKit.StyleOutline(badgePlate, 8f);
+            badgePlate.color = new Color(0.03f, 0.04f, 0.06f, 0.84f);
+            badgePlate.raycastTarget = false;
+
+            badgeGlyph = UiKit.NewImage("Glyph", badge, UiKit.White, Color.white);
+            badgeGlyph.preserveAspect = true;
+            UiKit.Place(badgeGlyph.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(7f, 0f), new Vector2(22f, 22f));
+
+            badgeLabel = UiKit.NewText("Label", badge, "", 18f, UiKit.Text, TMPro.TextAlignmentOptions.Left);
+            UiKit.Place(badgeLabel.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(36f, 0f), new Vector2(600f, 28f));
+            badge.gameObject.SetActive(false);
+        }
+
+        /// <summary>The badge next to the pointer: what a click would do (the picture is the order's, the colour its kind).</summary>
+        private void DrawCursorBadge(OrderController.CursorInfo cursor)
+        {
+            if (!cursor.Show)
             {
-                hintText = UiKit.NewText("ModeHint", layer, "", 22f, new Color(1f, 0.85f, 0.4f, 1f), TMPro.TextAlignmentOptions.Left);
-                hintText.rectTransform.sizeDelta = new Vector2(520f, 34f);
-                hintText.rectTransform.pivot = new Vector2(0f, 1f);
-                hintText.enabled = false;
+                if (badge && badge.gameObject.activeSelf) badge.gameObject.SetActive(false);
+                return;
             }
-            bool show = !string.IsNullOrEmpty(hint);
-            if (hintText.enabled != show) hintText.enabled = show;
-            if (!show) return;
-            if (hintText.text != hint) hintText.text = hint;
+
+            EnsureBadge();
+            if (!badge.gameObject.activeSelf) badge.gameObject.SetActive(true);
+
+            Sprite sprite = UiKit.GlyphSprite(cursor.Glyph);
+            if (badgeGlyph.sprite != sprite) badgeGlyph.sprite = sprite;
+            badgeGlyph.color = cursor.Color;
+
+            string label = cursor.Label ?? "";
+            if (!string.Equals(label, badgeShownLabel, System.StringComparison.Ordinal))
+            {
+                badgeShownLabel = label;
+                badgeLabel.text = label;
+                float text = label.Length > 0 ? badgeLabel.GetPreferredValues(label, 600f, 0f).x : 0f;
+                badgeWidth = 36f + text + 12f;
+                badge.sizeDelta = new Vector2(badgeWidth, 32f);
+            }
+
+            // beside the pointer, below its tip; on the left of it near the right edge of the screen
             Vector2 m = ClientInput.Mouse;
-            hintText.rectTransform.position = new Vector3(m.x + 26f, m.y - 6f, 0f);
+            float scale = Mathf.Max(0.0001f, layer.lossyScale.x);
+            float x = m.x + 20f;
+            if (x + badgeWidth * scale > Screen.width - 4f) x = m.x - 8f - badgeWidth * scale;
+            badge.position = new Vector3(x, m.y - 24f, 0f);
         }
 
         // diagnostics (hc_overlay)

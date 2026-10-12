@@ -13,14 +13,22 @@ using UnityEngine.UI;
 namespace HighCommand.UI
 {
     /// <summary>
-    /// Bottom-right command card: order and stance buttons, the selected hero's skills (with cooldowns and the
-    /// automatic-use switch) and, above it, the commander's own abilities. Every button does exactly what its hotkey does.
+    /// Bottom-right command card. The mouse already does most of the commanding (right click: move / attack / follow /
+    /// use), so the card is short: the selected hero's skills (with cooldowns and the automatic-use switch), one
+    /// "Orders" button that opens a list (attack-move, focus, stop, hold, retreat, patrol, rally, formation), a
+    /// three-way stance switch, and above it the commander's own abilities. Every entry does what its hotkey does.
     /// </summary>
     internal sealed class CommandCard
     {
-        private const float BtnW = 74f, BtnH = 52f, Gap = 6f, Pad = 12f;
-        private const float Head = 32f; // the title strip above the buttons
+        private const float BtnW = 74f, Gap = 6f, Pad = 12f;
+        private const float Head = 32f;      // the title strip above the buttons
+        private const float RowH = 34f;      // the orders button / stance switch row
+        private const float SkillH = 74f;
+        private const float AbilityH = 60f;
         private const float CardW = 4 * BtnW + 3 * Gap + 2 * Pad;
+
+        private const float MenuW = 236f, MenuRowH = 32f, MenuPad = 8f;
+
         private static readonly Regex Tags = new Regex("<[^>]+>", RegexOptions.Compiled);
 
         private sealed class OrderButton
@@ -30,7 +38,9 @@ namespace HighCommand.UI
             internal Func<string> hotkey;
             internal string nameToken;
             internal string descToken;
-            internal byte shownFormation = 255; // formation button only: which name its label shows
+            internal bool inMenu;             // a row of the orders list (else a stance switch segment)
+            internal byte shownFormation = 255; // formation row only: which name its label shows
+            internal bool labelSet;
         }
 
         private sealed class SkillButton
@@ -63,15 +73,17 @@ namespace HighCommand.UI
         private readonly TextMeshProUGUI title;
         private readonly RectTransform commanderRoot;
         private readonly TextMeshProUGUI commanderTitle;
+        private readonly RectTransform menuRoot;
+        private readonly UiButton menuButton;
         private readonly List<OrderButton> orderButtons = new List<OrderButton>();
         private readonly List<SkillButton> skillButtons = new List<SkillButton>();
         private readonly List<AbilityButton> abilityButtons = new List<AbilityButton>();
-        private UiButton teleporterButton;
+        private bool menuOpen;
 
         internal CommandCard(Transform parent)
         {
             // --- orders + skills ---
-            float height = Head + 3 * (BtnH + Gap) + 4f + 74f + Pad + 4f;
+            float height = Head + RowH + Gap + SkillH + Pad + 4f;
             root = UiKit.NewPanel("CommandCard", parent, UiKit.PanelColor);
             UiKit.Place(root, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-14f, 14f), new Vector2(CardW, height));
             title = AddHeader(root);
@@ -79,35 +91,43 @@ namespace HighCommand.UI
             var inner = UiKit.NewRect("Buttons", root);
             UiKit.Stretch(inner, 0, 0, 0, 0);
 
-            AddOrder(inner, 0, 0, OrderController.Act.AttackMove, Glyph.AttackMove, "HIGHCOMMAND_CMD_ATTACKMOVE", () => Key(Settings.KeyAttackMove));
-            AddOrder(inner, 1, 0, OrderController.Act.Stop, Glyph.Stop, "HIGHCOMMAND_CMD_STOP", () => Key(Settings.KeyStop));
-            AddOrder(inner, 2, 0, OrderController.Act.Hold, Glyph.Hold, "HIGHCOMMAND_CMD_HOLD", () => Key(Settings.KeyHold));
-            AddOrder(inner, 3, 0, OrderController.Act.Focus, Glyph.Focus, "HIGHCOMMAND_CMD_FOCUS", () => Key(Settings.KeyFocusFire));
+            // the orders button and the stance switch share one row
+            float menuButtonW = 2 * BtnW + Gap;
+            menuButton = new UiButton(inner, "OrdersMenu", new Vector2(menuButtonW, RowH));
+            menuButton.SetPosition(Pad, Head);
+            menuButton.SetGlyph(Glyph.ChevronDown, 14f);
+            menuButton.SetRowLayout(14f, glyphAtRight: true, keyCap: false);
+            menuButton.Accent = new Color(1f, 0.7f, 0.35f, 0.85f);
+            menuButton.Label.text = Loc.Get("HIGHCOMMAND_MENU_ORDERS");
 
-            AddOrder(inner, 0, 1, OrderController.Act.Retreat, Glyph.Retreat, "HIGHCOMMAND_CMD_RETREAT", () => Key(Settings.KeyRetreat));
-            AddOrder(inner, 1, 1, OrderController.Act.Patrol, Glyph.Patrol, "HIGHCOMMAND_CMD_PATROL", () => Key(Settings.KeyPatrol));
-            AddOrder(inner, 2, 1, OrderController.Act.Rally, Glyph.Rally, "HIGHCOMMAND_CMD_RALLY", () => Key(Settings.KeyRally));
-            AddOrder(inner, 3, 1, OrderController.Act.Formation, Glyph.Formation, "HIGHCOMMAND_CMD_FORMATION", () => Key(Settings.KeyFormationCycle));
+            float stanceX = Pad + menuButtonW + Gap;
+            float stanceW = (CardW - Pad - stanceX - 2 * 5f) / 3f;
+            AddStance(inner, stanceX, stanceW, 0, OrderController.Act.StanceAggressive, Glyph.Aggressive, "HIGHCOMMAND_CMD_STANCE_AGGRESSIVE", () => Key(Settings.KeyStanceAggressive));
+            AddStance(inner, stanceX, stanceW, 1, OrderController.Act.StanceDefensive, Glyph.Defensive, "HIGHCOMMAND_CMD_STANCE_DEFENSIVE", () => Key(Settings.KeyStanceDefensive));
+            AddStance(inner, stanceX, stanceW, 2, OrderController.Act.StancePassive, Glyph.Passive, "HIGHCOMMAND_CMD_STANCE_PASSIVE", () => Key(Settings.KeyStancePassive));
 
-            AddOrder(inner, 0, 2, OrderController.Act.StanceAggressive, Glyph.Aggressive, "HIGHCOMMAND_CMD_STANCE_AGGRESSIVE", () => Key(Settings.KeyStanceAggressive));
-            AddOrder(inner, 1, 2, OrderController.Act.StanceDefensive, Glyph.Defensive, "HIGHCOMMAND_CMD_STANCE_DEFENSIVE", () => Key(Settings.KeyStanceDefensive));
-            AddOrder(inner, 2, 2, OrderController.Act.StancePassive, Glyph.Passive, "HIGHCOMMAND_CMD_STANCE_PASSIVE", () => Key(Settings.KeyStancePassive));
-
-            teleporterButton = new UiButton(inner, "Teleporter", new Vector2(BtnW, BtnH));
-            teleporterButton.SetPosition(Pad + 3 * (BtnW + Gap), Head + 2 * (BtnH + Gap));
-            teleporterButton.Accent = new Color(0.55f, 0.75f, 1f, 0.8f);
-            teleporterButton.SetGlyph(Glyph.Teleporter);
-            teleporterButton.SetHint(Key(Settings.KeyTeleporter));
-
-            float skillY = Head + 3 * (BtnH + Gap) + 4f;
+            float skillY = Head + RowH + Gap;
             AddSkill(inner, 0, skillY, 1, OrderController.Act.CastSecondary, () => Key(Settings.KeyCastSecondary));
             AddSkill(inner, 1, skillY, 2, OrderController.Act.CastUtility, () => Key(Settings.KeyCastUtility));
             AddSkill(inner, 2, skillY, 3, OrderController.Act.CastSpecial, () => Key(Settings.KeyCastSpecial));
             AddSkill(inner, 3, skillY, 4, OrderController.Act.CastEquipment, () => Key(Settings.KeyCastEquipment));
 
+            // --- the orders list: opens above the button ---
+            float menuH = MenuPad * 2 + 8 * MenuRowH;
+            menuRoot = UiKit.NewPanel("OrdersList", parent, UiKit.PanelDark);
+            UiKit.Place(menuRoot, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-(14f + CardW - MenuW), 14f + height - Head + 6f), new Vector2(MenuW, menuH));
+            AddMenuRow(0, OrderController.Act.AttackMove, Glyph.AttackMove, "HIGHCOMMAND_CMD_ATTACKMOVE", () => Key(Settings.KeyAttackMove));
+            AddMenuRow(1, OrderController.Act.Focus, Glyph.Focus, "HIGHCOMMAND_CMD_FOCUS", () => Key(Settings.KeyFocusFire));
+            AddMenuRow(2, OrderController.Act.Stop, Glyph.Stop, "HIGHCOMMAND_CMD_STOP", () => Key(Settings.KeyStop));
+            AddMenuRow(3, OrderController.Act.Hold, Glyph.Hold, "HIGHCOMMAND_CMD_HOLD", () => Key(Settings.KeyHold));
+            AddMenuRow(4, OrderController.Act.Retreat, Glyph.Retreat, "HIGHCOMMAND_CMD_RETREAT", () => Key(Settings.KeyRetreat));
+            AddMenuRow(5, OrderController.Act.Patrol, Glyph.Patrol, "HIGHCOMMAND_CMD_PATROL", () => Key(Settings.KeyPatrol));
+            AddMenuRow(6, OrderController.Act.Rally, Glyph.Rally, "HIGHCOMMAND_CMD_RALLY", () => Key(Settings.KeyRally));
+            AddMenuRow(7, OrderController.Act.Formation, Glyph.Formation, "HIGHCOMMAND_CMD_FORMATION", () => Key(Settings.KeyFormationCycle));
+
             // --- commander abilities ---
             commanderRoot = UiKit.NewPanel("Commander", parent, UiKit.PanelColor);
-            UiKit.Place(commanderRoot, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-14f, 14f + height + 8f), new Vector2(CardW, Head + 66f + Pad));
+            UiKit.Place(commanderRoot, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-14f, 14f + height + 8f), new Vector2(CardW, Head + AbilityH + Pad));
             commanderTitle = AddHeader(commanderRoot);
 
             Color[] colors =
@@ -120,11 +140,11 @@ namespace HighCommand.UI
             Glyph[] glyphs = { Glyph.OrbitalStrike, Glyph.Medic, Glyph.WarCry, Glyph.Mark };
             for (int i = 0; i < CommanderAbilities.Count; i++)
             {
-                var b = new UiButton(commanderRoot, "Ability" + i, new Vector2(BtnW, 66f), withIcon: true);
+                var b = new UiButton(commanderRoot, "Ability" + i, new Vector2(BtnW, AbilityH), withIcon: true);
                 b.SetPosition(Pad + i * (BtnW + Gap), Head);
                 b.Accent = colors[i];
                 b.Icon.enabled = false;
-                b.SetGlyph(glyphs[Mathf.Min(i, glyphs.Length - 1)], 28f);
+                b.SetGlyph(glyphs[Mathf.Min(i, glyphs.Length - 1)], 24f);
                 b.Label.text = Loc.Get(CommanderAbilities.NameToken(i));
                 b.SetHint(Key(Settings.KeyAbility[i]));
                 abilityButtons.Add(new AbilityButton { button = b, index = i });
@@ -133,6 +153,7 @@ namespace HighCommand.UI
             ClientInput.RegisterUiHitTest(Contains);
             root.gameObject.SetActive(false);
             commanderRoot.gameObject.SetActive(false);
+            menuRoot.gameObject.SetActive(false);
         }
 
         private static string Key(BepInEx.Configuration.ConfigEntry<KeyCode> entry)
@@ -157,25 +178,48 @@ namespace HighCommand.UI
             return text;
         }
 
-        private void AddOrder(Transform parent, int col, int row, OrderController.Act act, Glyph glyph, string nameToken, Func<string> hotkey)
+        private void AddStance(Transform parent, float x, float width, int index, OrderController.Act act, Glyph glyph, string nameToken, Func<string> hotkey)
         {
-            var b = new UiButton(parent, "Order_" + act, new Vector2(BtnW, BtnH));
-            b.SetPosition(Pad + col * (BtnW + Gap), Head + row * (BtnH + Gap));
-            b.SetGlyph(glyph);
-            b.SetHint(hotkey());
+            var b = new UiButton(parent, "Stance_" + act, new Vector2(width, RowH));
+            b.SetPosition(x + index * (width + 5f), Head);
+            b.SetGlyph(glyph, 22f);
+            // a picture only: re-centre it (no caption under it)
+            UiKit.Place(b.GlyphImage.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(22f, 22f));
+            b.Accent = new Color(0.7f, 0.9f, 0.5f, 0.75f);
             orderButtons.Add(new OrderButton
             {
                 button = b,
                 act = act,
                 hotkey = hotkey,
                 nameToken = nameToken,
-                descToken = nameToken + "_DESC"
+                descToken = nameToken + "_DESC",
+                inMenu = false,
+                labelSet = true
+            });
+        }
+
+        private void AddMenuRow(int index, OrderController.Act act, Glyph glyph, string nameToken, Func<string> hotkey)
+        {
+            var b = new UiButton(menuRoot, "Order_" + act, new Vector2(MenuW - 2 * MenuPad, MenuRowH - 2f));
+            b.SetPosition(MenuPad, MenuPad + index * MenuRowH);
+            b.SetGlyph(glyph, 20f);
+            b.SetRowLayout(20f);
+            b.SetHint(hotkey());
+            b.Accent = AccentOf(act);
+            orderButtons.Add(new OrderButton
+            {
+                button = b,
+                act = act,
+                hotkey = hotkey,
+                nameToken = nameToken,
+                descToken = nameToken + "_DESC",
+                inMenu = true
             });
         }
 
         private void AddSkill(Transform parent, int col, float y, int slot, OrderController.Act act, Func<string> hotkey)
         {
-            var b = new UiButton(parent, "Skill_" + slot, new Vector2(BtnW, 74f), withIcon: true);
+            var b = new UiButton(parent, "Skill_" + slot, new Vector2(BtnW, SkillH), withIcon: true);
             b.SetPosition(Pad + col * (BtnW + Gap), y);
             b.SetHint(hotkey());
             b.Label.text = "";
@@ -188,7 +232,19 @@ namespace HighCommand.UI
         internal bool Contains(Vector2 screenPoint)
         {
             return (root.gameObject.activeSelf && UiKit.Contains(root, screenPoint))
-                   || (commanderRoot.gameObject.activeSelf && UiKit.Contains(commanderRoot, screenPoint));
+                   || (commanderRoot.gameObject.activeSelf && UiKit.Contains(commanderRoot, screenPoint))
+                   || (menuRoot.gameObject.activeSelf && UiKit.Contains(menuRoot, screenPoint));
+        }
+
+        internal bool MenuOpen => menuOpen;
+
+        /// <summary>Closes the orders list when it is open (Esc). Returns true when it was.</summary>
+        internal bool CloseMenu()
+        {
+            if (!menuOpen) return false;
+            menuOpen = false;
+            if (menuRoot) menuRoot.gameObject.SetActive(false);
+            return true;
         }
 
         internal void Destroy()
@@ -196,6 +252,7 @@ namespace HighCommand.UI
             ClientInput.UnregisterUiHitTest(Contains);
             if (root) UnityEngine.Object.Destroy(root.gameObject);
             if (commanderRoot) UnityEngine.Object.Destroy(commanderRoot.gameObject);
+            if (menuRoot) UnityEngine.Object.Destroy(menuRoot.gameObject);
         }
 
         // ---- per frame -------------------------------------------------------------------------------------
@@ -204,6 +261,13 @@ namespace HighCommand.UI
         {
             if (root.gameObject.activeSelf != visible) root.gameObject.SetActive(visible);
             if (commanderRoot.gameObject.activeSelf != visible) commanderRoot.gameObject.SetActive(visible);
+            if (!visible) menuOpen = false;
+            bool menuShown = visible && menuOpen;
+            if (menuRoot.gameObject.activeSelf != menuShown)
+            {
+                menuRoot.gameObject.SetActive(menuShown);
+                if (menuShown) menuRoot.SetAsLastSibling();
+            }
             if (!visible) return;
 
             Vector2 mouse = ClientInput.Mouse;
@@ -223,9 +287,20 @@ namespace HighCommand.UI
                     : Loc.Get("HIGHCOMMAND_CARD_NOSELECTION"));
             }
 
-            // ---- order / stance buttons ----
+            // ---- the orders button ----
+            menuButton.Enabled = true;
+            menuButton.Active = menuOpen;
+            bool menuHover = menuButton.Refresh(mouse);
+            if (menuHover && !menuOpen) Tooltip.Show(Loc.Get("HIGHCOMMAND_MENU_ORDERS"), Loc.Get("HIGHCOMMAND_MENU_ORDERS_DESC"));
+            bool pressedMenuButton = menuButton.Clicked(click);
+            if (pressedMenuButton) menuOpen = !menuOpen;
+
+            // ---- list rows and stance switch ----
+            bool clickedRow = false;
             foreach (OrderButton o in orderButtons)
             {
+                if (o.inMenu && !menuShown) continue; // a closed list is not touched
+
                 UiButton b = o.button;
                 bool global = o.act == OrderController.Act.Rally || o.act == OrderController.Act.Formation;
                 b.Enabled = any || global;
@@ -235,22 +310,26 @@ namespace HighCommand.UI
                     if (o.shownFormation != orders.Formation)
                     {
                         o.shownFormation = orders.Formation;
-                        UiKit.SetText(b.Label, Loc.Get(o.nameToken) + "\n<size=75%>" + orders.FormationName + "</size>");
+                        UiKit.SetText(b.Label, Loc.Get(o.nameToken) + ": " + orders.FormationName);
                     }
                 }
-                else if (o.shownFormation == 255)
+                else if (!o.labelSet)
                 {
-                    o.shownFormation = 0; // "label is set" marker for the plain buttons
+                    o.labelSet = true;
                     UiKit.SetText(b.Label, Loc.Get(o.nameToken));
                 }
                 bool hover = b.Refresh(mouse);
-                b.Accent = AccentOf(o.act);
                 if (hover) Tooltip.Show(Loc.Get(o.nameToken), Loc.Get(o.descToken) + "\n\n[" + o.hotkey() + "]");
-                if (b.Clicked(click)) orders.Perform(o.act);
+                if (b.Clicked(click))
+                {
+                    orders.Perform(o.act);
+                    if (o.inMenu) clickedRow = true;
+                }
             }
 
-            // ---- teleporter ----
-            TickTeleporter(mouse, click, orders, state);
+            // a click on a row, or anywhere outside the list, closes it
+            if (menuOpen && (clickedRow || (click && !pressedMenuButton && !menuHover && !UiKit.Contains(menuRoot, mouse))))
+                CloseMenu();
 
             // ---- skills of the first selected hero ----
             CharacterBody body = first != null ? first.Body : null;
@@ -318,32 +397,6 @@ namespace HighCommand.UI
                 default:
                     return UiKit.Border;
             }
-        }
-
-        // ---- teleporter button --------------------------------------------------------------------------------
-
-        private void TickTeleporter(Vector2 mouse, bool click, OrderController orders, HcState state)
-        {
-            UiButton b = teleporterButton;
-            HcState.TeleState tele = state != null ? state.Teleporter : HcState.TeleState.None;
-
-            string token;
-            bool enabled = true;
-            switch (tele)
-            {
-                case HcState.TeleState.Idle: token = "HIGHCOMMAND_TP_BTN_ACTIVATE"; break;
-                case HcState.TeleState.Charging: token = "HIGHCOMMAND_TP_BTN_GATHER"; break;
-                case HcState.TeleState.BossAlive: token = "HIGHCOMMAND_TP_BTN_GATHER"; break;
-                case HcState.TeleState.Charged: token = "HIGHCOMMAND_TP_BTN_LEAVE"; break;
-                case HcState.TeleState.Leaving: token = "HIGHCOMMAND_TP_BTN_LEAVING"; enabled = false; break;
-                default: token = "HIGHCOMMAND_TP_BTN_NONE"; enabled = false; break;
-            }
-            b.Enabled = enabled;
-            b.Active = tele == HcState.TeleState.Charged;
-            UiKit.SetText(b.Label, Loc.Get(token));
-            bool hover = b.Refresh(mouse);
-            if (hover) Tooltip.Show(Loc.Get("HIGHCOMMAND_TP_TITLE"), Loc.Get("HIGHCOMMAND_TP_DESC") + "\n\n[" + Key(Settings.KeyTeleporter) + "]");
-            if (b.Clicked(click)) orders.TeleporterAction();
         }
 
         // ---- skill button ----------------------------------------------------------------------------------------
