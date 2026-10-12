@@ -52,6 +52,7 @@ namespace HighCommand
             TryPatch(typeof(Mode.MenuButton), "Extra Game Mode menu button");
             TryPatch(typeof(Mode.RunPatches.NoCommanderBody), "commander has no body");
             TryPatch(typeof(Mode.RunPatches.LivingPlayerCount), "living player count = living heroes");
+            TryPatch(typeof(Mode.LobbyRules.InitPatch), "lobby rules category");
             TryPatch(typeof(Mode.RunPatches.DirectorSpawnTarget), "director spawns around heroes");
             TryPatch(typeof(Mode.RunPatches.ZoneCountInRadius), "holdout zones count heroes inside");
             TryPatch(typeof(Mode.RunPatches.ZoneCountLiving), "holdout zones count living heroes");

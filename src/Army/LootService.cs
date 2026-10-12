@@ -54,7 +54,7 @@ namespace HighCommand.Army
 
             if (victim.isElite) chance *= 1.8f;
             if (victim.isChampion || victim.isBoss) chance = Mathf.Max(chance * 4f, 0.6f);
-            chance = Mathf.Clamp01(chance * Settings.ItemDropMultiplier.Value);
+            chance = Mathf.Clamp01(chance * LobbyRules.LootMultiplier);
 
             CharacterMaster luckSource = PoolMaster;
             if (!Util.CheckRoll(chance * 100f, luckSource)) return;

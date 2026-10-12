@@ -37,7 +37,7 @@ namespace HighCommand.Army
                 foreach (Hero h in army.Heroes) if (h.Master && h.Master.inventory) heroes.Add(h);
                 if (heroes.Count == 0) return;
 
-                bool mirror = Settings.ItemSharing.Value == SharingMode.Mirror;
+                bool mirror = HighCommand.Mode.LobbyRules.ItemMirror;
 
                 foreach (ItemIndex idx in ItemCatalog.allItems)
                 {
@@ -193,7 +193,7 @@ namespace HighCommand.Army
         /// </summary>
         internal void RedistributeAll(ArmyManager army)
         {
-            if (!NetworkServer.active || army == null || Settings.ItemSharing.Value == SharingMode.Mirror) return;
+            if (!NetworkServer.active || army == null || HighCommand.Mode.LobbyRules.ItemMirror) return;
             Inventory pool = LootService.Pool;
             if (!pool) return;
 
@@ -251,7 +251,7 @@ namespace HighCommand.Army
         {
             if (!NetworkServer.active || newcomer == null || !newcomer.Master || !newcomer.Master.inventory) return;
 
-            if (Settings.ItemSharing.Value == SharingMode.Mirror)
+            if (HighCommand.Mode.LobbyRules.ItemMirror)
             {
                 // everybody owns everything: the newcomer gets a copy of the whole pool
                 Inventory pool = LootService.Pool;

@@ -126,6 +126,9 @@ namespace HighCommand.Mode
             }
             if (!stage || Army.Count > 0) yield break;
 
+            // the lobby's rules are certainly available now: take the starting gold and the limits from them
+            Economy.ResetForNewRun();
+
             var commanders = PlayerCharacterMasterController.instances;
             if (commanders.Count == 0) Plugin.Log.LogWarning("No commander (player master) found; starting with the default survivor.");
 

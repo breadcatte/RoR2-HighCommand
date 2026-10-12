@@ -99,6 +99,35 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_ROLE_SUMMONER", "Summoner", "Призыватель");
             Loc.Add("HIGHCOMMAND_ROLE_GENERIC", "Survivor", "Выживший");
 
+            // lobby rules
+            Loc.Add("HIGHCOMMAND_RULES_HEADER", "High Command", "Верховное командование");
+            Loc.Add("HIGHCOMMAND_RULES_SUBTITLE", "Rules of the strategy mode", "Правила стратегического режима");
+            Loc.Add("HIGHCOMMAND_RULES_EDIT", "Edit the High Command rules", "Изменить правила «Верховного командования»");
+            Loc.Add("HIGHCOMMAND_RULE_CONFIG_NAME", "From settings", "Из настроек");
+            Loc.Add("HIGHCOMMAND_RULE_GOLD", "Starting gold", "Стартовое золото");
+            Loc.Add("HIGHCOMMAND_RULE_GOLD_DESC", "Gold the army starts the run with. \"From settings\" uses the value of the config file.",
+                "Золото армии в начале забега. «Из настроек» берёт значение из файла настроек.");
+            Loc.Add("HIGHCOMMAND_RULE_PRICE", "Hero prices", "Цены героев");
+            Loc.Add("HIGHCOMMAND_RULE_PRICE_DESC", "Multiplier on the price of recruiting and reviving heroes.",
+                "Множитель цены найма и воскрешения героев.");
+            Loc.Add("HIGHCOMMAND_RULE_ARMY", "Army size limit", "Предел размера армии");
+            Loc.Add("HIGHCOMMAND_RULE_ARMY_DESC", "The most heroes the army can have, including the starting one.",
+                "Наибольшее число героев в армии, включая стартового.");
+            Loc.Add("HIGHCOMMAND_RULE_THREAT", "Difficulty per extra hero", "Сложность за каждого героя");
+            Loc.Add("HIGHCOMMAND_RULE_THREAT_DESC", "How much each hero beyond the first counts as an extra player for the game's difficulty scaling. 1 = like a real co-op player.",
+                "Сколько «игроков» добавляет каждый герой сверх первого при расчёте сложности. 1 = как живой игрок в кооперативе.");
+            Loc.Add("HIGHCOMMAND_RULE_LOOT", "Item drop rate", "Частота выпадения предметов");
+            Loc.Add("HIGHCOMMAND_RULE_LOOT_DESC", "Multiplier on the chance that an enemy drops an item.",
+                "Множитель шанса, что враг выронит предмет.");
+            Loc.Add("HIGHCOMMAND_RULE_SHARING", "Item sharing", "Раздача предметов");
+            Loc.Add("HIGHCOMMAND_RULE_SHARING_DESC", "How the army's items are shared between the heroes.", "Как предметы армии делятся между героями.");
+            Loc.Add("HIGHCOMMAND_RULE_SHARING_SPLIT", "Split", "Делить");
+            Loc.Add("HIGHCOMMAND_RULE_SHARING_SPLIT_DESC", "Every item unit belongs to one hero, like in a normal co-op run.",
+                "Каждая единица предмета принадлежит одному герою, как в обычном кооперативе.");
+            Loc.Add("HIGHCOMMAND_RULE_SHARING_MIRROR", "Mirror", "Зеркало");
+            Loc.Add("HIGHCOMMAND_RULE_SHARING_MIRROR_DESC", "Every hero gets a copy of every item (much stronger).",
+                "Каждый герой получает копию каждого предмета (намного сильнее).");
+
             // command card
             Loc.Add("HIGHCOMMAND_CARD_TITLE", "Orders: {0}", "Приказы: {0}");
             Loc.Add("HIGHCOMMAND_CARD_NOSELECTION", "Select heroes to give orders", "Выберите героев для приказов");

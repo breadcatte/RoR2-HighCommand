@@ -157,7 +157,7 @@ namespace HighCommand.UI
         /// <summary>The host's sharing mode (replicated), not this machine's own config value.</summary>
         private static bool IsMirror(HcState state)
         {
-            return state != null ? state.ItemMirror : Settings.ItemSharing.Value == ItemDistributor.SharingMode.Mirror;
+            return state != null ? state.ItemMirror : LobbyRules.ItemMirror;
         }
 
         private static PickupDef PickupOf(ItemIndex item)

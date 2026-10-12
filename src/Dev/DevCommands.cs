@@ -418,7 +418,21 @@ namespace HighCommand.Dev
             Debug.Log($"HighCommand flow: defeatIn={state.DefeatSeconds:0.0}s canRevive={state.DefeatCanRevive} teleporter={state.Teleporter} " +
                       $"charge={state.TeleCharge:0.00} radius={state.TeleRadius:0.0} at={state.TelePosition:0} rally={run.RallyPoint:0} " +
                       $"alive={run.Army.AliveCount}/{run.Army.Count} gold={Army.Economy.Gold} revivePrice={state.RevivePrice()} " +
-                      $"participating={Run.instance.participatingPlayerCount} living={Run.instance.livingPlayerCount}");
+                      $"participating={Run.instance.participatingPlayerCount} living={Run.instance.livingPlayerCount} " +
+                      $"limit={state.ArmyLimit} priceMult={state.PriceMultiplier:0.00} mirror={state.ItemMirror}");
+        }
+
+        [ConCommand(commandName = "hc_rule", flags = HostOnly, helpText = "hc_rule <RuleName> <ChoiceName>: sets a lobby rule choice in the running game (testing), e.g. hc_rule HighCommand.ArmyLimit 12.")]
+        private static void CcRule(ConCommandArgs args)
+        {
+            if (!Run.instance) throw new ConCommandException("No run.");
+            RuleDef def = RuleCatalog.FindRuleDef(args.GetArgString(0));
+            if (def == null) throw new ConCommandException("Unknown rule.");
+            RuleChoiceDef choice = def.FindChoice(args.GetArgString(1));
+            if (choice == null) throw new ConCommandException("Unknown choice.");
+            Run.instance.ruleBook.ApplyChoice(choice);
+            Mode.HcState.Instance?.ServerPublishSettings();
+            Debug.Log($"HighCommand: rule {def.globalName} = {choice.localName}");
         }
 
         [ConCommand(commandName = "hc_drop_random", flags = HostOnly, helpText = "hc_drop_random <count>: adds that many random white/green/red items to the pool (layout and balance tests).")]

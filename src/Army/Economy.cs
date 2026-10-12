@@ -29,7 +29,7 @@ namespace HighCommand.Army
             HcState s = State;
             if (s != null && NetworkServer.active)
             {
-                s.ServerSetGold((uint)Mathf.Max(0, Settings.StartingGold.Value));
+                s.ServerSetGold((uint)Mathf.Max(0, LobbyRules.StartingGold));
                 s.ServerSetBought(0);
                 s.ServerPublishSettings();
             }

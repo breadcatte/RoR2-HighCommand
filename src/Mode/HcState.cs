@@ -177,12 +177,13 @@ namespace HighCommand.Mode
         public void ServerPublishSettings()
         {
             if (!NetworkServer.active) return;
-            ArmyLimit = Settings.ArmyLimit.Value;
+            // the lobby rules (when chosen) win over the config file
+            ArmyLimit = LobbyRules.ArmyLimit;
             PriceBase = Settings.HeroBasePrice.Value;
             PriceGrowth = Settings.HeroPriceGrowth.Value;
-            PriceMultiplier = Settings.PriceMultiplier.Value;
+            PriceMultiplier = LobbyRules.PriceMultiplier;
             ReviveFraction = Settings.ReviveCostFraction.Value;
-            ItemMirror = Settings.ItemSharing.Value == ItemDistributor.SharingMode.Mirror;
+            ItemMirror = LobbyRules.ItemMirror;
             SetDirtyBit(DirtyAll);
         }
 

@@ -120,7 +120,7 @@ namespace HighCommand.Mode
                 HcState state = HcState.Instance;
                 int heroes = state != null ? state.Heroes.Count : 0;
                 if (heroes <= 1) { __result = Mathf.Max(1, __result); return; }
-                float equivalent = 1f + (heroes - 1) * Settings.ThreatPerExtraHero.Value;
+                float equivalent = 1f + (heroes - 1) * LobbyRules.ThreatPerExtraHero;
                 __result = Mathf.Max(1, Mathf.RoundToInt(equivalent));
             }
         }
