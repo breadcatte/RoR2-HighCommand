@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.9.2 - a lone hero no longer loses the run by itself
+
+Fixes
+* The starting hero died on its own within 1-2 minutes and the run was lost 45 s later. Causes and fixes:
+  * The game's AI rules for survivors always close in on the enemy (they were written for Umbras). Ranged heroes now
+    keep their distance (`standoff` per survivor in `profiles\hero_profiles.json`): they back off and circle instead of
+    walking into melee.
+  * A fleeing hero ran blind and used no skill at all. It now uses its escape skill (`fleeSlot`: Huntress' blink,
+    Commando's roll, Bandit's smoke bomb, Mercenary's dash, Void Fiend's trespass), aimed and moving away from the enemies.
+  * The place to flee to could lie at the foot of a cliff (the hero walked off it and landed at 1 HP). It is now a
+    ground node on the same level, away from the enemies, picked again every 1.5 s; a fleeing hero never steps off an edge.
+  * An "escape" skill is no longer spent by a rule that runs at the enemy (Huntress' gap-closing blink at low HP).
+* All heroes down while the army can pay for a revival: the first fallen hero is revived automatically after 4 s
+  (`Run/AutoRevive`, `Run/AutoReviveDelay`); the top bar counts down and names the price. Without gold the run is lost
+  as before.
+* Void Fields, the Bazaar and other scenes where the game brings no allied AI along: the heroes were missing and the run
+  was lost. The mode now brings them in at the player spawn.
+* The rally point moves to the new stage's spawn at once: a revival right after a stage change no longer drops the hero
+  at the previous map's coordinates (from high in the air).
+* Recruited and revived heroes no longer land inside each other (all of them used the same nearest node).
+* Heroes walking straight at an unreachable point no longer step off ledges; on stub node graphs (the Bazaar has 6 nodes)
+  they walk without path finding instead of filling the log with "ComputePath exception".
+
+Dev
+* `hc_next_stage <scene>` goes to a named scene; `hc_dump_scenes` lists the scenes without allied AI entry.
+
 ## 0.9.1 - QA pass (single player)
 
 Fixes

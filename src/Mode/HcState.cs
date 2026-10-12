@@ -38,6 +38,9 @@ namespace HighCommand.Mode
         /// <summary>While the defeat countdown runs: can the army still pay for a revival?</summary>
         public bool DefeatCanRevive { get; private set; }
 
+        /// <summary>While the countdown runs: a revival will be bought automatically when it reaches 0 (no defeat).</summary>
+        public bool DefeatAutoRevive { get; private set; }
+
         public TeleState Teleporter { get; private set; }
         public float TeleCharge { get; private set; }
         public Vector3 TelePosition { get; private set; }
@@ -54,12 +57,13 @@ namespace HighCommand.Mode
         }
 
         /// <summary>Server: publishes the run-flow values; only a real change makes the network send anything.</summary>
-        public void ServerSetFlow(float defeatSeconds, bool canRevive, TeleState tele, float charge, Vector3 position, float radius)
+        public void ServerSetFlow(float defeatSeconds, bool canRevive, bool autoRevive, TeleState tele, float charge, Vector3 position, float radius)
         {
             if (!NetworkServer.active) return;
             bool changed = false;
             if (Mathf.Abs(defeatSeconds - DefeatSeconds) > 0.45f || (defeatSeconds < 0f) != (DefeatSeconds < 0f)) { DefeatSeconds = defeatSeconds; changed = true; }
             if (canRevive != DefeatCanRevive) { DefeatCanRevive = canRevive; changed = true; }
+            if (autoRevive != DefeatAutoRevive) { DefeatAutoRevive = autoRevive; changed = true; }
             if (tele != Teleporter) { Teleporter = tele; changed = true; }
             if (Mathf.Abs(charge - TeleCharge) > 0.004f) { TeleCharge = charge; changed = true; }
             if ((position - TelePosition).sqrMagnitude > 0.25f) { TelePosition = position; changed = true; }
@@ -247,6 +251,7 @@ namespace HighCommand.Mode
             writer.Write(ItemMirror);
             writer.Write(DefeatSeconds);
             writer.Write(DefeatCanRevive);
+            writer.Write(DefeatAutoRevive);
             writer.Write((byte)Teleporter);
             writer.Write(TeleCharge);
             writer.Write(TelePosition);
@@ -287,6 +292,7 @@ namespace HighCommand.Mode
             ItemMirror = reader.ReadBoolean();
             DefeatSeconds = reader.ReadSingle();
             DefeatCanRevive = reader.ReadBoolean();
+            DefeatAutoRevive = reader.ReadBoolean();
             Teleporter = (TeleState)reader.ReadByte();
             TeleCharge = reader.ReadSingle();
             TelePosition = reader.ReadVector3();

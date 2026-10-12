@@ -85,10 +85,24 @@ namespace HighCommand.Orders
             if (updateTimer <= 0f)
             {
                 updateTimer = UpdateInterval;
+                DropStubNodeGraph(agent);
                 long started = Dev.Perf.Begin();
                 UpdateAI(UpdateInterval);
                 Dev.Perf.End(ref Dev.Perf.Executor, started);
             }
+        }
+
+        /// <summary>
+        /// Scenes where the stock game never lets AI walk (the Bazaar) ship a stub node graph of a few nodes: every path
+        /// request on it throws inside NodeGraph.ComputePath and sends heroes over the edge. On such a graph the hero
+        /// walks straight (the local navigator still avoids walls and, when fleeing, cliffs).
+        /// </summary>
+        private static void DropStubNodeGraph(BroadNavigationSystem.Agent agent)
+        {
+            if (!(agent.system is NodeGraphNavigationSystem)) return;
+            var nav = new NodeGraphNavigationSystem.Agent(agent);
+            NodeGraph graph = nav.nodeGraph;
+            if (graph && graph.GetNodeCount() < 20) nav.nodeGraph = null;
         }
 
         // ---------------------------------------------------------------------------------------------
@@ -139,12 +153,14 @@ namespace HighCommand.Orders
 
             BroadNavigationSystem.AgentOutput output = ai.broadNavigationAgent.output;
             Vector3 next = output.nextPosition ?? footPosition;
-            // unreachable goal: head straight at it, the local navigator stops at walls
-            if (!fleeing && !output.nextPosition.HasValue && !output.targetReachable) next = goal;
+            // unreachable goal: head straight at it, the local navigator stops at walls (and at edges: only a real path
+            // may lead down a ledge, a straight line into the unknown may not)
+            bool straight = !fleeing && !output.nextPosition.HasValue && !output.targetReachable;
+            if (straight) next = goal;
 
             Vector3 target = next + (bodyTransform.position - footPosition);
             ai.localNavigator.targetPosition = target;
-            ai.localNavigator.allowWalkOffCliff = !fleeing;
+            ai.localNavigator.allowWalkOffCliff = !fleeing && !straight;
             ai.localNavigator.Update(dt);
             bodyInputs.moveVector = ai.localNavigator.moveVector;
         }

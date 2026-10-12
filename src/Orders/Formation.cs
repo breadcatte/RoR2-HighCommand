@@ -91,6 +91,60 @@ namespace HighCommand.Orders
             return new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
         }
 
+        private static readonly List<NodeGraph.NodeIndex> RingBuffer = new List<NodeGraph.NodeIndex>(128);
+
+        /// <summary>
+        /// A random walkable spot <paramref name="minRange"/>..<paramref name="maxRange"/> m from <paramref name="center"/>,
+        /// on about the same level and not on top of a living hero (recruits and revived heroes arrive there).
+        /// SnapToGround alone returns the same nearest node every time, so every newcomer landed inside the previous one.
+        /// </summary>
+        internal static Vector3 GroundNear(Vector3 center, float minRange, float maxRange, IReadOnlyList<Army.Hero> keepClearOf = null)
+        {
+            Vector3 c = SnapToGround(center);
+            SceneInfo info = SceneInfo.instance;
+            NodeGraph graph = info ? info.groundNodes : null;
+
+            // ground nodes are often 10+ m apart: look in the ring, then in a twice wider one
+            for (int pass = 0; graph && pass < 2; pass++)
+            {
+                RingBuffer.Clear();
+                graph.FindNodesInRange(c, minRange, maxRange * (pass + 1), HullMask.Human, RingBuffer);
+                for (int attempt = 0; attempt < 12 && RingBuffer.Count > 0; attempt++)
+                {
+                    int i = Random.Range(0, RingBuffer.Count);
+                    NodeGraph.NodeIndex node = RingBuffer[i];
+                    RingBuffer.RemoveAt(i);
+                    if (!graph.GetNodePosition(node, out Vector3 p) || Mathf.Abs(p.y - c.y) > 4f) continue;
+                    if (Occupied(p, keepClearOf)) continue;
+                    RingBuffer.Clear();
+                    return p;
+                }
+            }
+            RingBuffer.Clear();
+
+            // no free node: a random point of the ring with solid ground right below it
+            for (int attempt = 0; attempt < 8; attempt++)
+            {
+                Vector2 ring = Random.insideUnitCircle.normalized * Random.Range(minRange, maxRange);
+                Vector3 probe = c + new Vector3(ring.x, 4f, ring.y);
+                if (!Physics.Raycast(probe, Vector3.down, out RaycastHit hit, 10f, LayerIndex.world.mask, QueryTriggerInteraction.Ignore)) continue;
+                if (Mathf.Abs(hit.point.y - c.y) > 3f || Occupied(hit.point, keepClearOf)) continue;
+                return hit.point;
+            }
+            return c;
+        }
+
+        private static bool Occupied(Vector3 p, IReadOnlyList<Army.Hero> heroes)
+        {
+            if (heroes == null) return false;
+            for (int i = 0; i < heroes.Count; i++)
+            {
+                if (!heroes[i].IsAlive) continue;
+                if ((heroes[i].Position - p).sqrMagnitude < 2.5f * 2.5f) return true;
+            }
+            return false;
+        }
+
         /// <summary>Puts a point on the walkable ground: nearest ground node within 18 m, else straight down.</summary>
         internal static Vector3 SnapToGround(Vector3 p)
         {

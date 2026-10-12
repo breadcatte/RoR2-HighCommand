@@ -214,6 +214,8 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_TP_STATE_LEAVING", "Leaving the stage...", "Уходим со стадии...");
             Loc.Add("HIGHCOMMAND_DEFEAT_CAN_REVIVE", "ALL HEROES HAVE FALLEN! Revive one within {0} s [{1}] or the run is lost",
                 "ВСЕ ГЕРОИ ПАЛИ! Воскресите одного за {0} с [{1}], иначе забег проигран");
+            Loc.Add("HIGHCOMMAND_DEFEAT_AUTO_REVIVE", "ALL HEROES HAVE FALLEN! Automatic revival in {0} s (${1}), or press [{2}] now",
+                "ВСЕ ГЕРОИ ПАЛИ! Автовоскрешение через {0} с (${1}) или [{2}] сразу");
             Loc.Add("HIGHCOMMAND_DEFEAT_BROKE", "ALL HEROES HAVE FALLEN and there is no gold to revive: the run ends in {0} s",
                 "ВСЕ ГЕРОИ ПАЛИ, а золота на воскрешение нет: забег закончится через {0} с");
 

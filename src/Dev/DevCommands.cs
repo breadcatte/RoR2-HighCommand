@@ -791,17 +791,35 @@ namespace HighCommand.Dev
             Debug.Log(sb.ToString());
         }
 
-        [ConCommand(commandName = "hc_next_stage", flags = HostOnly, helpText = "Host: advances the run to the next stage immediately.")]
+        [ConCommand(commandName = "hc_next_stage", flags = HostOnly, helpText = "Host: hc_next_stage [scene]: advances the run to the next stage (or to the named scene, e.g. bazaar) immediately.")]
         private static void CcNextStage(ConCommandArgs args)
         {
             if (!UnityEngine.Networking.NetworkServer.active || !Run.instance)
                 throw new ConCommandException("Only the host can do this, and a run must be in progress.");
-            if (!Run.instance.nextStageScene)
-                Run.instance.PickNextStageSceneFromCurrentSceneDestinations();
-            SceneDef next = Run.instance.nextStageScene;
+            SceneDef next = null;
+            if (args.Count > 0)
+            {
+                next = SceneCatalog.FindSceneDef(args.GetArgString(0));
+                if (!next) throw new ConCommandException("No such scene: " + args.GetArgString(0));
+            }
+            else
+            {
+                if (!Run.instance.nextStageScene)
+                    Run.instance.PickNextStageSceneFromCurrentSceneDestinations();
+                next = Run.instance.nextStageScene;
+            }
             if (!next) throw new ConCommandException("No next stage is known.");
             Debug.Log("HighCommand: advancing to " + next.cachedName);
             Run.instance.AdvanceStage(next);
+        }
+
+        [ConCommand(commandName = "hc_dump_scenes", flags = HostOnly, helpText = "Lists the scenes where the game does not bring allied AI along (suppressNpcEntry).")]
+        private static void CcDumpScenes(ConCommandArgs args)
+        {
+            var sb = new StringBuilder("HighCommand scenes without NPC entry:");
+            foreach (SceneDef def in SceneCatalog.allSceneDefs)
+                if (def && def.suppressNpcEntry) sb.Append(' ').Append(def.cachedName).Append('(').Append(def.sceneType).Append(')');
+            Debug.Log(sb.ToString());
         }
 
         [ConCommand(commandName = "hc_kill_enemies", flags = HostOnly, helpText = "Host: kills every enemy on the map (monster and lunar teams).")]

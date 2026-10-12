@@ -23,6 +23,7 @@ namespace HighCommand.Mode
         private float tickTimer;
         private float stageStart;
         private float noHeroSeconds;
+        private bool autoReviveFailed;
         private bool subscribed;
 
         /// <summary>Cheapest revival the army could buy right now.</summary>
@@ -57,7 +58,44 @@ namespace HighCommand.Mode
         {
             stageStart = Time.time;
             noHeroSeconds = 0f;
-            if (run != null && run.Army.Count > 0) BeginRelocateRally();
+            autoReviveFailed = false;
+            if (run != null && run.Army.Count > 0)
+            {
+                StartCoroutine(ArriveOnStage(stage));
+                BeginRelocateRally();
+            }
+        }
+
+        /// <summary>
+        /// The rally point of the old stage means nothing here: it moves to the player spawn at once (a revival before
+        /// the army has landed would otherwise put the hero at the old map's coordinates, often high in the air).
+        /// On the scenes where the stock game brings no allied AI along (SceneDef.suppressNpcEntry: arena = Void Fields,
+        /// bazaar, the DLC intermissions; see hc_dump_scenes) the heroes are brought in here, or the army would have no
+        /// bodies and lose the run.
+        /// </summary>
+        private IEnumerator ArriveOnStage(Stage stage)
+        {
+            float waited = 0f;
+            while (SpawnPoint.readOnlyInstancesList.Count == 0 && waited < 5f)
+            {
+                waited += Time.unscaledDeltaTime;
+                yield return null;
+            }
+            if (!stage || run == null) yield break;
+
+            Transform spawn = stage.GetPlayerSpawnTransform();
+            if (spawn) run.RallyPoint = Formation.SnapToGround(spawn.position);
+
+            if (!stage.sceneDef || !stage.sceneDef.suppressNpcEntry) yield break;
+            int brought = 0;
+            foreach (Hero h in run.Army.Heroes)
+            {
+                CharacterMaster master = h.Master;
+                if (!master || master.GetBodyObject()) continue;
+                Vector3 where = Formation.GroundNear(run.RallyPoint, 2f, 8f, run.Army.Heroes);
+                if (master.Respawn(where, spawn ? spawn.rotation : Quaternion.identity)) brought++;
+            }
+            Plugin.Log.LogInfo($"RunFlow: {stage.sceneDef.cachedName} brings no allies along: {brought} hero(es) brought in by the mode.");
         }
 
         /// <summary>Waits for the heroes to stand on the ground, then makes that place the rally point.</summary>
@@ -138,22 +176,34 @@ namespace HighCommand.Mode
             // ---- defeat ----
             float defeatSeconds = -1f;
             bool canRevive = CanAffordRevive();
+            bool autoRevive = false;
             bool settled = Time.time - stageStart > StageSettleSeconds;
             if (run.Army.Count > 0 && run.Army.AliveCount == 0 && settled)
             {
                 noHeroSeconds += dt;
-                float limit = canRevive ? Settings.DefeatGraceRevive.Value : Settings.DefeatGraceBroke.Value;
-                defeatSeconds = Mathf.Max(0f, limit - noHeroSeconds);
-                if (noHeroSeconds >= limit)
+                if (canRevive && Settings.AutoRevive.Value && TryAutoRevive(out bool revived))
                 {
-                    Plugin.Log.LogInfo("RunFlow: every hero is dead and nobody can come back in time: the run is lost.");
-                    vanilla.BeginGameOver(RoR2Content.GameEndings.StandardLoss);
-                    return;
+                    // the army can pay: the first fallen hero comes back by itself after a short pause
+                    autoRevive = true;
+                    defeatSeconds = revived ? -1f : Mathf.Max(0f, Settings.AutoReviveDelay.Value - noHeroSeconds);
+                    if (revived) noHeroSeconds = 0f;
+                }
+                else
+                {
+                    float limit = canRevive ? Settings.DefeatGraceRevive.Value : Settings.DefeatGraceBroke.Value;
+                    defeatSeconds = Mathf.Max(0f, limit - noHeroSeconds);
+                    if (noHeroSeconds >= limit)
+                    {
+                        Plugin.Log.LogInfo("RunFlow: every hero is dead and nobody can come back in time: the run is lost.");
+                        vanilla.BeginGameOver(RoR2Content.GameEndings.StandardLoss);
+                        return;
+                    }
                 }
             }
             else
             {
                 noHeroSeconds = 0f;
+                autoReviveFailed = false;
             }
 
             // ---- teleporter and holdout zones ----
@@ -186,10 +236,35 @@ namespace HighCommand.Mode
                         break;
                 }
             }
-            state.ServerSetFlow(defeatSeconds, canRevive, tele, charge, telePos, teleRadius);
+            state.ServerSetFlow(defeatSeconds, canRevive, autoRevive, tele, charge, telePos, teleRadius);
 
             KeepArmyInZone(tp);
             if (SyncHeroFlags()) run.PublishRoster();
+        }
+
+        /// <summary>
+        /// Every hero is down and a revival is affordable: once the delay has passed, buy it (the same purchase as the
+        /// Revive key). Returns false when there is nobody to revive (the normal defeat countdown applies then).
+        /// </summary>
+        private bool TryAutoRevive(out bool revived)
+        {
+            revived = false;
+            if (autoReviveFailed) return false;
+            Hero fallen = ArmyService.FirstFallen(run.Army.Heroes);
+            if (fallen == null) return false;
+            if (noHeroSeconds < Settings.AutoReviveDelay.Value) return true;
+
+            string error = ArmyService.ExecRevive(fallen);
+            if (error != null)
+            {
+                // once per wipe: the manual countdown takes over (no warning every tick)
+                autoReviveFailed = true;
+                Plugin.Log.LogWarning($"RunFlow: automatic revival of {fallen} failed: {error}");
+                return false;
+            }
+            revived = true;
+            Plugin.Log.LogInfo($"RunFlow: every hero had fallen, {fallen} was revived automatically.");
+            return true;
         }
 
         // Copies stance / auto-use / current order from each server-side brain into the Hero, which the roster replicates.

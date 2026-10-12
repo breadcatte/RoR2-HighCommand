@@ -62,6 +62,8 @@ namespace HighCommand
                 Slider(Settings.ThreatPerExtraHero, 0f, 2f);
                 Slider(Settings.DefeatGraceBroke, 0f, 120f, "{0:0}");
                 Slider(Settings.DefeatGraceRevive, 0f, 600f, "{0:0}");
+                Check(Settings.AutoRevive);
+                Slider(Settings.AutoReviveDelay, 0f, 30f, "{0:0}");
 
                 // loot
                 Check(Settings.ItemDropsEnabled);

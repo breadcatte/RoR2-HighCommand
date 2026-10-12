@@ -53,6 +53,8 @@ namespace HighCommand
         internal static ConfigEntry<bool> AutoRetreat;
         internal static ConfigEntry<float> DefeatGraceBroke;
         internal static ConfigEntry<float> DefeatGraceRevive;
+        internal static ConfigEntry<bool> AutoRevive;
+        internal static ConfigEntry<float> AutoReviveDelay;
         internal static ConfigEntry<float> ThreatPerExtraHero;
 
         // ---- loot ----
@@ -162,6 +164,9 @@ namespace HighCommand
                 "A badly hurt hero (threshold per survivor in profiles\\hero_profiles.json) runs to its friends until it recovers. Explicit move / hold / interact orders are never interrupted.");
             DefeatGraceBroke = F("Run", "DefeatGraceSecondsBroke", 6f, 0f, 120f, "When every hero is dead and the army cannot pay for a revival, the run is lost after this many seconds.");
             DefeatGraceRevive = F("Run", "DefeatGraceSecondsCanRevive", 45f, 0f, 600f, "When every hero is dead but a revival is affordable, the commander has this many seconds to pay for it.");
+            AutoRevive = cfg.Bind("Run", "AutoRevive", true,
+                "When every hero has fallen and the army can pay for a revival, the first fallen hero is revived automatically (after AutoReviveDelay seconds) instead of waiting for the Revive key.");
+            AutoReviveDelay = F("Run", "AutoReviveDelay", 4f, 0f, 30f, "Seconds between the fall of the last hero and the automatic revival.");
             ThreatPerExtraHero = F("Run", "ThreatPerExtraHero", 0.65f, 0f, 2f,
                 "How much each hero beyond the first counts as an extra player for the game's difficulty scaling (monster credits, boss count, loot). 1 = like a real co-op player.");
 

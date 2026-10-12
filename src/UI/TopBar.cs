@@ -218,13 +218,18 @@ namespace HighCommand.UI
             if (!show) return;
 
             int seconds = Mathf.CeilToInt(state.DefeatSeconds);
-            int key = seconds * 2 + (state.DefeatCanRevive ? 1 : 0);
+            int key = seconds * 4 + (state.DefeatCanRevive ? 1 : 0) + (state.DefeatAutoRevive ? 2 : 0);
             if (key != defeatKey)
             {
                 defeatKey = key;
-                UiKit.SetText(defeatText, state.DefeatCanRevive
-                    ? Loc.Format("HIGHCOMMAND_DEFEAT_CAN_REVIVE", seconds, Settings.KeyRevive.Value)
-                    : Loc.Format("HIGHCOMMAND_DEFEAT_BROKE", seconds));
+                string text;
+                if (state.DefeatAutoRevive)
+                    text = Loc.Format("HIGHCOMMAND_DEFEAT_AUTO_REVIVE", seconds, state.RevivePrice(), Settings.KeyRevive.Value);
+                else if (state.DefeatCanRevive)
+                    text = Loc.Format("HIGHCOMMAND_DEFEAT_CAN_REVIVE", seconds, Settings.KeyRevive.Value);
+                else
+                    text = Loc.Format("HIGHCOMMAND_DEFEAT_BROKE", seconds);
+                UiKit.SetText(defeatText, text);
             }
             // pulse a little so it cannot be missed
             float pulse = 0.75f + 0.25f * Mathf.Sin(Time.unscaledTime * 6f);

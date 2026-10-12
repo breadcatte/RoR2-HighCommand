@@ -90,8 +90,7 @@ namespace HighCommand.Army
             if (!Economy.TrySpend(price)) return StatusText(RecruitStatus.NeedGold, state);
 
             // land a few meters from the rally point, not on top of the previous arrival
-            Vector2 ring = Random.insideUnitCircle.normalized * Random.Range(3f, 6f);
-            Vector3 where = HighCommand.Orders.Formation.SnapToGround(run.RallyPoint + new Vector3(ring.x, 0f, ring.y));
+            Vector3 where = HighCommand.Orders.Formation.GroundNear(run.RallyPoint, 3f, 9f, run.Army.Heroes);
             Hero hero = run.RecruitHero(def, loadout, where, Quaternion.identity, withPod: true);
             if (hero == null)
             {
@@ -204,8 +203,7 @@ namespace HighCommand.Army
             if (!Economy.TrySpend((uint)price)) return Loc.Format("HIGHCOMMAND_RECRUIT_NEEDGOLD", price);
 
             // land near the rally point, like a recruit
-            Vector2 ring = Random.insideUnitCircle.normalized * Random.Range(2f, 5f);
-            Vector3 where = HighCommand.Orders.Formation.SnapToGround(run.RallyPoint + new Vector3(ring.x, 0f, ring.y));
+            Vector3 where = HighCommand.Orders.Formation.GroundNear(run.RallyPoint, 2f, 8f, run.Army.Heroes);
             CharacterBody body = hero.Master.Respawn(where, Quaternion.identity, wasRevivedMidStage: true);
             if (!body)
             {
