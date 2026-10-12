@@ -41,10 +41,12 @@ namespace HighCommand.Mode
                 Stage.onServerStageBegin += OnServerStageBegin;
                 subscribed = true;
             }
+            if (NetworkClient.active) CreateClientSide();
         }
 
         private void OnDisable()
         {
+            DestroyClientSide();
             if (subscribed)
             {
                 Stage.onServerStageBegin -= OnServerStageBegin;
@@ -136,32 +138,29 @@ namespace HighCommand.Mode
             }
         }
 
-        // ---- client: interim camera ----------------------------------------------------------------
-        // Until the RTS camera exists the stock spectator camera follows the first friendly body, so the army can be
-        // watched. (Bodies of AI heroes have no NetworkUser, so the stock spectator would find nothing to follow.)
+        // ---- client side -----------------------------------------------------------------------------
 
-        private void LateUpdate()
+        private GameObject clientRoot;
+
+        private void CreateClientSide()
         {
-            var rigs = CameraRigController.readOnlyInstancesList;
-            for (int i = 0; i < rigs.Count; i++)
+            if (clientRoot) return;
+            clientRoot = new GameObject("HighCommand.Client");
+            DontDestroyOnLoad(clientRoot);
+            try
             {
-                CameraRigController rig = rigs[i];
-                if (!rig || rig.target) continue;
-                CharacterBody friend = FindFriendlyBody();
-                if (friend) rig.nextTarget = friend.gameObject;
+                clientRoot.AddComponent<Client.ClientRoot>();
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogError("Client side failed to start: " + e);
             }
         }
 
-        private static CharacterBody FindFriendlyBody()
+        private void DestroyClientSide()
         {
-            var bodies = CharacterBody.readOnlyInstancesList;
-            for (int i = 0; i < bodies.Count; i++)
-            {
-                CharacterBody b = bodies[i];
-                if (b && b.teamComponent && b.teamComponent.teamIndex == TeamIndex.Player && b.healthComponent && b.healthComponent.alive)
-                    return b;
-            }
-            return null;
+            if (clientRoot) Destroy(clientRoot);
+            clientRoot = null;
         }
     }
 }

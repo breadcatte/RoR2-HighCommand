@@ -159,6 +159,49 @@ namespace HighCommand.Dev
             Debug.Log(sb.ToString());
         }
 
+        [ConCommand(commandName = "hc_screenshot", flags = HostOnly, helpText = "hc_screenshot <name>: saves a screenshot (with the mod's UI) to the plugin's folder.")]
+        private static void CcScreenshot(ConCommandArgs args)
+        {
+            string name = args.Count > 0 ? args.GetArgString(0) : "shot";
+            string dir = System.IO.Path.Combine(Plugin.PluginDirectory, "screenshots");
+            System.IO.Directory.CreateDirectory(dir);
+            string path = System.IO.Path.Combine(dir, name + ".png");
+            ScreenCapture.CaptureScreenshot(path);
+            Debug.Log("HighCommand: screenshot -> " + path);
+        }
+
+        [ConCommand(commandName = "hc_cam", flags = HostOnly, helpText = "hc_cam army | dist <m> | yaw <deg> | at <x> <z>: moves the RTS camera (testing).")]
+        private static void CcCam(ConCommandArgs args)
+        {
+            var cam = Client.RtsCamera.Instance;
+            if (!cam) throw new ConCommandException("No RTS camera (not in a High Command run).");
+            string what = args.Count > 0 ? args.GetArgString(0) : "army";
+            switch (what)
+            {
+                case "army":
+                    Vector3? c = Client.ClientRoot.ArmyCenter();
+                    if (c.HasValue) cam.FocusOn(c.Value);
+                    break;
+                case "dist":
+                    cam.SetDistance(args.GetArgFloat(1));
+                    break;
+                case "at":
+                    cam.FocusOn(new Vector3(args.GetArgFloat(1), cam.Focus.y, args.GetArgFloat(2)));
+                    break;
+                default:
+                    throw new ConCommandException("Unknown option.");
+            }
+        }
+
+        [ConCommand(commandName = "hc_dump_fonts", flags = HostOnly, helpText = "Lists TextMeshPro font assets the game has loaded.")]
+        private static void CcDumpFonts(ConCommandArgs args)
+        {
+            var sb = new StringBuilder("TMP fonts:\n");
+            foreach (var f in Resources.FindObjectsOfTypeAll<TMPro.TMP_FontAsset>())
+                sb.AppendLine($"  {f.name}  glyphs={f.characterTable?.Count}  fallbacks={f.fallbackFontAssetTable?.Count}");
+            Debug.Log(sb.ToString());
+        }
+
         [ConCommand(commandName = "hc_next_stage", flags = HostOnly, helpText = "Host: advances the run to the next stage immediately.")]
         private static void CcNextStage(ConCommandArgs args)
         {

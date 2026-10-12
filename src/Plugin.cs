@@ -42,6 +42,7 @@ namespace HighCommand
             ContentManager.collectContentPackProviders += add => add(new Provider());
             harmony = new Harmony(Guid);
 
+            Settings.Init(Config);
             Strings.Register();
             TryPatch(typeof(LanguagePatches), "language tokens");
             TryPatch(typeof(Mode.LobbyPatches.MultiplayerMenu), "game mode in the multiplayer menu");
