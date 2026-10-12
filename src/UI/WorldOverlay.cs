@@ -28,8 +28,11 @@ namespace HighCommand.UI
         private readonly RectTransform layer;
         private readonly List<Bar> bars = new List<Bar>(128);
         private readonly List<Image> rings = new List<Image>(32);
+        private readonly List<Image> arcs = new List<Image>(48);
+        private readonly List<Image> markers = new List<Image>(32);
+        private readonly List<Hero> boxPreview = new List<Hero>(16);
         private readonly Image dragBox;
-        private int barsUsed, ringsUsed;
+        private int barsUsed, ringsUsed, arcsUsed, markersUsed;
 
         /// <summary>Hero under the mouse / hostile under the mouse, set by the input handler each frame.</summary>
         internal Hero HoveredHero;
@@ -45,10 +48,37 @@ namespace HighCommand.UI
             // Without this the static panels would be re-batched together with them each frame.
             layer.gameObject.AddComponent<Canvas>();
 
-            dragBox = UiKit.NewImage("DragBox", layer, UiKit.White, new Color(0.4f, 1f, 0.5f, 0.12f));
+            // The selection box: a faint mint tint, a hairline border and brighter corner brackets. The children are
+            // anchored to the box, so they follow its size without being touched again.
+            dragBox = UiKit.NewImage("DragBox", layer, UiKit.White, new Color(0.6f, 1f, 0.8f, 0.08f));
             dragBox.enabled = false;
-            Image outline = UiKit.NewImage("Outline", dragBox.transform, UiKit.Square, new Color(0.5f, 1f, 0.6f, 0.9f));
-            UiKit.Stretch(outline.rectTransform);
+            Color edge = new Color(0.78f, 1f, 0.9f, 0.5f);
+            Color corner = new Color(0.9f, 1f, 0.95f, 0.95f);
+            DragEdge("Top", new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, 1.5f), edge);
+            DragEdge("Bottom", new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 1.5f), edge);
+            DragEdge("Left", new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0.5f), new Vector2(1.5f, 0f), edge);
+            DragEdge("Right", new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(1f, 0.5f), new Vector2(1.5f, 0f), edge);
+            const float length = 14f, thick = 3f;
+            for (int cx = 0; cx < 2; cx++)
+                for (int cy = 0; cy < 2; cy++)
+                {
+                    var at = new Vector2(cx, cy);
+                    DragEdge("CornerH", at, at, at, new Vector2(length, thick), corner);
+                    DragEdge("CornerV", at, at, at, new Vector2(thick, length), corner);
+                }
+        }
+
+        private void DragEdge(string name, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 size, Color color)
+        {
+            Image img = UiKit.NewImage(name, dragBox.transform, UiKit.White, color);
+            img.enabled = true;
+            RectTransform rt = img.rectTransform;
+            rt.anchorMin = anchorMin;
+            rt.anchorMax = anchorMax;
+            rt.pivot = pivot;
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = size;
+            img.gameObject.SetActive(false);
         }
 
         internal void Destroy()
@@ -61,12 +91,14 @@ namespace HighCommand.UI
         {
             barsUsed = 0;
             ringsUsed = 0;
+            arcsUsed = 0;
+            markersUsed = 0;
             linesUsed = 0;
             pingsUsed = 0;
 
             if (camera && camera.SceneCam)
             {
-                DrawRings(selection);
+                DrawRings(selection, heroes);
                 DrawBars(camera, selection);
                 DrawOrders(selection);
                 DrawPings();
@@ -251,17 +283,31 @@ namespace HighCommand.UI
 
         // ---- rings -------------------------------------------------------------------------------
 
-        private void DrawRings(Selection selection)
+        // A mark drawn over the unit would hide it (the overlay is always on top of the world). So a selected hero gets
+        // only the front arc of a ring on the ground in front of its feet plus a small triangle above its health bar.
+        private void DrawRings(Selection selection, IReadOnlyList<Hero> heroes)
         {
             var sel = selection.Heroes;
             for (int i = 0; i < sel.Count; i++)
-                DrawRing(sel[i].Body, new Color(0.45f, 1f, 0.5f, 0.95f), 1.35f);
+            {
+                DrawArc(sel[i].Body, new Color(0.45f, 1f, 0.5f, 0.95f), 1.2f);
+                DrawMarker(sel[i].Body);
+            }
 
-            if (HoveredEnemy) DrawRing(HoveredEnemy, new Color(1f, 0.35f, 0.3f, 0.9f), 1.25f);
-            if (HoveredHero != null && !selection.Contains(HoveredHero)) DrawRing(HoveredHero.Body, new Color(1f, 1f, 1f, 0.7f), 1.25f);
+            // while a box is being dragged, whoever it would take lights up
+            if (DragRect.HasValue && heroes != null)
+            {
+                boxPreview.Clear();
+                WorldPicker.HeroesInRect(DragRect.Value, heroes, boxPreview);
+                for (int i = 0; i < boxPreview.Count; i++)
+                    if (!selection.Contains(boxPreview[i])) DrawArc(boxPreview[i].Body, new Color(0.8f, 1f, 0.88f, 0.85f), 1.2f);
+            }
+
+            if (HoveredEnemy) DrawArc(HoveredEnemy, new Color(1f, 0.35f, 0.3f, 0.9f), 1.2f);
+            if (HoveredHero != null && !selection.Contains(HoveredHero)) DrawArc(HoveredHero.Body, new Color(1f, 1f, 1f, 0.7f), 1.2f);
         }
 
-        private void DrawRing(CharacterBody body, Color color, float scale)
+        private void DrawArc(CharacterBody body, Color color, float scale)
         {
             if (!body || !body.healthComponent || !body.healthComponent.alive) return;
 
@@ -270,13 +316,59 @@ namespace HighCommand.UI
             if (!WorldPicker.Project(foot, radius, out Vector2 s, out float px)) return;
             if (!WorldPicker.IsOnScreen(s, px)) return;
 
-            Image ring = AcquireRing();
-            ring.color = color;
             float pitch = Settings.CameraPitch.Value * Mathf.Deg2Rad;
             float inv = 1f / Mathf.Max(0.0001f, layer.lossyScale.x); // screen pixels -> canvas units
             float w = Mathf.Max(14f, px * 2f) * inv;
-            ring.rectTransform.sizeDelta = new Vector2(w, w * Mathf.Clamp(Mathf.Sin(pitch), 0.35f, 1f));
-            ring.rectTransform.position = new Vector3(s.x, s.y, 0f);
+            float h = w * Mathf.Clamp(Mathf.Sin(pitch), 0.35f, 1f);
+
+            // a dark copy a little larger and lower keeps the arc readable on bright ground
+            Image shadow = AcquireArc();
+            shadow.color = new Color(0f, 0f, 0f, 0.55f * color.a);
+            shadow.rectTransform.sizeDelta = new Vector2(w + 3f, h + 3f);
+            shadow.rectTransform.position = new Vector3(s.x, s.y - 1f, 0f);
+
+            Image arc = AcquireArc();
+            arc.color = color;
+            arc.rectTransform.sizeDelta = new Vector2(w, h);
+            arc.rectTransform.position = new Vector3(s.x, s.y, 0f);
+        }
+
+        private void DrawMarker(CharacterBody body)
+        {
+            if (!body || !body.healthComponent || !body.healthComponent.alive || !RtsCamera.Instance || !RtsCamera.Instance.SceneCam) return;
+
+            // right above the health bar (the same anchor DrawBars uses)
+            Vector3 anchor = body.corePosition + Vector3.up * (Mathf.Max(1.2f, body.radius * 1.8f) + 0.6f);
+            if (!WorldPicker.ProjectPoint(RtsCamera.Instance.SceneCam, anchor, out Vector2 s) || !WorldPicker.IsOnScreen(s)) return;
+
+            float scale = Mathf.Max(0.0001f, layer.lossyScale.x);
+            Vector3 at = new Vector3(s.x, s.y + 14f * scale, 0f);
+
+            Image shadow = AcquireMarker();
+            shadow.color = new Color(0f, 0f, 0f, 0.7f);
+            shadow.rectTransform.sizeDelta = new Vector2(17f, 13f);
+            shadow.rectTransform.position = at;
+
+            Image fill = AcquireMarker();
+            fill.color = new Color(0.55f, 1f, 0.6f, 1f);
+            fill.rectTransform.sizeDelta = new Vector2(13f, 10f);
+            fill.rectTransform.position = at;
+        }
+
+        private Image AcquireArc()
+        {
+            if (arcsUsed >= arcs.Count) arcs.Add(UiKit.NewImage("Arc", layer, UiKit.Arc, Color.white));
+            Image img = arcs[arcsUsed++];
+            if (!img.enabled) img.enabled = true;
+            return img;
+        }
+
+        private Image AcquireMarker()
+        {
+            if (markersUsed >= markers.Count) markers.Add(UiKit.NewImage("Marker", layer, UiKit.Marker, Color.white));
+            Image img = markers[markersUsed++];
+            if (!img.enabled) img.enabled = true;
+            return img;
         }
 
         private Image AcquireRing()
@@ -451,6 +543,10 @@ namespace HighCommand.UI
                 if (bars[i].root.gameObject.activeSelf) bars[i].root.gameObject.SetActive(false);
             for (int i = ringsUsed; i < rings.Count; i++)
                 if (rings[i].enabled) rings[i].enabled = false;
+            for (int i = arcsUsed; i < arcs.Count; i++)
+                if (arcs[i].enabled) arcs[i].enabled = false;
+            for (int i = markersUsed; i < markers.Count; i++)
+                if (markers[i].enabled) markers[i].enabled = false;
             for (int i = linesUsed; i < lines.Count; i++)
                 if (lines[i].enabled) lines[i].enabled = false;
             for (int i = pingsUsed; i < pings.Count; i++)

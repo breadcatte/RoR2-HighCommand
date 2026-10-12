@@ -1,0 +1,36 @@
+# Selection look: marks under / above the heroes and the drag box (screenshots sel_*.png).
+@wait 4
+@log === S1 run start, a few heroes
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 20
+hc_gold 3000
+hc_recruit Commando
+hc_recruit Bandit2
+hc_recruit Mage
+@wait 22
+hc_cam army
+hc_cam dist 30
+@wait 3
+@log === S2 everybody selected
+hc_select all
+@wait 1
+hc_screenshot sel_all
+@log === S3 nobody selected, box dragged over the army (the button stays down for the screenshot)
+hc_select none
+@wait 1
+hc_drag 400 180 1700 900 hold
+@wait 2
+hc_screenshot sel_drag
+@wait 1
+hc_input_end
+@wait 1
+hc_screenshot sel_after
+@log === END
+disconnect
+@norun
+@wait 4
+@quit

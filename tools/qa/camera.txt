@@ -1,0 +1,63 @@
+# Camera height: panning over chasms, ramps and passages must not make the picture dive or jump.
+# hc_cam sweep pans along a line through the keyboard pan's own code and logs, every 0.4 s, the height the camera
+# wants (wantedY), the height it shows (shownY), the lowest surface under the point and what the old code would pick.
+@wait 4
+@log === C1 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 15
+@log === C2 Sky Meadow (floating islands: chasms all round)
+hc_next_stage skymeadow
+@wait 30
+hc_cam army
+@wait 3
+hc_cam info
+@log === C2a pan east 140 m over 7 s
+hc_cam sweep 140 0 7
+@wait 8
+@log === C2b pan back west 280 m over 12 s
+hc_cam sweep -280 0 12
+@wait 13
+@log === C2c pan north 140 m over 7 s
+hc_cam sweep 0 140 7
+@wait 8
+hc_screenshot cam_sky
+@log === C3 Abandoned Aqueduct (ramps and tunnels)
+hc_next_stage goolake
+@wait 30
+hc_cam army
+@wait 3
+@log === C3a pan 120 m in four directions
+hc_cam sweep 120 0 6
+@wait 7
+hc_cam sweep 0 120 6
+@wait 7
+hc_cam sweep -120 0 6
+@wait 7
+hc_cam sweep 0 -120 6
+@wait 7
+hc_screenshot cam_aqueduct
+@log === C4 Sundered Grove (bridges and passages on several levels): a square walk
+hc_next_stage rootjungle
+@wait 30
+hc_cam army
+@wait 3
+hc_cam sweep 150 0 6
+@wait 7
+hc_cam sweep 0 150 6
+@wait 7
+hc_cam sweep -300 0 12
+@wait 13
+hc_cam sweep 0 -300 12
+@wait 13
+hc_cam sweep 300 0 12
+@wait 13
+hc_screenshot cam_grove
+@log === END
+disconnect
+@norun
+@wait 4
+@quit

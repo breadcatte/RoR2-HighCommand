@@ -75,12 +75,14 @@ namespace HighCommand.Client
             Script.Enqueue(new Step { mouse = at, buttonDown = -1, buttonUp = -1 });
         }
 
-        internal static void InjectDrag(Vector2 from, Vector2 to, int button = 0, bool shift = false)
+        /// <param name="release">False keeps the button down after the move (testing the picture of a box being dragged).</param>
+        internal static void InjectDrag(Vector2 from, Vector2 to, int button = 0, bool shift = false, bool release = true)
         {
             Script.Enqueue(new Step { mouse = from, buttonDown = -1, buttonUp = -1 });
             Script.Enqueue(new Step { mouse = from, buttonDown = button, buttonUp = -1, shift = shift, keepModifiers = true });
             for (int i = 1; i <= 4; i++)
                 Script.Enqueue(new Step { mouse = Vector2.Lerp(from, to, i / 4f), buttonDown = -1, buttonUp = -1, shift = shift, keepModifiers = true });
+            if (!release) return;
             Script.Enqueue(new Step { mouse = to, buttonDown = -1, buttonUp = button, shift = shift, keepModifiers = true });
             Script.Enqueue(new Step { mouse = to, buttonDown = -1, buttonUp = -1 });
         }

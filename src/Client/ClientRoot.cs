@@ -370,7 +370,7 @@ namespace HighCommand.Client
 
             Vector3? world = minimap.ScreenToWorld(ClientInput.Mouse);
             if (world.HasValue)
-                Camera.FocusOn(new Vector3(world.Value.x, Camera.Focus.y, world.Value.z));
+                Camera.FocusOn(new Vector3(world.Value.x, Camera.Focus.y, world.Value.z), deliberate: pressed);
         }
 
         private void FocusSelectionOrArmy()

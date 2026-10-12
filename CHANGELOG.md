@@ -8,6 +8,20 @@ Interface
   click or press [key] to start".
 * Roster cards show the health of a living hero as numbers (current/max) above the bar; hidden for a fallen hero and on
   the compact cards (15+ heroes).
+* The selection box is a faint tint with a hairline border and corner brackets (was a flat green rectangle). Heroes the
+  box would take light up while it is dragged.
+* A selected hero no longer disappears under a green circle: only the front arc of a thin ring lies on the ground in
+  front of its feet, and a small triangle sits above its health bar. Hover marks of heroes and enemies are arcs too.
+* Camera height: the camera no longer dives into a chasm when panned over it (it keeps the level of the edge; only a
+  long stay over the void takes it down), it stays on its own level where a ramp lies over a passage or a bridge over a
+  pit (the nearest surface to the current level is taken, not the first one below a point 14 m up), and its height moves
+  smoothly at a limited speed. The pull-in in front of walls and ramps is smoothed too (quick in, slow out).
+  Flying to a hero, an alert or a minimap click still goes straight to the height of the target.
+
+Dev
+* `hc_cam sweep <dx> <dz> <seconds>` pans along a line through the keyboard pan's code and logs the heights (with what
+  the old code would have picked); `hc_drag ... hold` keeps the mouse button down until `hc_input_end`.
+* Scenarios `tools\qa\camera.txt` and `tools\qa\select.txt`.
 
 ## 0.10.0 - army upgrades, veteran ranks, fairer economy
 

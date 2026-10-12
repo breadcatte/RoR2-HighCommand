@@ -31,6 +31,8 @@ namespace HighCommand.UI
         private static Sprite circle;
         private static Sprite ring;
         private static Sprite square;
+        private static Sprite arc;
+        private static Sprite marker;
 
         /// <summary>The game's own TextMeshPro font (falls back to the first one found).</summary>
         internal static TMP_FontAsset Font
@@ -79,6 +81,29 @@ namespace HighCommand.UI
             float outer = Mathf.Clamp01((1f - m) * (s * 0.5f));
             float inner = Mathf.Clamp01((m - 0.88f) * (s * 0.5f));
             return outer * inner;
+        }));
+
+        /// <summary>
+        /// The front (lower) part of a thin ring, its ends fading out: stretched into an ellipse it reads as a mark on
+        /// the ground in front of a unit's feet. The back half is left out so the unit itself stays uncovered.
+        /// </summary>
+        internal static Sprite Arc => arc ? arc : (arc = MakeSprite(128, (x, y, s) =>
+        {
+            float d = Mathf.Sqrt(x * x + y * y);
+            float outer = Mathf.Clamp01((1f - d) * (s * 0.5f));
+            float inner = Mathf.Clamp01((d - 0.84f) * (s * 0.5f));
+            float front = d > 0.001f ? Mathf.Clamp01((-y / d - 0.12f) / 0.5f) : 0f;
+            return outer * inner * front;
+        }));
+
+        /// <summary>A small downward pointing triangle with soft edges (a mark floating above a unit).</summary>
+        internal static Sprite Marker => marker ? marker : (marker = MakeSprite(48, (x, y, s) =>
+        {
+            float half = Mathf.Clamp01((y + 0.85f) / 1.5f) * 0.95f;       // widest at the top, a point at the bottom
+            float side = Mathf.Clamp01((half - Mathf.Abs(x)) * (s * 0.5f));
+            float top = Mathf.Clamp01((0.65f - y) * (s * 0.5f));
+            float bottom = Mathf.Clamp01((y + 0.9f) * (s * 0.5f));
+            return side * top * bottom;
         }));
 
         /// <summary>Builds a white sprite whose alpha comes from f(x, y, size) with x,y in -1..1.</summary>

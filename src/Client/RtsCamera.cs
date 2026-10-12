@@ -40,6 +40,18 @@ namespace HighCommand.Client
         private float yawVelocity;
         private float distanceVelocity;
 
+        // height of the focus (see FocusHeight)
+        private const float AbyssDrop = 12f;        // ground this far below the level the camera is on counts as a chasm
+        private const float AbyssDwell = 5f;        // seconds of panning over a chasm before the camera follows it down
+        private const float MaxHeightSpeed = 45f;   // m/s, the fastest the focus may rise or sink
+        private float heightVelocity;
+        private float abyssTime;
+        private bool overAbyss;
+
+        // how much of the arm to the camera is left after pulling it in front of an obstacle (1 = free)
+        private float armFactor = 1f;
+        private float armFactorVelocity;
+
         private bool initialised;
         private Vector2 lastMouse;
         private GameObject listenerProxy;
@@ -76,13 +88,18 @@ namespace HighCommand.Client
         // ---- public commands ---------------------------------------------------------------------
 
         /// <summary>Moves the camera to look at a world point (smoothly, unless <paramref name="snap"/>).</summary>
-        internal void FocusOn(Vector3 worldPoint, bool snap = false)
+        /// <param name="deliberate">
+        /// False for a point that only slides past (dragging over the minimap): a chasm under it is then not followed
+        /// down, just like when panning. A flown-to hero or alert is deliberate: its own height is the level.
+        /// </param>
+        internal void FocusOn(Vector3 worldPoint, bool snap = false, bool deliberate = true)
         {
-            focus = ClampToMap(new Vector3(worldPoint.x, worldPoint.y, worldPoint.z));
+            focus = ClampToMap(new Vector3(worldPoint.x, worldPoint.y, worldPoint.z), deliberate);
             if (snap || !initialised)
             {
                 smoothFocus = focus;
                 focusVelocity = Vector3.zero;
+                heightVelocity = 0f;
                 initialised = true;
             }
         }
@@ -95,6 +112,46 @@ namespace HighCommand.Client
         internal void SetDistance(float meters)
         {
             distance = Mathf.Clamp(meters, Settings.CameraMinDistance.Value, Settings.CameraMaxDistance.Value);
+        }
+
+        // ---- testing (hc_cam sweep) --------------------------------------------------------------
+
+        private bool sweeping;
+        private Vector3 sweepFrom, sweepTo;
+        private float sweepTime, sweepSeconds, sweepLogAt;
+        private float lowestSurface;
+        private int surfaces;
+
+        /// <summary>Moves the focus along a line through the same height logic the keyboard pan uses, logging as it goes.</summary>
+        internal void Sweep(Vector3 from, Vector3 to, float seconds)
+        {
+            sweepFrom = from;
+            sweepTo = to;
+            sweepTime = 0f;
+            sweepLogAt = 0f;
+            sweepSeconds = Mathf.Max(0.5f, seconds);
+            sweeping = true;
+            FollowTarget = null;
+            FocusOn(from, snap: true);
+        }
+
+        private void AdvanceSweep(float dt)
+        {
+            sweepTime += dt;
+            float k = Mathf.Clamp01(sweepTime / sweepSeconds);
+            Vector3 at = Vector3.Lerp(sweepFrom, sweepTo, k);
+            var probe = new Vector3(at.x, focus.y, at.z);
+            float legacy = GroundHeight(probe, focus.y); // what the camera used to do here
+            focus = ClampToMap(probe, false);
+            abyssTime = overAbyss ? abyssTime + dt : 0f;
+
+            if (sweepTime >= sweepLogAt)
+            {
+                sweepLogAt += 0.4f;
+                Plugin.Log.LogInfo($"RtsCamera sweep t={sweepTime:0.0} xz=({at.x:0},{at.z:0}) wantedY={focus.y:0.0} shownY={smoothFocus.y:0.0} " +
+                                   $"surfaces={surfaces} lowestSurfaceY={(surfaces > 0 ? lowestSurface : 0f):0.0} legacyY={legacy:0.0} abyss={overAbyss} dwell={abyssTime:0.0} arm={armFactor:0.00}");
+            }
+            if (k >= 1f) sweeping = false;
         }
 
         // ---- frame loop --------------------------------------------------------------------------
@@ -126,6 +183,8 @@ namespace HighCommand.Client
                 else if (mouse.y >= Screen.height - 1 - e) move.y += 1f;
             }
 
+            if (sweeping) AdvanceSweep(dt);
+
             // following something (selected heroes): the focus tracks it until the player pans by hand
             if (FollowTarget != null)
             {
@@ -133,7 +192,7 @@ namespace HighCommand.Client
                 else
                 {
                     Vector3? followed = FollowTarget();
-                    if (followed.HasValue) focus = ClampToMap(followed.Value);
+                    if (followed.HasValue) focus = ClampToMap(followed.Value, true);
                 }
             }
 
@@ -144,8 +203,12 @@ namespace HighCommand.Client
                 if (ClientInput.Key(Settings.KeyFastCamera.Value)) speed *= 2.2f;
                 Quaternion flat = Quaternion.Euler(0f, yaw, 0f);
                 Vector3 delta = (flat * Vector3.right * move.x + flat * Vector3.forward * move.y) * (speed * dt);
-                focus = ClampToMap(focus + delta);
+                focus = ClampToMap(focus + delta, false);
+
+                // a chasm is crossed at the level of its edge; only a long stay over it takes the camera down
+                abyssTime = overAbyss ? abyssTime + dt : 0f;
             }
+            else if (!sweeping) abyssTime = 0f;
 
             // --- zoom ---
             float scroll = ClientInput.PointerOverUi || ClientInput.KeyboardBlocked ? 0f : ClientInput.Scroll;
@@ -172,10 +235,21 @@ namespace HighCommand.Client
             }
             else
             {
-                smoothFocus = Vector3.SmoothDamp(smoothFocus, focus, ref focusVelocity, smooth, float.PositiveInfinity, dt);
                 smoothYaw = Mathf.SmoothDampAngle(smoothYaw, yaw, ref yawVelocity, smooth, float.PositiveInfinity, dt);
                 smoothDistance = Mathf.SmoothDamp(smoothDistance, distance, ref distanceVelocity, smooth * 0.8f, float.PositiveInfinity, dt);
             }
+
+            // Sideways the focus follows the hand closely, but its height moves slowly and at a limited speed: a step,
+            // a ramp edge or a ledge must not jerk the whole picture up or down.
+            float groundSmooth = Mathf.Max(0.3f, smooth * 3f);
+            Vector3 flatNow = new Vector3(smoothFocus.x, 0f, smoothFocus.z);
+            Vector3 flatWant = new Vector3(focus.x, 0f, focus.z);
+            Vector3 flatVelocity = new Vector3(focusVelocity.x, 0f, focusVelocity.z);
+            if (smooth <= 0.001f) flatNow = flatWant;
+            else flatNow = Vector3.SmoothDamp(flatNow, flatWant, ref flatVelocity, smooth, float.PositiveInfinity, dt);
+            focusVelocity = flatVelocity;
+            float height = Mathf.SmoothDamp(smoothFocus.y, focus.y, ref heightVelocity, groundSmooth, MaxHeightSpeed, dt);
+            smoothFocus = new Vector3(flatNow.x, height, flatNow.z);
         }
 
         private void LateUpdate()
@@ -241,14 +315,19 @@ namespace HighCommand.Client
             Vector3 lookAt = smoothFocus + Vector3.up * 1.0f;
             Vector3 position = lookAt - forward * smoothDistance;
 
-            // Keep the camera out of hills and walls: pull it in front of whatever is between it and the focus.
+            // Keep the camera out of hills and walls: pull it in front of whatever is between it and the focus. The
+            // pull-in is smoothed: quick to go in, slow to come back out, so passing under a bridge or a ramp does not
+            // make the picture jump in and out.
             Vector3 toCamera = position - lookAt;
             float length = toCamera.magnitude;
             if (length > 0.01f)
             {
                 float blocked = NearestStaticHit(lookAt, toCamera / length, length);
-                if (blocked >= 0f)
-                    position = lookAt + (toCamera / length) * Mathf.Max(1.5f, blocked - 0.2f);
+                float want = blocked >= 0f ? Mathf.Clamp(Mathf.Max(1.5f, blocked - 0.2f) / length, 0.02f, 1f) : 1f;
+                float dt = Mathf.Max(0.0001f, Time.unscaledDeltaTime);
+                armFactor = Mathf.SmoothDamp(armFactor, want, ref armFactorVelocity, want < armFactor ? 0.07f : 0.45f, float.PositiveInfinity, dt);
+                armFactor = Mathf.Clamp(armFactor, 0.02f, 1f); // the smoothing may overshoot: never past the focus
+                position = lookAt + (toCamera / length) * (length * armFactor);
             }
 
             cameraState.position = position;
@@ -270,12 +349,19 @@ namespace HighCommand.Client
             for (int i = 0; i < count; i++)
             {
                 RaycastHit hit = CastBuffer[i];
-                if (!hit.collider) continue;
-                if (hit.collider.GetComponentInParent<UnityEngine.Networking.NetworkIdentity>()) continue;
-                if (hit.collider.GetComponentInParent<RoR2.CharacterBody>()) continue;
+                if (!IsLevelGeometry(hit.collider)) continue;
                 if (best < 0f || hit.distance < best) best = hit.distance;
             }
             return best;
+        }
+
+        /// <summary>True for terrain and buildings; false for the game's objects (pods, interactables, bodies).</summary>
+        private static bool IsLevelGeometry(Collider collider)
+        {
+            if (!collider) return false;
+            if (collider.GetComponentInParent<UnityEngine.Networking.NetworkIdentity>()) return false;
+            if (collider.GetComponentInParent<RoR2.CharacterBody>()) return false;
+            return true;
         }
 
         public bool IsUserLookAllowed(CameraRigController cameraRigController) => false;
@@ -286,7 +372,7 @@ namespace HighCommand.Client
 
         // ---- helpers -----------------------------------------------------------------------------
 
-        private Vector3 ClampToMap(Vector3 p)
+        private Vector3 ClampToMap(Vector3 p, bool deliberate)
         {
             if (MapInfo.Valid)
             {
@@ -294,8 +380,66 @@ namespace HighCommand.Client
                 p.x = Mathf.Clamp(p.x, b.min.x, b.max.x);
                 p.z = Mathf.Clamp(p.z, b.min.z, b.max.z);
             }
-            p.y = GroundHeight(p, p.y);
+            p.y = FocusHeight(p, deliberate);
             return p;
+        }
+
+        private static readonly RaycastHit[] LevelHits = new RaycastHit[32];
+
+        /// <summary>
+        /// The height the focus should have above <paramref name="p"/> (p.y is the level the camera is on now, or the
+        /// height of the thing that is flown to).
+        ///  * Of all the surfaces under the point (a ramp over a passage, a bridge over a pit, floors of a cave) the one
+        ///    nearest to that level is taken, so the camera stays on its level instead of hopping between them.
+        ///  * When panning, a surface far below that level is a chasm: the focus keeps its height over it (and the
+        ///    camera does not dive into the pit) unless the player stays over it for a while.
+        /// </summary>
+        private float FocusHeight(Vector3 p, bool deliberate)
+        {
+            float level = p.y;
+            float top, length;
+            if (MapInfo.Valid)
+            {
+                Bounds b = MapInfo.Bounds;
+                top = Mathf.Max(b.max.y, level) + 20f;
+                length = top - b.min.y + 60f;
+            }
+            else
+            {
+                top = level + 100f;
+                length = 600f;
+            }
+
+            overAbyss = false;
+            int count = Physics.RaycastNonAlloc(new Vector3(p.x, top, p.z), Vector3.down, LevelHits, length,
+                LayerIndex.world.mask, QueryTriggerInteraction.Ignore);
+
+            bool found = false;
+            float best = level, bestGap = float.MaxValue;
+            lowestSurface = float.MaxValue;
+            surfaces = 0;
+            for (int i = 0; i < count; i++)
+            {
+                RaycastHit hit = LevelHits[i];
+                if (!IsLevelGeometry(hit.collider)) continue;
+                surfaces++;
+                if (hit.point.y < lowestSurface) lowestSurface = hit.point.y;
+                float gap = Mathf.Abs(hit.point.y - level);
+                if (gap < bestGap)
+                {
+                    bestGap = gap;
+                    best = hit.point.y;
+                    found = true;
+                }
+            }
+            if (!found) return level;
+
+            if (!deliberate && best < level - AbyssDrop)
+            {
+                overAbyss = true;
+                if (abyssTime < AbyssDwell) return level;
+            }
+            return best;
         }
 
         /// <summary>Terrain height at the XZ of <paramref name="p"/>; <paramref name="fallback"/> when nothing is below.</summary>

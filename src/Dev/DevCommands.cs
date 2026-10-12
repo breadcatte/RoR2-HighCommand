@@ -198,6 +198,13 @@ namespace HighCommand.Dev
                 case "at":
                     cam.FocusOn(new Vector3(args.GetArgFloat(1), cam.Focus.y, args.GetArgFloat(2)));
                     break;
+                case "sweep":
+                {
+                    // hc_cam sweep <dx> <dz> <seconds>: pans from the current focus by (dx, dz) and logs the height
+                    Vector3 from = cam.Focus;
+                    cam.Sweep(from, from + new Vector3(args.GetArgFloat(1), 0f, args.GetArgFloat(2)), args.GetArgFloat(3));
+                    break;
+                }
                 case "info":
                 {
                     Vector3? army = Client.ClientRoot.ArmyCenter();
@@ -680,11 +687,11 @@ namespace HighCommand.Dev
             Client.ClientInput.InjectClick(new Vector2(x, y), button, shift, ctrl);
         }
 
-        [ConCommand(commandName = "hc_drag", flags = HostOnly, helpText = "hc_drag <x1> <y1> <x2> <y2> [shift]: injects a left-button drag.")]
+        [ConCommand(commandName = "hc_drag", flags = HostOnly, helpText = "hc_drag <x1> <y1> <x2> <y2> [shift] [hold]: injects a left-button drag; with hold the button stays down until hc_input_end.")]
         private static void CcDrag(ConCommandArgs args)
         {
             Client.ClientInput.InjectDrag(new Vector2(args.GetArgFloat(0), args.GetArgFloat(1)),
-                new Vector2(args.GetArgFloat(2), args.GetArgFloat(3)), 0, HasFlag(args, 4, "shift"));
+                new Vector2(args.GetArgFloat(2), args.GetArgFloat(3)), 0, HasFlag(args, 4, "shift"), !HasFlag(args, 4, "hold"));
         }
 
         [ConCommand(commandName = "hc_key", flags = HostOnly, helpText = "hc_key <KeyCode> [ctrl] [shift] [alt]: injects a key press.")]
