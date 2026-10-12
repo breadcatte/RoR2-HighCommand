@@ -1,0 +1,156 @@
+using System.Collections.Generic;
+using HighCommand.Army;
+using HighCommand.Client;
+using RoR2;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace HighCommand.UI
+{
+    /// <summary>Bottom-centre strip of cards for the selected heroes: portrait, name, health, level.</summary>
+    internal sealed class SelectionPanel
+    {
+        private const int MaxCards = 12;
+        private const float CardWidth = 96f;
+        private const float CardHeight = 118f;
+
+        private sealed class Card
+        {
+            internal RectTransform root;
+            internal RawImage portrait;
+            internal TextMeshProUGUI name;
+            internal TextMeshProUGUI level;
+            internal Image healthFill;
+            internal Image shieldFill;
+            internal Image frame;
+        }
+
+        private readonly RectTransform root;
+        private readonly RectTransform content;
+        private readonly TextMeshProUGUI summary;
+        private readonly List<Card> cards = new List<Card>();
+
+        internal SelectionPanel(Transform parent)
+        {
+            root = UiKit.NewPanel("SelectionPanel", parent, UiKit.PanelColor);
+            UiKit.Place(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 14f), new Vector2(CardWidth * MaxCards + 24f, CardHeight + 30f));
+
+            content = UiKit.NewRect("Content", root);
+            UiKit.Stretch(content, 10, 8, 10, 22);
+
+            summary = UiKit.NewText("Summary", root, "", 18f, UiKit.TextDim, TextAlignmentOptions.Left);
+            UiKit.Place(summary.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(12f, -6f), new Vector2(600f, 22f));
+
+            ClientInput.RegisterUiHitTest(Contains);
+            root.gameObject.SetActive(false);
+        }
+
+        internal bool Contains(Vector2 screenPoint) => UiKit.Contains(root, screenPoint);
+
+        internal void Destroy()
+        {
+            ClientInput.UnregisterUiHitTest(Contains);
+            if (root) Object.Destroy(root.gameObject);
+        }
+
+        internal void Tick(Selection selection, bool visible)
+        {
+            var heroes = selection.Heroes;
+            bool show = visible && heroes.Count > 0;
+            if (root.gameObject.activeSelf != show) root.gameObject.SetActive(show);
+            if (!show) return;
+
+            summary.text = Loc.Format("HIGHCOMMAND_SELECTED_COUNT", heroes.Count);
+
+            // keep the card strip centred: fit the panel to the card count
+            int shown = Mathf.Min(MaxCards, heroes.Count);
+            UiKit.Place(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 14f),
+                new Vector2(Mathf.Max(220f, CardWidth * shown + 24f), CardHeight + 30f));
+
+            for (int i = 0; i < shown; i++)
+            {
+                Card card = GetCard(i);
+                if (!card.root.gameObject.activeSelf) card.root.gameObject.SetActive(true);
+                card.root.anchoredPosition = new Vector2(i * CardWidth, 0f);
+                Fill(card, heroes[i]);
+            }
+            for (int i = shown; i < cards.Count; i++)
+                if (cards[i].root.gameObject.activeSelf) cards[i].root.gameObject.SetActive(false);
+        }
+
+        private Card GetCard(int index)
+        {
+            while (cards.Count <= index)
+            {
+                var c = new Card();
+                c.root = UiKit.NewRect("Card", content);
+                c.root.anchorMin = c.root.anchorMax = new Vector2(0f, 0f);
+                c.root.pivot = new Vector2(0f, 0f);
+                c.root.sizeDelta = new Vector2(CardWidth - 6f, CardHeight);
+
+                c.frame = c.root.gameObject.AddComponent<Image>();
+                c.frame.sprite = UiKit.White;
+                c.frame.color = new Color(0.4f, 1f, 0.5f, 0.9f);
+                c.frame.raycastTarget = false;
+
+                Image back = UiKit.NewImage("Back", c.root, UiKit.White, new Color(0.05f, 0.06f, 0.08f, 0.95f));
+                UiKit.Stretch(back.rectTransform, 2, 2, 2, 2);
+
+                c.portrait = UiKit.NewRawImage("Portrait", c.root, null, Color.white);
+                UiKit.Place(c.portrait.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(64f, 64f));
+
+                c.name = UiKit.NewText("Name", c.root, "", 15f, UiKit.Text, TextAlignmentOptions.Center);
+                UiKit.Place(c.name.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 22f), new Vector2(CardWidth - 8f, 20f));
+                c.name.enableAutoSizing = true;
+                c.name.fontSizeMin = 10f;
+                c.name.fontSizeMax = 15f;
+
+                c.level = UiKit.NewText("Level", c.root, "", 16f, UiKit.Gold, TextAlignmentOptions.TopRight);
+                UiKit.Place(c.level.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-4f, -3f), new Vector2(60f, 20f));
+
+                Image barBack = UiKit.NewImage("BarBack", c.root, UiKit.White, new Color(0.15f, 0.15f, 0.17f, 1f));
+                UiKit.Place(barBack.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 8f), new Vector2(CardWidth - 18f, 9f));
+                c.healthFill = UiKit.NewImage("Health", barBack.rectTransform, UiKit.White, UiKit.Good);
+                c.shieldFill = UiKit.NewImage("Shield", barBack.rectTransform, UiKit.White, new Color(0.35f, 0.65f, 1f));
+                cards.Add(c);
+            }
+            return cards[index];
+        }
+
+        private static void Fill(Card card, Hero hero)
+        {
+            CharacterBody body = hero.Body;
+            card.name.text = hero.DisplayName;
+
+            if (body)
+            {
+                if (card.portrait.texture != body.portraitIcon) card.portrait.texture = body.portraitIcon;
+                card.level.text = Loc.Format("HIGHCOMMAND_LEVEL_SHORT", (int)body.level);
+
+                HealthComponent hc = body.healthComponent;
+                float total = hc ? Mathf.Max(1f, hc.fullHealth + hc.fullShield) : 1f;
+                float h = hc ? Mathf.Clamp01(hc.health / total) : 0f;
+                float s = hc ? Mathf.Clamp01(hc.shield / total) : 0f;
+                SetFill(card.healthFill.rectTransform, 0f, h);
+                SetFill(card.shieldFill.rectTransform, h, Mathf.Min(1f, h + s));
+                card.portrait.color = hero.IsAlive ? Color.white : new Color(0.4f, 0.4f, 0.4f, 1f);
+            }
+            else
+            {
+                card.level.text = "";
+                SetFill(card.healthFill.rectTransform, 0f, 0f);
+                SetFill(card.shieldFill.rectTransform, 0f, 0f);
+                card.portrait.color = new Color(0.4f, 0.4f, 0.4f, 1f);
+            }
+        }
+
+        private static void SetFill(RectTransform rt, float from, float to)
+        {
+            rt.anchorMin = new Vector2(from, 0f);
+            rt.anchorMax = new Vector2(Mathf.Max(from, to), 1f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+        }
+    }
+}

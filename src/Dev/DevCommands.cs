@@ -154,7 +154,7 @@ namespace HighCommand.Dev
                          $"state={(baseAi.stateMachine && baseAi.stateMachine.state != null ? baseAi.stateMachine.state.GetType().Name : "none")}";
                 }
                 string hp = body && body.healthComponent ? $"{body.healthComponent.health:0}/{body.healthComponent.fullHealth:0}" : "-";
-                sb.AppendLine($"  {hero} alive={hero.IsAlive} hp={hp} lvl={(body ? body.level : 0):0} pos={hero.Position:0} {ai}");
+                sb.AppendLine($"  {hero} '{hero.DisplayName}' alive={hero.IsAlive} hp={hp} lvl={(body ? body.level : 0):0} pos={hero.Position:0} {ai}");
             }
             Debug.Log(sb.ToString());
         }
@@ -185,12 +185,122 @@ namespace HighCommand.Dev
                 case "dist":
                     cam.SetDistance(args.GetArgFloat(1));
                     break;
+                case "follow":
+                    cam.FollowTarget = Client.ClientRoot.ArmyCenter;
+                    break;
                 case "at":
                     cam.FocusOn(new Vector3(args.GetArgFloat(1), cam.Focus.y, args.GetArgFloat(2)));
                     break;
                 default:
                     throw new ConCommandException("Unknown option.");
             }
+        }
+
+        [ConCommand(commandName = "hc_sel", flags = HostOnly, helpText = "Prints the current selection and control groups.")]
+        private static void CcSel(ConCommandArgs args)
+        {
+            var root = Client.ClientRoot.Instance;
+            if (!root) throw new ConCommandException("Not in a High Command run.");
+            var sb = new StringBuilder($"HighCommand selection: {root.Selection.Count} [");
+            foreach (var h in root.Selection.Heroes) sb.Append(h.Id).Append(' ');
+            sb.Append("] groups:");
+            for (int g = 0; g < Client.Selection.GroupCount; g++)
+                if (root.Selection.Group(g).Count > 0) sb.Append($" {g}={root.Selection.Group(g).Count}");
+            Debug.Log(sb.ToString());
+        }
+
+        [ConCommand(commandName = "hc_select", flags = HostOnly, helpText = "hc_select all | none | <heroId>: changes the selection (testing).")]
+        private static void CcSelect(ConCommandArgs args)
+        {
+            var root = Client.ClientRoot.Instance;
+            var run = Mode.HighCommandRun.Instance;
+            if (!root || run == null) throw new ConCommandException("Not in a High Command run.");
+
+            string what = args.Count > 0 ? args.GetArgString(0) : "all";
+            if (what == "none") root.Selection.Clear();
+            else if (what == "all") root.Selection.Set(run.Army.Heroes);
+            else
+            {
+                int id = args.GetArgInt(0);
+                foreach (var h in run.Army.Heroes) if (h.Id == id) { root.Selection.SetSingle(h); break; }
+            }
+            Debug.Log($"HighCommand: selected {root.Selection.Count} hero(es).");
+        }
+
+        // ---- synthetic input (testing) --------------------------------------------------------------
+
+        [ConCommand(commandName = "hc_click", flags = HostOnly, helpText = "hc_click <x> <y> [button 0/1/2] [shift] [ctrl]: injects a mouse click (screen pixels, origin bottom-left).")]
+        private static void CcClick(ConCommandArgs args)
+        {
+            float x = args.GetArgFloat(0), y = args.GetArgFloat(1);
+            int button = args.Count > 2 ? args.GetArgInt(2) : 0;
+            bool shift = HasFlag(args, 3, "shift"), ctrl = HasFlag(args, 3, "ctrl");
+            Client.ClientInput.InjectClick(new Vector2(x, y), button, shift, ctrl);
+        }
+
+        [ConCommand(commandName = "hc_drag", flags = HostOnly, helpText = "hc_drag <x1> <y1> <x2> <y2> [shift]: injects a left-button drag.")]
+        private static void CcDrag(ConCommandArgs args)
+        {
+            Client.ClientInput.InjectDrag(new Vector2(args.GetArgFloat(0), args.GetArgFloat(1)),
+                new Vector2(args.GetArgFloat(2), args.GetArgFloat(3)), 0, HasFlag(args, 4, "shift"));
+        }
+
+        [ConCommand(commandName = "hc_key", flags = HostOnly, helpText = "hc_key <KeyCode> [ctrl] [shift] [alt]: injects a key press.")]
+        private static void CcKey(ConCommandArgs args)
+        {
+            var key = (KeyCode)System.Enum.Parse(typeof(KeyCode), args.GetArgString(0), true);
+            Client.ClientInput.InjectKey(key, HasFlag(args, 1, "ctrl"), HasFlag(args, 1, "shift"), HasFlag(args, 1, "alt"));
+        }
+
+        [ConCommand(commandName = "hc_click_hero", flags = HostOnly, helpText = "hc_click_hero <heroId> [button] [shift]: clicks on the hero's body on screen.")]
+        private static void CcClickHero(ConCommandArgs args)
+        {
+            var run = Mode.HighCommandRun.Instance;
+            if (run == null) throw new ConCommandException("Not in a High Command run.");
+            int id = args.GetArgInt(0);
+            int button = args.Count > 1 ? args.GetArgInt(1) : 0;
+            foreach (var h in run.Army.Heroes)
+            {
+                if (h.Id != id) continue;
+                if (!h.Body) throw new ConCommandException("Hero has no body.");
+                if (!Client.WorldPicker.Project(h.Body.corePosition, 1f, out Vector2 s, out float _))
+                    throw new ConCommandException("Hero is behind the camera.");
+                Client.ClientInput.InjectClick(s, button, HasFlag(args, 2, "shift"));
+                return;
+            }
+            throw new ConCommandException("No such hero.");
+        }
+
+        [ConCommand(commandName = "hc_input_end", flags = HostOnly, helpText = "Ends synthetic input; the real mouse works again.")]
+        private static void CcInputEnd(ConCommandArgs args) => Client.ClientInput.EndSynthetic();
+
+        private static bool HasFlag(ConCommandArgs args, int fromIndex, string flag)
+        {
+            for (int i = fromIndex; i < args.Count; i++)
+                if (string.Equals(args.GetArgString(i), flag, System.StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
+
+        [ConCommand(commandName = "hc_overlay", flags = HostOnly, helpText = "Prints diagnostics of the world overlay (rings, bars).")]
+        private static void CcOverlay(ConCommandArgs args)
+        {
+            var cam = Client.RtsCamera.Instance;
+            var sb = new StringBuilder();
+            sb.AppendLine($"HighCommand overlay: bars={UI.WorldOverlay.LastBars} rings={UI.WorldOverlay.LastRings} " +
+                          $"camera={(cam ? "yes" : "no")} sceneCam={(cam && cam.SceneCam ? cam.SceneCam.name : "none")} " +
+                          $"focus={(cam ? cam.Focus : Vector3.zero):0.0} dist={(cam ? cam.Distance : 0f):0.0}");
+            var run = Mode.HighCommandRun.Instance;
+            if (run != null && cam && cam.SceneCam)
+            {
+                foreach (var h in run.Army.Heroes)
+                {
+                    var b = h.Body;
+                    if (!b) { sb.AppendLine($"  {h}: no body"); continue; }
+                    Vector3 sp = cam.SceneCam.WorldToScreenPoint(b.corePosition);
+                    sb.AppendLine($"  {h}: world={b.corePosition:0.0} screen=({sp.x:0},{sp.y:0}) depth={sp.z:0.0} screenSize={Screen.width}x{Screen.height}");
+                }
+            }
+            Debug.Log(sb.ToString());
         }
 
         [ConCommand(commandName = "hc_dump_fonts", flags = HostOnly, helpText = "Lists TextMeshPro font assets the game has loaded.")]

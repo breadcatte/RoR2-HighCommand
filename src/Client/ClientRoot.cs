@@ -1,4 +1,7 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
+using HighCommand.Army;
+using HighCommand.Mode;
 using HighCommand.UI;
 using RoR2;
 using RoR2.UI;
@@ -8,25 +11,35 @@ namespace HighCommand.Client
 {
     /// <summary>
     /// Everything that runs on the player's machine while a High Command run is live: the RTS camera, the input gate,
-    /// the UI canvas with its cursor, minimap and help sheet. Created by HighCommandRun, destroyed with it.
+    /// the UI canvas with its cursor, minimap, selection and help sheet. Created by HighCommandRun, destroyed with it.
     /// </summary>
+    [DefaultExecutionOrder(10000)] // after the stock camera rig has placed the camera: overlays use this frame's pose
     internal sealed class ClientRoot : MonoBehaviour
     {
         internal static ClientRoot Instance { get; private set; }
 
         internal RtsCamera Camera { get; private set; }
 
+        internal Selection Selection { get; private set; }
+
         private Canvas canvas;
         private Minimap minimap;
         private HelpOverlay help;
+        private WorldOverlay overlay;
+        private SelectionPanel selectionPanel;
+        private SelectionController selectionController;
+
         private bool mapDirty = true;
         private bool focusedThisStage;
         private bool draggingMinimap;
+
+        private static readonly IReadOnlyList<Hero> NoHeroes = new List<Hero>();
 
         private void Awake()
         {
             Instance = this;
             Camera = gameObject.AddComponent<RtsCamera>();
+            Selection = new Selection();
 
             canvas = UiKit.CreateCanvas("HighCommand.UI", 100);
             canvas.transform.SetParent(transform, false);
@@ -35,8 +48,11 @@ namespace HighCommand.Client
             // The stock cursor opener shows the OS-confined mouse cursor the same way menus do.
             canvas.gameObject.AddComponent<CursorOpener>();
 
+            overlay = new WorldOverlay(canvas.transform);   // first: it draws underneath the panels
             minimap = new Minimap(canvas.transform);
+            selectionPanel = new SelectionPanel(canvas.transform);
             help = new HelpOverlay(canvas.transform);
+            selectionController = new SelectionController(Selection, overlay);
 
             RegisterHelp();
             Stage.onStageStartGlobal += OnStageStart;
@@ -47,6 +63,8 @@ namespace HighCommand.Client
             Stage.onStageStartGlobal -= OnStageStart;
             minimap?.Destroy();
             help?.Destroy();
+            overlay?.Destroy();
+            selectionPanel?.Destroy();
             if (Instance == this) Instance = null;
         }
 
@@ -61,6 +79,13 @@ namespace HighCommand.Client
             HelpOverlay.Add($"{Loc.Get("HIGHCOMMAND_KEY_MMB")} / {Settings.KeyRotateLeft.Value} {Settings.KeyRotateRight.Value}", Loc.Get("HIGHCOMMAND_HELP_ROTATE"));
             HelpOverlay.Add(Settings.KeyFocusSelected.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FOCUS"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_MINIMAP"), Loc.Get("HIGHCOMMAND_HELP_MINIMAP"));
+            HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_LMB"), Loc.Get("HIGHCOMMAND_HELP_SELECT"));
+            HelpOverlay.Add("Shift + " + Loc.Get("HIGHCOMMAND_KEY_LMB"), Loc.Get("HIGHCOMMAND_HELP_SELECT_ADD"));
+            HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_DOUBLE"), Loc.Get("HIGHCOMMAND_HELP_SELECT_TYPE"));
+            HelpOverlay.Add("Ctrl + A", Loc.Get("HIGHCOMMAND_HELP_SELECT_ALL"));
+            HelpOverlay.Add("Ctrl + 1..9", Loc.Get("HIGHCOMMAND_HELP_GROUP_SET"));
+            HelpOverlay.Add("1..9 (x2)", Loc.Get("HIGHCOMMAND_HELP_GROUP_RECALL"));
+            HelpOverlay.Add("Tab", Loc.Get("HIGHCOMMAND_HELP_CYCLE"));
             HelpOverlay.Add(Settings.KeyHelp.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_HELP"));
             HelpOverlay.Add("Esc", Loc.Get("HIGHCOMMAND_HELP_PAUSE"));
         }
@@ -69,6 +94,12 @@ namespace HighCommand.Client
         {
             mapDirty = true;
             focusedThisStage = false;
+        }
+
+        private IReadOnlyList<Hero> CurrentHeroes()
+        {
+            HighCommandRun run = HighCommandRun.Instance;
+            return run != null ? run.Army.Heroes : NoHeroes;
         }
 
         private void Update()
@@ -95,13 +126,29 @@ namespace HighCommand.Client
                 TryInitialFocus();
 
             if (ClientInput.KeyDown(Settings.KeyHelp.Value)) help.Toggle();
-            if (help.Visible && Input.GetKeyDown(KeyCode.Escape)) help.Hide();
+            if (help.Visible && ClientInput.RawKeyDown(KeyCode.Escape)) help.Hide();
+
+            IReadOnlyList<Hero> heroes = CurrentHeroes();
+            bool inputAllowed = inStage && !PauseManager.isPaused && !help.Visible;
 
             if (Camera && inStage)
             {
                 HandleMinimapMouse();
-                if (ClientInput.KeyDown(Settings.KeyFocusSelected.Value)) FocusArmy();
+                if (ClientInput.KeyDown(Settings.KeyFocusSelected.Value)) FocusSelectionOrArmy();
             }
+
+            if (inStage) selectionController.Tick(heroes, Camera, inputAllowed);
+            else selectionController.Tick(heroes, Camera, false);
+
+            selectionPanel.Tick(Selection, inStage);
+        }
+
+        // Overlays use the camera pose of this very frame (this component runs after the stock camera rig).
+        private void LateUpdate()
+        {
+            bool inStage = Stage.instance != null && Run.instance != null && !Run.instance.isGameOverServer;
+            if (inStage && Camera && Camera.SceneCam) overlay.Draw(Camera, Selection, CurrentHeroes());
+            else overlay.Draw(null, Selection, CurrentHeroes());
 
             minimap.Tick(Camera, Time.unscaledDeltaTime);
         }
@@ -118,9 +165,9 @@ namespace HighCommand.Client
 
         private void HandleMinimapMouse()
         {
-            if (!Input.GetMouseButton(0)) { draggingMinimap = false; return; }
+            if (!ClientInput.MouseHeld(0)) { draggingMinimap = false; return; }
 
-            bool pressed = Input.GetMouseButtonDown(0);
+            bool pressed = ClientInput.MouseDown(0);
             if (pressed && minimap.Contains(ClientInput.Mouse)) draggingMinimap = true;
             if (!draggingMinimap) return;
 
@@ -129,9 +176,9 @@ namespace HighCommand.Client
                 Camera.FocusOn(new Vector3(world.Value.x, Camera.Focus.y, world.Value.z));
         }
 
-        private void FocusArmy()
+        private void FocusSelectionOrArmy()
         {
-            Vector3? where = ArmyCenter();
+            Vector3? where = Selection.Center() ?? ArmyCenter();
             if (where.HasValue) Camera.FocusOn(where.Value);
         }
 
@@ -148,7 +195,7 @@ namespace HighCommand.Client
                     CharacterBody b = bodies[i];
                     if (!b || !b.healthComponent || !b.healthComponent.alive || !b.teamComponent) continue;
                     if (b.teamComponent.teamIndex != TeamIndex.Player) continue;
-                    if (pass == 0 && Army.HeroMarker.Of(b) == null) continue; // server knows the heroes; clients fall through
+                    if (pass == 0 && HeroMarker.Of(b) == null) continue; // server knows the heroes; clients fall through
                     sum += b.corePosition;
                     count++;
                 }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using RoR2;
 using UnityEngine;
 
@@ -66,6 +66,11 @@ namespace HighCommand.Client
             }
         }
 
+        /// <summary>While set, the focus follows what it returns (null result = keep position). Cleared by manual panning.</summary>
+        internal Func<Vector3?> FollowTarget;
+
+        internal bool IsFollowing => FollowTarget != null;
+
         internal void SetDistance(float meters)
         {
             distance = Mathf.Clamp(meters, Settings.CameraMinDistance.Value, Settings.CameraMaxDistance.Value);
@@ -100,18 +105,29 @@ namespace HighCommand.Client
                 else if (mouse.y >= Screen.height - 1 - e) move.y += 1f;
             }
 
+            // following something (selected heroes): the focus tracks it until the player pans by hand
+            if (FollowTarget != null)
+            {
+                if (move.sqrMagnitude > 0.0001f) FollowTarget = null;
+                else
+                {
+                    Vector3? followed = FollowTarget();
+                    if (followed.HasValue) focus = ClampToMap(followed.Value);
+                }
+            }
+
             if (move.sqrMagnitude > 0.0001f)
             {
                 if (move.sqrMagnitude > 1f) move.Normalize();
                 float speed = 38f * Settings.CameraPanSpeed.Value * Mathf.Max(0.35f, distance / 45f);
-                if (Input.GetKey(Settings.KeyFastCamera.Value) && !ClientInput.KeyboardBlocked) speed *= 2.2f;
+                if (ClientInput.Key(Settings.KeyFastCamera.Value)) speed *= 2.2f;
                 Quaternion flat = Quaternion.Euler(0f, yaw, 0f);
                 Vector3 delta = (flat * Vector3.right * move.x + flat * Vector3.forward * move.y) * (speed * dt);
                 focus = ClampToMap(focus + delta);
             }
 
             // --- zoom ---
-            float scroll = ClientInput.PointerOverUi || ClientInput.KeyboardBlocked ? 0f : Input.mouseScrollDelta.y;
+            float scroll = ClientInput.PointerOverUi || ClientInput.KeyboardBlocked ? 0f : ClientInput.Scroll;
             if (Mathf.Abs(scroll) > 0.01f)
             {
                 float factor = Mathf.Pow(0.88f, scroll * Settings.CameraZoomSpeed.Value);
@@ -120,7 +136,7 @@ namespace HighCommand.Client
 
             // --- rotate ---
             float rotate = Settings.CameraRotateSpeed.Value;
-            if (Input.GetMouseButton(2) && !ClientInput.PointerOverUi && !PauseManager.isPaused)
+            if (ClientInput.MouseHeld(2) && !ClientInput.PointerOverUi && !PauseManager.isPaused)
                 yaw += mouseDelta.x * 0.22f * rotate;
             if (ClientInput.Key(Settings.KeyRotateLeft.Value)) yaw -= 90f * rotate * dt;
             if (ClientInput.Key(Settings.KeyRotateRight.Value)) yaw += 90f * rotate * dt;

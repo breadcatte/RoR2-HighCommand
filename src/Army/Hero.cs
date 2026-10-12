@@ -48,10 +48,17 @@ namespace HighCommand.Army
         {
             get
             {
+                // SurvivorDef.displayNameToken can be an empty string (not null), so fall back to the body's own name.
                 if (Survivor && !string.IsNullOrEmpty(Survivor.displayNameToken))
                     return Language.GetString(Survivor.displayNameToken);
                 CharacterBody b = Body;
-                return b ? b.GetDisplayName() : "?";
+                if (b) return b.GetDisplayName();
+                if (Survivor && Survivor.bodyPrefab)
+                {
+                    var prefabBody = Survivor.bodyPrefab.GetComponent<CharacterBody>();
+                    if (prefabBody) return Language.GetString(prefabBody.baseNameToken);
+                }
+                return "?";
             }
         }
 
