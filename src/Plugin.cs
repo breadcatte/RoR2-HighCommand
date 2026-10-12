@@ -20,7 +20,7 @@ namespace HighCommand
     {
         public const string Guid = "kantemiir.HighCommand";
         public const string Name = "HighCommand";
-        public const string Version = "0.1.0";
+        public const string Version = "0.9.0";
 
         internal static Plugin Instance;
         internal static ManualLogSource Log;
@@ -53,6 +53,9 @@ namespace HighCommand
             TryPatch(typeof(Mode.RunPatches.NoCommanderBody), "commander has no body");
             TryPatch(typeof(Mode.RunPatches.LivingPlayerCount), "living player count = living heroes");
             TryPatch(typeof(Mode.RunPatches.DirectorSpawnTarget), "director spawns around heroes");
+            TryPatch(typeof(Mode.RunPatches.ZoneCountInRadius), "holdout zones count heroes inside");
+            TryPatch(typeof(Mode.RunPatches.ZoneCountLiving), "holdout zones count living heroes");
+            TryPatch(typeof(Mode.RunPatches.ParticipatingPlayers), "army size scales the run like extra players");
             TryPatch(typeof(Army.EconomyPatches.KillGold), "kill gold goes to the army purse");
             TryPatch(typeof(Army.EconomyPatches.RememberVictim), "gold popup position");
             TryPatch(typeof(Army.EconomyPatches.DirectGold), "direct gold goes to the army purse");
@@ -60,6 +63,13 @@ namespace HighCommand
             TryPatch(typeof(Army.LootPatches.WorldPickups), "world pickups go to the pool");
             TryPatch(typeof(Army.LootPatches.KillDrops), "enemies drop items");
             TryPatch(typeof(Army.LootPatches.NoPaidInteractables), "no chests and other paid interactables");
+            TryPatch(typeof(Army.GameOverStatsPatch), "army statistics on the end-of-run screen");
+
+            try
+            {
+                if (OptionsIntegration.Available) OptionsIntegration.Register();
+            }
+            catch (Exception e) { Log.LogWarning("Mod Options not registered: " + e.Message); }
 
             try { Dev.AutoExec.Install(); }
             catch (Exception e) { Log.LogWarning("AutoExec not installed: " + e.Message); }

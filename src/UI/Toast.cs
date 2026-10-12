@@ -16,6 +16,15 @@ namespace HighCommand.UI
             while (Pending.Count > 4) Pending.Dequeue();
         }
 
+        /// <summary>A message about something that did not work: same toast, plus the game's "cannot afford" sound.</summary>
+        internal static void Error(string message)
+        {
+            if (string.IsNullOrEmpty(message)) return;
+            Show(message);
+            try { RoR2.Util.PlaySound("Play_UI_insufficient_funds", RoR2.RoR2Application.instance ? RoR2.RoR2Application.instance.gameObject : null); }
+            catch (System.Exception) { /* sounds are a nicety */ }
+        }
+
         internal static bool TryTake(out string message)
         {
             if (Pending.Count > 0) { message = Pending.Dequeue(); return true; }

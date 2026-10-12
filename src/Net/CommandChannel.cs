@@ -33,7 +33,10 @@ namespace HighCommand.Net
             MoveEquipment = 3,
             EquipFromPool = 4,
             Redistribute = 5,
-            Recruit = 6
+            Recruit = 6,
+            Revive = 7,
+            Teleporter = 8,
+            Ability = 9
         }
 
         /// <summary>Dev: send commands through the network path even when this machine is the server.</summary>
@@ -142,6 +145,18 @@ namespace HighCommand.Net
 
         internal static string SendRecruit(SurvivorDef def)
             => Send(new CommandMessage { kind = (byte)Kind.Recruit, a = def ? (int)def.survivorIndex : -1 });
+
+        internal static string SendRevive(int heroId) => Send(new CommandMessage { kind = (byte)Kind.Revive, a = heroId });
+
+        internal static string SendTeleporter() => Send(new CommandMessage { kind = (byte)Kind.Teleporter });
+
+        internal static string SendAbility(int index, Vector3 point, NetworkInstanceId target)
+        {
+            var writer = new NetworkWriter();
+            writer.Write(point);
+            writer.Write(target);
+            return Send(new CommandMessage { kind = (byte)Kind.Ability, a = index, blob = writer.ToArray() });
+        }
 
         private static void OnClientReply(NetworkMessage netMsg)
         {
@@ -257,6 +272,25 @@ namespace HighCommand.Net
                     if (error != null) return error;
                     string name = !string.IsNullOrEmpty(def.displayNameToken) ? Language.GetString(def.displayNameToken) : def.cachedName;
                     return Loc.Format("HIGHCOMMAND_RECRUITED", name);
+                }
+
+                case Kind.Revive:
+                {
+                    Hero hero = FindHero(run, m.a);
+                    if (hero == null) return Loc.Get("HIGHCOMMAND_ERR_FAILED");
+                    string error = ArmyService.ExecRevive(hero);
+                    return error ?? Loc.Format("HIGHCOMMAND_REVIVED", hero.DisplayName);
+                }
+
+                case Kind.Teleporter:
+                    return ArmyService.ExecTeleporter();
+
+                case Kind.Ability:
+                {
+                    var reader = new NetworkReader(m.blob);
+                    Vector3 point = reader.ReadVector3();
+                    NetworkInstanceId target = reader.ReadNetworkId();
+                    return CommanderAbilities.Execute(m.a, point, target);
                 }
 
                 default:

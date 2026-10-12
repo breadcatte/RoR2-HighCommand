@@ -1,0 +1,9 @@
+{
+  "name": "HighCommand",
+  "version_number": "0.9.0",
+  "website_url": "",
+  "description": "Strategy game mode: command an AI army of survivors from an RTS camera. Buy heroes with gold, share loot, run the teleporter.",
+  "dependencies": [
+    "RiskofThunder-RoR2BepInExPack-1.43.0"
+  ]
+}

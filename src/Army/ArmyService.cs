@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using HighCommand.Mode;
 using HighCommand.Net;
+using HighCommand.Orders;
 using RoR2;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -166,6 +167,134 @@ namespace HighCommand.Army
             if (!NetworkServer.active || run == null) return Loc.Get("HIGHCOMMAND_ERR_NORUN");
             run.Items.RedistributeAll(run.Army);
             return null;
+        }
+
+        // ---- revival -----------------------------------------------------------------------------------------
+
+        /// <summary>Revives a fallen hero for gold. Null = done (host) or sent (client: see CommandChannel.Relayed).</summary>
+        internal static string TryRevive(Hero hero)
+        {
+            if (hero == null) return Loc.Get("HIGHCOMMAND_REVIVE_NONE");
+            if (CommandChannel.ShouldRelay) return CommandChannel.SendRevive(hero.Id);
+            return ExecRevive(hero);
+        }
+
+        /// <summary>The first fallen hero in join order, or null.</summary>
+        internal static Hero FirstFallen(IReadOnlyList<Hero> heroes)
+        {
+            Hero best = null;
+            for (int i = 0; i < heroes.Count; i++)
+            {
+                Hero h = heroes[i];
+                if (h == null || h.IsAlive || !h.Master) continue;
+                if (best == null || h.JoinOrder < best.JoinOrder) best = h;
+            }
+            return best;
+        }
+
+        internal static string ExecRevive(Hero hero)
+        {
+            HighCommandRun run = HighCommandRun.Instance;
+            if (!NetworkServer.active || run == null) return Loc.Get("HIGHCOMMAND_ERR_NORUN");
+            if (hero == null || !hero.Master) return Loc.Get("HIGHCOMMAND_ERR_FAILED");
+            if (hero.IsAlive) return Loc.Get("HIGHCOMMAND_REVIVE_ALIVE");
+
+            HcState state = run.State;
+            int price = state.RevivePrice();
+            if (!Economy.TrySpend((uint)price)) return Loc.Format("HIGHCOMMAND_RECRUIT_NEEDGOLD", price);
+
+            // land near the rally point, like a recruit
+            Vector2 ring = Random.insideUnitCircle.normalized * Random.Range(2f, 5f);
+            Vector3 where = HighCommand.Orders.Formation.SnapToGround(run.RallyPoint + new Vector3(ring.x, 0f, ring.y));
+            CharacterBody body = hero.Master.Respawn(where, Quaternion.identity, wasRevivedMidStage: true);
+            if (!body)
+            {
+                Economy.Add((uint)price, null, applyMultiplier: false);
+                return Loc.Get("HIGHCOMMAND_ERR_FAILED");
+            }
+
+            // the body comes back standing: no spawn animation, a short moment of immunity, the game's own revive effect
+            body.AddTimedBuff(RoR2Content.Buffs.Immune, 3f);
+            foreach (EntityStateMachine machine in body.GetComponents<EntityStateMachine>())
+                machine.initialStateType = machine.mainStateType;
+            GameObject effect = LegacyResourcesAPI.Load<GameObject>("Prefabs/Effects/HippoRezEffect");
+            if (effect)
+                EffectManager.SpawnEffect(effect, new EffectData { origin = where, rotation = body.transform.rotation }, transmit: true);
+
+            run.PublishRoster();
+            return null;
+        }
+
+        /// <summary>Uses one of the commander's abilities (host: right away; client: via the server).</summary>
+        internal static string TryAbility(int index, Vector3 point, NetworkInstanceId target)
+        {
+            if (CommandChannel.ShouldRelay) return CommandChannel.SendAbility(index, point, target);
+            return CommanderAbilities.Execute(index, point, target);
+        }
+
+        // ---- teleporter ----------------------------------------------------------------------------------------
+
+        /// <summary>
+        /// The one-button teleporter action: activate it (the nearest hero walks up and uses it), gather the army
+        /// while it charges, or leave the stage once it is charged.
+        /// </summary>
+        internal static string TryTeleporter()
+        {
+            if (CommandChannel.ShouldRelay) return CommandChannel.SendTeleporter();
+            return ExecTeleporter();
+        }
+
+        internal static string ExecTeleporter()
+        {
+            HighCommandRun run = HighCommandRun.Instance;
+            if (!NetworkServer.active || run == null) return Loc.Get("HIGHCOMMAND_ERR_NORUN");
+
+            TeleporterInteraction tp = TeleporterInteraction.instance;
+            if (!tp) return Loc.Get("HIGHCOMMAND_TP_NONE");
+
+            var alive = new List<Hero>();
+            foreach (Hero h in run.Army.Heroes) if (h.IsAlive && h.Body && !h.Body.currentVehicle) alive.Add(h);
+            if (alive.Count == 0) return Loc.Get("HIGHCOMMAND_TP_NOHEROES");
+
+            Vector3 tpPos = tp.transform.position;
+            alive.Sort((a, b) => (a.Position - tpPos).sqrMagnitude.CompareTo((b.Position - tpPos).sqrMagnitude));
+            NetworkIdentity id = tp.GetComponent<NetworkIdentity>();
+
+            switch (tp.activationState)
+            {
+                case TeleporterInteraction.ActivationState.Idle:
+                case TeleporterInteraction.ActivationState.Charged:
+                {
+                    bool leaving = tp.activationState == TeleporterInteraction.ActivationState.Charged;
+                    // the nearest hero uses it; everybody else walks up to it
+                    OrderService.Execute(new OrderCommand
+                    {
+                        HeroIds = new[] { alive[0].Id },
+                        Kind = OrderKind.Interact,
+                        TargetId = id ? id.netId : NetworkInstanceId.Invalid
+                    });
+                    if (alive.Count > 1)
+                    {
+                        var others = new int[alive.Count - 1];
+                        for (int i = 1; i < alive.Count; i++) others[i - 1] = alive[i].Id;
+                        OrderService.Execute(new OrderCommand { HeroIds = others, Kind = OrderKind.AttackMove, Point = tpPos });
+                    }
+                    run.RallyPoint = HighCommand.Orders.Formation.SnapToGround(tpPos);
+                    return Loc.Get(leaving ? "HIGHCOMMAND_TP_LEAVING" : "HIGHCOMMAND_TP_ACTIVATING");
+                }
+
+                case TeleporterInteraction.ActivationState.IdleToCharging:
+                case TeleporterInteraction.ActivationState.Charging:
+                {
+                    var all = new int[alive.Count];
+                    for (int i = 0; i < alive.Count; i++) all[i] = alive[i].Id;
+                    OrderService.Execute(new OrderCommand { HeroIds = all, Kind = OrderKind.AttackMove, Point = tpPos });
+                    return Loc.Get("HIGHCOMMAND_TP_GATHER");
+                }
+
+                default:
+                    return Loc.Get("HIGHCOMMAND_TP_BUSY");
+            }
         }
 
         internal static string StatusText(RecruitStatus status, HcState state)

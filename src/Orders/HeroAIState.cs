@@ -85,7 +85,9 @@ namespace HighCommand.Orders
             if (updateTimer <= 0f)
             {
                 updateTimer = UpdateInterval;
+                long started = Dev.Perf.Begin();
                 UpdateAI(UpdateInterval);
+                Dev.Perf.End(ref Dev.Perf.Executor, started);
             }
         }
 
@@ -416,15 +418,15 @@ namespace HighCommand.Orders
             if (brain == null) return true;
             switch (slot)
             {
-                case SkillSlot.Primary: return brain.AutoSlot[0];
-                case SkillSlot.Secondary: return brain.AutoSlot[1];
-                case SkillSlot.Utility: return brain.AutoSlot[2];
-                case SkillSlot.Special: return brain.AutoSlot[3];
+                case SkillSlot.Primary: return brain.AutoSlot[0] && brain.RuleAllows(0);
+                case SkillSlot.Secondary: return brain.AutoSlot[1] && brain.RuleAllows(1);
+                case SkillSlot.Utility: return brain.AutoSlot[2] && brain.RuleAllows(2);
+                case SkillSlot.Special: return brain.AutoSlot[3] && brain.RuleAllows(3);
                 default: return true;
             }
         }
 
-        private bool AutoEquipment => brain == null || brain.AutoSlot[4];
+        private bool AutoEquipment => brain == null || (brain.AutoSlot[4] && brain.RuleAllows(4));
 
         // ---- stuck recovery ---------------------------------------------------------------------------
 

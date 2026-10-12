@@ -70,7 +70,10 @@ namespace HighCommand.Mode
                 Stage.onServerStageBegin += OnServerStageBegin;
                 subscribed = true;
                 Economy.ResetForNewRun();
+                RunStats.Reset();
+                RunStats.Subscribe();
                 Net.CommandChannel.RegisterServer();
+                if (!GetComponent<RunFlow>()) gameObject.AddComponent<RunFlow>();
             }
             if (NetworkClient.active)
             {
@@ -86,6 +89,7 @@ namespace HighCommand.Mode
             {
                 Stage.onServerStageBegin -= OnServerStageBegin;
                 subscribed = false;
+                RunStats.Unsubscribe();
             }
             if (Instance == this) Instance = null;
             Army.Clear();
@@ -146,6 +150,7 @@ namespace HighCommand.Mode
                 if (RecruitHero(survivor, loadout, position, rotation, pod) != null) created++;
             }
             PublishRoster();
+            GetComponent<RunFlow>()?.BeginRelocateRally(); // the rally point follows the hero once it has landed
             Plugin.Log.LogInfo($"Starting army created: {created} hero(es).");
         }
 

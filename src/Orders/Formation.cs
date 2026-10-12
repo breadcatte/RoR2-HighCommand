@@ -97,10 +97,14 @@ namespace HighCommand.Orders
             SceneInfo info = SceneInfo.instance;
             if (info && info.groundNodes)
             {
+                // the block-grid search can hand back a node that is much farther than the limit: check it
                 NodeGraph.NodeIndex node = info.groundNodes.FindClosestNode(p, HullClassification.Human, 18f);
-                if (node.nodeIndex != -1 && info.groundNodes.GetNodePosition(node, out Vector3 np)) return np;
+                if (node.nodeIndex != -1 && info.groundNodes.GetNodePosition(node, out Vector3 np)
+                    && (np - p).sqrMagnitude <= 24f * 24f)
+                    return np;
             }
-            if (Physics.Raycast(p + Vector3.up * 30f, Vector3.down, out RaycastHit hit, 200f, LayerIndex.world.mask, QueryTriggerInteraction.Ignore))
+            // the first drop-pod spawn point is far up in the sky: a long ray finds the ground under it
+            if (Physics.Raycast(p + Vector3.up * 30f, Vector3.down, out RaycastHit hit, 2500f, LayerIndex.world.mask, QueryTriggerInteraction.Ignore))
                 return hit.point;
             return p;
         }

@@ -50,6 +50,7 @@ namespace HighCommand.Army
             s.ServerSetGold(sum > uint.MaxValue ? uint.MaxValue : (uint)sum);
 
             Income.Enqueue(new KeyValuePair<float, uint>(Time.time, gained));
+            if (applyMultiplier) RunStats.AddGold(gained); // gifts and refunds are not earnings
             OnGoldGained?.Invoke(gained, at);
             return gained;
         }

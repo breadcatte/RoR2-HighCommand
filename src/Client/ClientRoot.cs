@@ -25,6 +25,8 @@ namespace HighCommand.Client
 
         internal InventoryPanel Inventory => inventory;
 
+        internal OrderController Orders => orders;
+
         private Canvas canvas;
         private Minimap minimap;
         private HelpOverlay help;
@@ -34,6 +36,8 @@ namespace HighCommand.Client
         private OrderController orders;
         private ToastView toast;
         private TopBar topBar;
+        private CommandCard commandCard;
+        private RosterPanel roster;
         private BarracksPanel barracks;
         private InventoryPanel inventory;
         private TooltipView tooltip;
@@ -62,6 +66,8 @@ namespace HighCommand.Client
             minimap = new Minimap(canvas.transform);
             selectionPanel = new SelectionPanel(canvas.transform);
             topBar = new TopBar(canvas.transform);
+            roster = new RosterPanel(canvas.transform);
+            commandCard = new CommandCard(canvas.transform);
             lootFeed = new LootFeed(canvas.transform);       // below the big panels
             barracks = new BarracksPanel(canvas.transform);
             inventory = new InventoryPanel(canvas.transform);
@@ -85,6 +91,8 @@ namespace HighCommand.Client
             overlay?.Destroy();
             selectionPanel?.Destroy();
             topBar?.Destroy();
+            roster?.Destroy();
+            commandCard?.Destroy();
             barracks?.Destroy();
             inventory?.Destroy();
             tooltip?.Destroy();
@@ -126,6 +134,10 @@ namespace HighCommand.Client
             HelpOverlay.Add(Settings.KeyFormationCycle.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FORMATION"));
             HelpOverlay.Add(Settings.KeyBarracks.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_BARRACKS"));
             HelpOverlay.Add(Settings.KeyInventory.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_INVENTORY"));
+            HelpOverlay.Add(Settings.KeyRevive.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_REVIVE"));
+            HelpOverlay.Add(Settings.KeyTeleporter.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_TELEPORTER"));
+            HelpOverlay.Add($"{Settings.KeyAbility[0].Value} {Settings.KeyAbility[1].Value} {Settings.KeyAbility[2].Value} {Settings.KeyAbility[3].Value}",
+                Loc.Get("HIGHCOMMAND_HELP_ABILITIES"));
             HelpOverlay.Add(Settings.KeyHelp.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_HELP"));
             HelpOverlay.Add("Esc", Loc.Get("HIGHCOMMAND_HELP_PAUSE"));
         }
@@ -149,6 +161,8 @@ namespace HighCommand.Client
 
         private void Update()
         {
+            long perfStart = Dev.Perf.Begin();
+            Dev.Perf.Frame();
             ClientInput.Refresh();
 
             // The map picture is built once the stage's node graph exists.
@@ -178,6 +192,7 @@ namespace HighCommand.Client
             {
                 if (ClientInput.KeyDown(Settings.KeyBarracks.Value)) barracks.Toggle();
                 if (ClientInput.MouseDown(0) && topBar.GoldPanelContains(ClientInput.Mouse)) barracks.Toggle();
+                if (ClientInput.MouseDown(0) && topBar.TeleporterPanelContains(ClientInput.Mouse)) orders.TeleporterAction();
                 if (barracks.Visible && ClientInput.RawKeyDown(KeyCode.Escape)) barracks.Hide();
 
                 if (ClientInput.KeyDown(Settings.KeyInventory.Value)) { inventory.Toggle(); barracks.Hide(); }
@@ -205,10 +220,13 @@ namespace HighCommand.Client
             topBar.Tick(Time.unscaledDeltaTime);
             barracks.Tick();
             inventory.Tick();
+            roster.Tick(Selection, orders, inStage);
+            commandCard.Tick(Selection, orders, inStage);
             selectionPanel.Tick(Selection, inStage);
             lootFeed.Tick();
             toast.Tick();
             tooltip.Tick(); // last: shows what the panels above asked for this frame
+            Dev.Perf.End(ref Dev.Perf.Ui, perfStart);
         }
 
         // Overlays use the camera pose of this very frame (this component runs after the stock camera rig).

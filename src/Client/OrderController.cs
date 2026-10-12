@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using HighCommand.Army;
+using HighCommand.Mode;
 using HighCommand.Orders;
 using HighCommand.UI;
 using RoR2;
@@ -14,7 +15,7 @@ namespace HighCommand.Client
     /// </summary>
     internal sealed class OrderController
     {
-        internal enum Pending { None, AttackMove, Focus, Patrol, Rally, Cast }
+        internal enum Pending { None, AttackMove, Focus, Patrol, Rally, Cast, AbilityPoint, AbilityTarget }
 
         private readonly Selection selection;
         private readonly Minimap minimap;
@@ -22,6 +23,10 @@ namespace HighCommand.Client
 
         internal Pending Mode { get; private set; }
         private int castSlot;
+        private int abilityIndex;
+
+        /// <summary>The commander ability waiting for its target (valid while Mode is an ability mode).</summary>
+        internal int AbilityIndex => abilityIndex;
         private byte formation;
 
         /// <summary>Where "retreat" runs to. Set at stage start and with the rally hotkey.</summary>
@@ -61,6 +66,8 @@ namespace HighCommand.Client
                     case Pending.Patrol: return Loc.Get("HIGHCOMMAND_HINT_PATROL");
                     case Pending.Rally: return Loc.Get("HIGHCOMMAND_HINT_RALLY");
                     case Pending.Cast: return Loc.Get("HIGHCOMMAND_HINT_CAST");
+                    case Pending.AbilityPoint: return Loc.Get("HIGHCOMMAND_HINT_ABILITY_POINT");
+                    case Pending.AbilityTarget: return Loc.Get("HIGHCOMMAND_HINT_ABILITY_TARGET");
                     default: return "";
                 }
             }
@@ -95,55 +102,156 @@ namespace HighCommand.Client
 
         // ---- hotkeys -------------------------------------------------------------------------------
 
+        /// <summary>Every command the commander can give with a hotkey or a button of the command card.</summary>
+        internal enum Act
+        {
+            Stop, Hold, Retreat, AttackMove, Patrol, Rally, Focus,
+            StanceAggressive, StanceDefensive, StancePassive, Formation,
+            CastSecondary, CastUtility, CastSpecial, CastEquipment
+        }
+
         private void HandleHotkeys(IReadOnlyList<Hero> heroes)
         {
-            if (ClientInput.KeyDown(Settings.KeyFormationCycle.Value))
+            bool toggleAuto = ClientInput.Key(Settings.KeyToggleAuto.Value);
+
+            for (int a = 0; a < CommanderAbilities.Count; a++)
             {
-                formation = (byte)((formation + 1) % 3);
-                Toast.Show(Loc.Format("HIGHCOMMAND_FORMATION_SET", FormationName));
+                if (ClientInput.KeyDown(Settings.KeyAbility[a].Value)) { UseAbility(a); return; }
+            }
+            if (ClientInput.KeyDown(Settings.KeyRevive.Value)) { Revive(null); return; }
+            if (ClientInput.KeyDown(Settings.KeyTeleporter.Value)) { TeleporterAction(); return; }
+
+            if (ClientInput.KeyDown(Settings.KeyFormationCycle.Value)) { Perform(Act.Formation); return; }
+            if (ClientInput.KeyDown(Settings.KeyRally.Value)) { Perform(Act.Rally); return; }
+            if (selection.Count == 0) return;
+
+            if (ClientInput.KeyDown(Settings.KeyStop.Value)) Perform(Act.Stop);
+            else if (ClientInput.KeyDown(Settings.KeyHold.Value)) Perform(Act.Hold);
+            else if (ClientInput.KeyDown(Settings.KeyRetreat.Value)) Perform(Act.Retreat);
+            else if (ClientInput.KeyDown(Settings.KeyAttackMove.Value)) Perform(Act.AttackMove);
+            else if (ClientInput.KeyDown(Settings.KeyPatrol.Value)) Perform(Act.Patrol);
+            else if (ClientInput.KeyDown(Settings.KeyFocusFire.Value)) Perform(Act.Focus);
+            else if (ClientInput.KeyDown(Settings.KeyStanceAggressive.Value)) Perform(Act.StanceAggressive);
+            else if (ClientInput.KeyDown(Settings.KeyStanceDefensive.Value)) Perform(Act.StanceDefensive);
+            else if (ClientInput.KeyDown(Settings.KeyStancePassive.Value)) Perform(Act.StancePassive);
+            else if (ClientInput.KeyDown(Settings.KeyCastSecondary.Value)) Perform(Act.CastSecondary, toggleAuto);
+            else if (ClientInput.KeyDown(Settings.KeyCastUtility.Value)) Perform(Act.CastUtility, toggleAuto);
+            else if (ClientInput.KeyDown(Settings.KeyCastSpecial.Value)) Perform(Act.CastSpecial, toggleAuto);
+            else if (ClientInput.KeyDown(Settings.KeyCastEquipment.Value)) Perform(Act.CastEquipment, toggleAuto);
+        }
+
+        /// <summary>
+        /// Does what the hotkey does (also called by the command card's buttons). <paramref name="toggleAuto"/> on a
+        /// skill action flips that skill's automatic use instead of casting it.
+        /// </summary>
+        internal void Perform(Act act, bool toggleAuto = false)
+        {
+            switch (act)
+            {
+                case Act.Formation:
+                    formation = (byte)((formation + 1) % 3);
+                    Toast.Show(Loc.Format("HIGHCOMMAND_FORMATION_SET", FormationName));
+                    return;
+                case Act.Rally:
+                    Mode = Pending.Rally;
+                    return;
             }
 
-            if (selection.Count == 0)
+            if (selection.Count == 0) return;
+
+            switch (act)
             {
-                if (ClientInput.KeyDown(Settings.KeyRally.Value)) Mode = Pending.Rally;
+                case Act.Stop: SendSimple(OrderKind.Stop, false); CancelMode(); break;
+                case Act.Hold: SendSimple(OrderKind.Hold, ClientInput.Shift); CancelMode(); break;
+                case Act.Retreat: RetreatToRally(); break;
+                case Act.AttackMove: Mode = Pending.AttackMove; break;
+                case Act.Patrol: Mode = Pending.Patrol; break;
+                case Act.Focus:
+                {
+                    CharacterBody hovered = overlay.HoveredEnemy;
+                    if (hovered && !ClientInput.PointerOverUi) SendTargeted(OrderKind.Attack, hovered, focus: true, queued: ClientInput.Shift);
+                    else Mode = Pending.Focus;
+                    break;
+                }
+                case Act.StanceAggressive: SendStance(Stance.Aggressive); break;
+                case Act.StanceDefensive: SendStance(Stance.Defensive); break;
+                case Act.StancePassive: SendStance(Stance.Passive); break;
+                case Act.CastSecondary: CastOrToggle(1, toggleAuto); break;
+                case Act.CastUtility: CastOrToggle(2, toggleAuto); break;
+                case Act.CastSpecial: CastOrToggle(3, toggleAuto); break;
+                case Act.CastEquipment: CastOrToggle(4, toggleAuto); break;
+            }
+        }
+
+        // ---- commander level: abilities, revival, teleporter ------------------------------------------------
+
+        /// <summary>Starts one of the commander's abilities (some need a click on the map or on an enemy first).</summary>
+        internal void UseAbility(int index)
+        {
+            if (index < 0 || index >= CommanderAbilities.Count) return;
+            float left = CommanderAbilities.Remaining(HcState.Instance, index);
+            if (left > 0.05f)
+            {
+                Toast.Show(Loc.Format("HIGHCOMMAND_ABILITY_COOLDOWN", Mathf.CeilToInt(left)));
                 return;
             }
 
-            bool toggleAuto = ClientInput.Key(Settings.KeyToggleAuto.Value);
-
-            if (ClientInput.KeyDown(Settings.KeyStop.Value)) { SendSimple(OrderKind.Stop, false); CancelMode(); }
-            else if (ClientInput.KeyDown(Settings.KeyHold.Value)) { SendSimple(OrderKind.Hold, ClientInput.Shift); CancelMode(); }
-            else if (ClientInput.KeyDown(Settings.KeyRetreat.Value)) RetreatToRally();
-            else if (ClientInput.KeyDown(Settings.KeyAttackMove.Value)) Mode = Pending.AttackMove;
-            else if (ClientInput.KeyDown(Settings.KeyPatrol.Value)) Mode = Pending.Patrol;
-            else if (ClientInput.KeyDown(Settings.KeyRally.Value)) Mode = Pending.Rally;
-            else if (ClientInput.KeyDown(Settings.KeyFocusFire.Value))
+            if (CommanderAbilities.NeedsPoint(index)) { abilityIndex = index; Mode = Pending.AbilityPoint; return; }
+            if (CommanderAbilities.NeedsTarget(index))
             {
                 CharacterBody hovered = overlay.HoveredEnemy;
-                if (hovered) SendTargeted(OrderKind.Attack, hovered, focus: true, queued: ClientInput.Shift);
-                else Mode = Pending.Focus;
+                if (hovered && !ClientInput.PointerOverUi) { SendAbility(index, hovered.corePosition, hovered); return; }
+                abilityIndex = index;
+                Mode = Pending.AbilityTarget;
+                return;
             }
-            else if (ClientInput.KeyDown(Settings.KeyStanceAggressive.Value)) SendStance(Stance.Aggressive);
-            else if (ClientInput.KeyDown(Settings.KeyStanceDefensive.Value)) SendStance(Stance.Defensive);
-            else if (ClientInput.KeyDown(Settings.KeyStancePassive.Value)) SendStance(Stance.Passive);
-            else HandleCastKeys(toggleAuto);
+            SendAbility(index, Vector3.zero, null);
         }
 
-        private void HandleCastKeys(bool toggleAuto)
+        private void SendAbility(int index, Vector3 point, CharacterBody target)
         {
-            int slot = -1;
-            if (ClientInput.KeyDown(Settings.KeyCastSecondary.Value)) slot = 1;
-            else if (ClientInput.KeyDown(Settings.KeyCastUtility.Value)) slot = 2;
-            else if (ClientInput.KeyDown(Settings.KeyCastSpecial.Value)) slot = 3;
-            else if (ClientInput.KeyDown(Settings.KeyCastEquipment.Value)) slot = 4;
-            if (slot < 0) return;
+            NetworkInstanceId id = NetworkInstanceId.Invalid;
+            if (target)
+            {
+                var ni = target.GetComponent<NetworkIdentity>();
+                if (ni) id = ni.netId;
+            }
+            string result = ArmyService.TryAbility(index, point, id);
+            if (result != null && result != Net.CommandChannel.Relayed) Toast.Error(result);
+            else
+            {
+                if (point != Vector3.zero) Feedback.Ping(point, new Color(1f, 0.4f, 0.2f, 1f), 2.2f);
+                Feedback.Confirm();
+            }
+        }
 
+        /// <summary>Revives the given fallen hero, or the first fallen one when null.</summary>
+        internal void Revive(Hero hero)
+        {
+            HcState state = HcState.Instance;
+            if (hero == null && state != null) hero = ArmyService.FirstFallen(state.Heroes);
+            if (hero == null) { Toast.Show(Loc.Get("HIGHCOMMAND_REVIVE_NONE")); return; }
+
+            string result = ArmyService.TryRevive(hero);
+            if (result == Net.CommandChannel.Relayed) return;
+            if (result != null) { Toast.Error(result); return; }
+            Toast.Show(Loc.Format("HIGHCOMMAND_REVIVED", hero.DisplayName));
+            Feedback.Confirm();
+        }
+
+        internal void TeleporterAction()
+        {
+            string result = ArmyService.TryTeleporter();
+            if (result != Net.CommandChannel.Relayed && !string.IsNullOrEmpty(result)) Toast.Show(result);
+            else Feedback.Confirm();
+        }
+
+        private void CastOrToggle(int slot, bool toggleAuto)
+        {
             if (toggleAuto)
             {
                 // flip the automatic use of that slot for the whole selection (based on the first hero)
-                bool current = true;
-                var first = selection.Heroes.Count > 0 ? OrderService.BrainOf(selection.Heroes[0]) : null;
-                if (first != null) current = first.AutoSlot[slot];
+                bool current = selection.Heroes.Count == 0 || (selection.Heroes[0].NetAutoMask & (1 << slot)) != 0;
                 var cmd = new OrderCommand { HeroIds = SelectedIds(), SetAutoSlot = true, Slot = slot, AutoValue = !current };
                 OrderService.Submit(cmd);
                 Toast.Show(Loc.Format(!current ? "HIGHCOMMAND_AUTO_ON" : "HIGHCOMMAND_AUTO_OFF", SlotName(slot)));
@@ -241,6 +349,16 @@ namespace HighCommand.Client
                         Toast.Show(Loc.Get("HIGHCOMMAND_RALLY_SET"));
                     }
                     break;
+                case Pending.AbilityPoint:
+                    if (havePoint) SendAbility(abilityIndex, point, null);
+                    break;
+                case Pending.AbilityTarget:
+                {
+                    CharacterBody enemy = WorldPicker.PickEnemy(mouse);
+                    if (enemy) SendAbility(abilityIndex, enemy.corePosition, enemy);
+                    else { Mode = Pending.AbilityTarget; return; } // nothing there: keep waiting
+                    break;
+                }
                 case Pending.Cast:
                 {
                     CharacterBody enemy = WorldPicker.PickEnemy(mouse);

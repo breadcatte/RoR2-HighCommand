@@ -192,7 +192,7 @@ namespace HighCommand.UI
                 if (over && ClientInput.MouseDown(0) && status == RecruitStatus.Available)
                     Request(c.def);
                 else if (over && ClientInput.MouseDown(0))
-                    Toast.Show(ArmyService.StatusText(status, state));
+                    Toast.Error(ArmyService.StatusText(status, state));
             }
 
             if (hovered)
@@ -210,7 +210,7 @@ namespace HighCommand.UI
             // Host: recruited right here. Client: the request goes to the server, which answers with a toast.
             string error = ArmyService.TryRecruit(def, ArmyService.LoadoutFor(def));
             if (error == Net.CommandChannel.Relayed) return;
-            if (error != null) Toast.Show(error);
+            if (error != null) Toast.Error(error);
             else
             {
                 Toast.Show(Loc.Format("HIGHCOMMAND_RECRUITED", HeroName(def)));

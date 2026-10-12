@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using HighCommand.Army;
+using HighCommand.Mode;
 using RoR2;
 using RoR2.CharacterAI;
 using UnityEngine;
@@ -43,6 +44,18 @@ namespace HighCommand.Orders
         /// <summary>Where the hero stands when it has nothing to do.</summary>
         public Vector3 Anchor;
 
+        /// <summary>
+        /// While a holdout zone (teleporter, pillar ...) charges, RunFlow sets its centre and radius here: an idle hero
+        /// then stands inside it, at its own spot, and fights from there. Radius 0 = no zone.
+        /// </summary>
+        public Vector3 ZoneCenter;
+        public float ZoneRadius;
+
+        private Vector3 zoneSpot;
+        private Vector3 zoneSpotKey;
+        private float zoneSpotRadius;
+        private CharacterBody lastBody;
+
         public Order Current { get; private set; }
 
         public int QueuedCount => queue.Count;
@@ -59,6 +72,31 @@ namespace HighCommand.Orders
         public CharacterBody CastTarget { get; private set; }
         public string DebugState { get; private set; } = "";
         public bool Stuck { get; private set; }
+
+        // ---- profile, fleeing and the context the skill rules look at -------------------------------------
+
+        private HeroProfile profile;
+
+        /// <summary>This hero's data-driven behaviour (ranges, flee threshold, per-slot skill rules).</summary>
+        public HeroProfile Profile
+        {
+            get
+            {
+                if (profile == null)
+                    profile = ProfileStore.For(Hero != null && Hero.Survivor ? Hero.Survivor.cachedName : null);
+                return profile;
+            }
+        }
+
+        /// <summary>True while the hero runs from a fight it is losing.</summary>
+        public bool Fleeing { get; private set; }
+
+        private float fleeSince;
+        private float lastThreatTime;
+        private int enemiesNear;
+        private bool targetIsBig;
+        private float targetDistance = float.MaxValue;
+        private bool lowHealth;
 
         private readonly List<Order> queue = new List<Order>(4);
         private float thinkTimer;
@@ -110,8 +148,10 @@ namespace HighCommand.Orders
             thinkTimer -= Time.fixedDeltaTime;
             if (thinkTimer > 0f) return;
             thinkTimer = ThinkInterval;
+            long started = Dev.Perf.Begin();
             try { Think(); }
             catch (System.Exception e) { Plugin.Log.LogError($"HeroBrain.Think failed for {Hero}: {e}"); Mode = BrainMode.Idle; }
+            Dev.Perf.End(ref Dev.Perf.Brain, started);
         }
 
         private void Think()
@@ -123,6 +163,16 @@ namespace HighCommand.Orders
                 Enemy = null;
                 DebugState = "dead";
                 return;
+            }
+
+            // A different body (a new stage, a revival): old orders and the old anchor belong to the old place.
+            if (self != lastBody)
+            {
+                lastBody = self;
+                initialised = false;
+                queue.Clear();
+                Current = null;
+                Enemy = null;
             }
 
             Vector3 pos = self.footPosition;
@@ -162,20 +212,147 @@ namespace HighCommand.Orders
                 if (Current != null) castStarted = Time.time;
             }
 
+            UpdateContext(self, pos);
+
             Order o = Current;
-            if (o == null) ThinkIdle(self, ai, pos);
+            if (UpdateFleeing(self, pos, o))
+            {
+                ThinkFlee(self, pos);
+            }
+            else if (o == null) ThinkIdle(self, ai, pos);
             else ThinkOrder(o, self, ai, pos);
 
             TrackProgress(pos);
             PushEnemyToAi(ai);
         }
 
+        // ---- context for the skill rules and for fleeing ----------------------------------------------
+
+        private void UpdateContext(CharacterBody self, Vector3 pos)
+        {
+            HealthComponent hc = self.healthComponent;
+            float frac = hc && hc.fullCombinedHealth > 0f ? hc.combinedHealth / hc.fullCombinedHealth : 1f;
+            lowHealth = frac < Profile.retreatHealth * 1.6f;
+
+            enemiesNear = Perception.CountEnemies(pos, 20f, self.teamComponent.teamIndex);
+            if (enemiesNear > 0) lastThreatTime = Time.time;
+
+            targetIsBig = Enemy && (Enemy.isBoss || Enemy.isChampion);
+            targetDistance = Enemy ? (Enemy.corePosition - self.corePosition).magnitude : float.MaxValue;
+        }
+
+        /// <summary>The per-slot usage rule from the profile (0 primary .. 3 special, 4 equipment).</summary>
+        public bool RuleAllows(int slot)
+        {
+            switch (Profile.RuleFor(slot))
+            {
+                case "never": return false;
+                case "escape": return lowHealth || Fleeing;
+                case "engage": return Enemy && targetDistance >= Profile.engageDistance;
+                case "burst": return enemiesNear >= Profile.burstEnemies || targetIsBig;
+                default: return true;
+            }
+        }
+
+        // Decides whether the hero should be running away right now.
+        private bool UpdateFleeing(CharacterBody self, Vector3 pos, Order order)
+        {
+            if (!Settings.AutoRetreat.Value)
+            {
+                Fleeing = false;
+                return false;
+            }
+
+            HealthComponent hc = self.healthComponent;
+            float frac = hc && hc.fullCombinedHealth > 0f ? hc.combinedHealth / hc.fullCombinedHealth : 1f;
+
+            bool fleeable = order == null || order.Kind == OrderKind.AttackMove || order.Kind == OrderKind.Attack
+                            || order.Kind == OrderKind.Patrol || order.Kind == OrderKind.Follow;
+            bool threatened = Perception.CountEnemies(pos, 38f, self.teamComponent.teamIndex) > 0;
+
+            if (!Fleeing)
+            {
+                if (fleeable && threatened && frac < Profile.retreatHealth)
+                {
+                    Fleeing = true;
+                    fleeSince = Time.time;
+                    if (Settings.VerboseLog.Value) Plugin.Log.LogInfo($"{Hero}: hurt ({frac:0.00}), fleeing");
+                }
+                return Fleeing;
+            }
+
+            // stop fleeing: recovered, nothing around any more, or the order changed to something explicit
+            bool calm = Time.time - lastThreatTime > 3f && !threatened;
+            if (frac >= Profile.recoverHealth || calm || !fleeable || Time.time - fleeSince > 25f)
+            {
+                Fleeing = false;
+                Enemy = null;
+            }
+            return Fleeing;
+        }
+
+        private void ThinkFlee(CharacterBody self, Vector3 pos)
+        {
+            Enemy = null;
+            Mode = BrainMode.Go;
+            Goal = SafePoint(self, pos);
+            Sprint = true;
+            AllowSkills = false;
+            DebugState = "fleeing";
+        }
+
+        // Towards the healthiest friends; alone: straight away from the enemies.
+        private Vector3 SafePoint(CharacterBody self, Vector3 pos)
+        {
+            HighCommandRun run = HighCommandRun.Instance;
+            Vector3 sum = Vector3.zero;
+            int n = 0;
+            if (run != null)
+            {
+                foreach (Hero h in run.Army.Heroes)
+                {
+                    if (h == Hero || !h.IsAlive) continue;
+                    CharacterBody b = h.Body;
+                    HealthComponent hc = b ? b.healthComponent : null;
+                    if (!hc || hc.fullCombinedHealth <= 0f || hc.combinedHealth / hc.fullCombinedHealth < 0.4f) continue;
+                    sum += b.footPosition;
+                    n++;
+                }
+            }
+            if (n > 0) return Formation.SnapToGround(sum / n);
+
+            // nobody to run to: the opposite way of the enemy mass, 30 m
+            Vector3 enemies = Vector3.zero;
+            int e = 0;
+            foreach (TeamIndex team in new[] { TeamIndex.Monster, TeamIndex.Lunar, TeamIndex.Void })
+            {
+                foreach (TeamComponent tc in TeamComponent.GetTeamMembers(team))
+                {
+                    if (!tc || !tc.body || (tc.body.corePosition - pos).sqrMagnitude > 40f * 40f) continue;
+                    enemies += tc.body.corePosition;
+                    e++;
+                }
+            }
+            if (e == 0) return run != null ? run.RallyPoint : pos;
+            Vector3 away = pos - enemies / e;
+            away.y = 0f;
+            if (away.sqrMagnitude < 0.01f) away = Vector3.back;
+            return Formation.SnapToGround(pos + away.normalized * 30f);
+        }
+
         // ---- idle / stance ---------------------------------------------------------------------------
 
         private void ThinkIdle(CharacterBody self, BaseAI ai, Vector3 pos)
         {
-            float acquire = Stance == Stance.Aggressive ? AcquireAggressive : AcquireDefensive;
-            float leash = Stance == Stance.Aggressive ? LeashAggressive : LeashDefensive;
+            float acquire = Stance == Stance.Aggressive ? Profile.acquireAggressive : Profile.acquireDefensive;
+            float leash = Stance == Stance.Aggressive ? Profile.leashAggressive : Profile.leashDefensive;
+
+            if (ZoneRadius > 0f)
+            {
+                // a charging zone: hold a personal spot inside it and do not chase beyond its edge
+                Anchor = ZoneSpot();
+                leash = Mathf.Min(leash, ZoneRadius * 0.85f + 6f);
+            }
 
             CharacterBody enemy = null;
             if (Stance != Stance.Passive)
@@ -213,6 +390,22 @@ namespace HighCommand.Orders
                 Mode = BrainMode.Idle;
                 DebugState = "idle";
             }
+        }
+
+        // A stable place for this hero inside the zone (heroes must not all stack on the centre).
+        private Vector3 ZoneSpot()
+        {
+            if ((ZoneCenter - zoneSpotKey).sqrMagnitude > 1f || Mathf.Abs(ZoneRadius - zoneSpotRadius) > 1.5f)
+            {
+                zoneSpotKey = ZoneCenter;
+                zoneSpotRadius = ZoneRadius;
+                int id = Hero != null ? Hero.Id : 0;
+                float angle = id * 2.399963f; // golden angle: neighbours spread evenly
+                float radius = ZoneRadius * (0.22f + 0.34f * (((id * 7) % 5) / 4f));
+                Vector3 p = ZoneCenter + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * radius;
+                zoneSpot = Formation.SnapToGround(p);
+            }
+            return zoneSpot;
         }
 
         // ---- orders ------------------------------------------------------------------------------------

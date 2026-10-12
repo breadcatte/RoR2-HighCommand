@@ -87,40 +87,31 @@ namespace HighCommand.UI
                 Hero hero = sel[i];
                 CharacterBody body = hero.Body;
                 if (!body) continue;
-                Orders.HeroBrain brain = Orders.OrderService.BrainOf(hero);
-                if (brain == null) continue;
 
+                // the replicated order of the hero: the same on the host and on every client
                 Vector3 from = body.footPosition + Vector3.up * 0.2f;
-                DrawOrderLeg(from, brain.Current, out Vector3 last);
+                DrawOrderLeg(from, (Orders.OrderKind)hero.NetOrderKind, hero.NetOrderPoint, out Vector3 last);
             }
         }
 
-        private void DrawOrderLeg(Vector3 from, Orders.Order order, out Vector3 end)
+        private void DrawOrderLeg(Vector3 from, Orders.OrderKind kind, Vector3 point, out Vector3 end)
         {
             end = from;
-            if (order == null) return;
+            if (kind == Orders.OrderKind.None) return;
 
             Vector3? destination = null;
             Color color = new Color(0.4f, 1f, 0.5f, 0.7f);
-            switch (order.Kind)
+            switch (kind)
             {
-                case Orders.OrderKind.Move: destination = order.Point; break;
-                case Orders.OrderKind.AttackMove: destination = order.Point; color = new Color(1f, 0.55f, 0.3f, 0.7f); break;
-                case Orders.OrderKind.Retreat: destination = order.Point; color = new Color(0.5f, 0.8f, 1f, 0.7f); break;
-                case Orders.OrderKind.Patrol: destination = order.patrolToSecond ? order.Point2 : order.Point; color = new Color(1f, 0.8f, 0.3f, 0.7f); break;
-                case Orders.OrderKind.Attack:
-                    if (order.Target) destination = order.Target.transform.position;
-                    color = new Color(1f, 0.3f, 0.25f, 0.8f);
-                    break;
-                case Orders.OrderKind.Follow:
-                    if (order.Target) destination = order.Target.transform.position;
-                    break;
-                case Orders.OrderKind.Interact:
-                    if (order.Target) destination = order.Target.transform.position;
-                    color = new Color(1f, 0.9f, 0.3f, 0.8f);
-                    break;
+                case Orders.OrderKind.Move: destination = point; break;
+                case Orders.OrderKind.AttackMove: destination = point; color = new Color(1f, 0.55f, 0.3f, 0.7f); break;
+                case Orders.OrderKind.Retreat: destination = point; color = new Color(0.5f, 0.8f, 1f, 0.7f); break;
+                case Orders.OrderKind.Patrol: destination = point; color = new Color(1f, 0.8f, 0.3f, 0.7f); break;
+                case Orders.OrderKind.Attack: destination = point; color = new Color(1f, 0.3f, 0.25f, 0.8f); break;
+                case Orders.OrderKind.Follow: destination = point; break;
+                case Orders.OrderKind.Interact: destination = point; color = new Color(1f, 0.9f, 0.3f, 0.8f); break;
             }
-            if (!destination.HasValue) return;
+            if (!destination.HasValue || destination.Value == Vector3.zero) return;
             end = destination.Value;
 
             if (!WorldPicker.Project(from, 0.1f, out Vector2 a, out float _)) return;

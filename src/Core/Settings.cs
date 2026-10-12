@@ -30,6 +30,8 @@ namespace HighCommand
         internal static ConfigEntry<KeyCode> KeyCastSecondary, KeyCastUtility, KeyCastSpecial, KeyCastEquipment;
         internal static ConfigEntry<KeyCode> KeyStanceAggressive, KeyStanceDefensive, KeyStancePassive;
         internal static ConfigEntry<KeyCode> KeyToggleAuto, KeyBarracks, KeyInventory;
+        internal static ConfigEntry<KeyCode> KeyRevive, KeyTeleporter;
+        internal static readonly ConfigEntry<KeyCode>[] KeyAbility = new ConfigEntry<KeyCode>[4];
         internal static ConfigEntry<KeyCode> KeyFormationCycle;
 
         // ---- economy / army ----
@@ -43,6 +45,10 @@ namespace HighCommand
         internal static ConfigEntry<bool> IgnoreUnlocks;
         internal static ConfigEntry<bool> AllowHiddenSurvivors;
         internal static ConfigEntry<float> ReviveCostFraction;
+        internal static ConfigEntry<bool> AutoRetreat;
+        internal static ConfigEntry<float> DefeatGraceBroke;
+        internal static ConfigEntry<float> DefeatGraceRevive;
+        internal static ConfigEntry<float> ThreatPerExtraHero;
 
         // ---- loot ----
         internal static ConfigEntry<bool> ItemDropsEnabled;
@@ -114,6 +120,12 @@ namespace HighCommand
             KeyCastEquipment = cfg.Bind("Keys", "CastEquipment", KeyCode.Y, "Use the selected heroes' equipment.");
             KeyBarracks = cfg.Bind("Keys", "Barracks", KeyCode.B, "Open / close the recruiting panel.");
             KeyInventory = cfg.Bind("Keys", "Inventory", KeyCode.I, "Open / close the item panel (the army's items, per hero; drag an item onto a hero to give it).");
+            KeyAbility[0] = cfg.Bind("Keys", "AbilityStrike", KeyCode.F5, "Commander ability: orbital strike (click a point).");
+            KeyAbility[1] = cfg.Bind("Keys", "AbilityMedic", KeyCode.F6, "Commander ability: field medic (heals every hero).");
+            KeyAbility[2] = cfg.Bind("Keys", "AbilityWarCry", KeyCode.F7, "Commander ability: war cry (attack and move speed for every hero).");
+            KeyAbility[3] = cfg.Bind("Keys", "AbilityMark", KeyCode.F8, "Commander ability: mark an enemy (everybody focuses it, it takes more damage).");
+            KeyRevive = cfg.Bind("Keys", "Revive", KeyCode.U, "Revive the first fallen hero (costs gold).");
+            KeyTeleporter = cfg.Bind("Keys", "Teleporter", KeyCode.H, "Teleporter: activate it, gather the army in the zone, or leave the stage - whatever is possible now.");
             KeyStanceAggressive = cfg.Bind("Keys", "StanceAggressive", KeyCode.F2, "Stance: aggressive (chase anything seen).");
             KeyStanceDefensive = cfg.Bind("Keys", "StanceDefensive", KeyCode.F3, "Stance: defensive (fight near the post, then return).");
             KeyStancePassive = cfg.Bind("Keys", "StancePassive", KeyCode.F4, "Stance: passive (never start a fight).");
@@ -133,6 +145,12 @@ namespace HighCommand
             IgnoreUnlocks = cfg.Bind("Army", "IgnoreUnlocks", false, "Offer survivors you have not unlocked yet.");
             AllowHiddenSurvivors = cfg.Bind("Army", "AllowHiddenSurvivors", false, "Offer hidden survivors (for example Heretic).");
             ReviveCostFraction = F("Economy", "ReviveCostFraction", 0.4f, 0f, 3f, "A fallen hero's revival costs this fraction of the price of the next recruit.");
+            AutoRetreat = cfg.Bind("Army", "AutoRetreat", true,
+                "A badly hurt hero (threshold per survivor in profiles\\hero_profiles.json) runs to its friends until it recovers. Explicit move / hold / interact orders are never interrupted.");
+            DefeatGraceBroke = F("Run", "DefeatGraceSecondsBroke", 6f, 0f, 120f, "When every hero is dead and the army cannot pay for a revival, the run is lost after this many seconds.");
+            DefeatGraceRevive = F("Run", "DefeatGraceSecondsCanRevive", 45f, 0f, 600f, "When every hero is dead but a revival is affordable, the commander has this many seconds to pay for it.");
+            ThreatPerExtraHero = F("Run", "ThreatPerExtraHero", 0.65f, 0f, 2f,
+                "How much each hero beyond the first counts as an extra player for the game's difficulty scaling (monster credits, boss count, loot). 1 = like a real co-op player.");
 
             ItemDropsEnabled = cfg.Bind("Loot", "ItemDropsEnabled", true, "Enemies drop items straight into the army's pool.");
             ItemGoldFactor = F("Loot", "ItemGoldFactor", 2.5f, 0.2f, 30f, "An item is worth this many chests' worth of gold: bigger = fewer drops. At 2.5 a normal run gives about as many items as vanilla.");

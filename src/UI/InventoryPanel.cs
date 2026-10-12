@@ -652,7 +652,7 @@ namespace HighCommand.UI
                 }
 
                 if (error == Net.CommandChannel.Relayed) lastSignature = int.MinValue; // the server answers with a toast
-                else if (error != null) Toast.Show(error);
+                else if (error != null) Toast.Error(error);
                 else if (what != null)
                 {
                     string from = dragFrom != null ? dragFrom.DisplayName : Loc.Get("HIGHCOMMAND_INV_EQUIPMENT");

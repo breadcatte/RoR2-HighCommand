@@ -47,13 +47,23 @@ namespace HighCommand.UI
             return sprite;
         }
 
-        /// <summary>Shows the pickup's icon in the image. Returns false (image cleared) when there is none.</summary>
-        internal static bool Apply(RawImage image, PickupDef def)
+        internal static PickupDef DefOf(ItemIndex item)
+        {
+            PickupIndex index = PickupCatalog.FindPickupIndex(item);
+            return index.isValid ? PickupCatalog.GetPickupDef(index) : null;
+        }
+
+        internal static PickupDef DefOf(EquipmentIndex equipment)
+        {
+            PickupIndex index = PickupCatalog.FindPickupIndex(equipment);
+            return index.isValid ? PickupCatalog.GetPickupDef(index) : null;
+        }
+
+        /// <summary>Shows a sprite in a RawImage (handles sprites cut out of an atlas). False = nothing to show.</summary>
+        internal static bool ApplySprite(RawImage image, Sprite sprite)
         {
             if (!image) return false;
             image.uvRect = new Rect(0f, 0f, 1f, 1f);
-
-            Sprite sprite = SpriteOf(def);
             if (sprite && sprite.texture)
             {
                 Texture tex = sprite.texture;
@@ -66,9 +76,19 @@ namespace HighCommand.UI
                 catch (Exception) { /* not an atlas sprite: the whole texture is right */ }
                 return true;
             }
+            image.texture = null;
+            return false;
+        }
+
+        /// <summary>Shows the pickup's icon in the image. Returns false (image cleared) when there is none.</summary>
+        internal static bool Apply(RawImage image, PickupDef def)
+        {
+            if (!image) return false;
+            if (ApplySprite(image, SpriteOf(def))) return true;
 
             if (def != null && def.iconTexture)
             {
+                image.uvRect = new Rect(0f, 0f, 1f, 1f);
                 image.texture = def.iconTexture;
                 return true;
             }

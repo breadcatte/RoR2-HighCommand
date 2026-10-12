@@ -307,6 +307,120 @@ namespace HighCommand.Dev
             Debug.Log($"HighCommand: {(hover ? "hover" : "drag")} {kind} from ({from.x:0},{from.y:0}) to ({to.x:0},{to.y:0})");
         }
 
+        [ConCommand(commandName = "hc_kill_heroes", flags = HostOnly, helpText = "hc_kill_heroes [heroId]: kills one hero or the whole army (testing defeat and revival).")]
+        private static void CcKillHeroes(ConCommandArgs args)
+        {
+            var run = Mode.HighCommandRun.Instance;
+            if (run == null) throw new ConCommandException("Not in a High Command run.");
+            int only = args.Count > 0 ? args.GetArgInt(0) : -1;
+            int n = 0;
+            foreach (var h in run.Army.Heroes)
+            {
+                if (only >= 0 && h.Id != only) continue;
+                if (h.Health && h.Health.alive) { h.Health.Suicide(); n++; }
+            }
+            Debug.Log($"HighCommand: killed {n} hero(es).");
+        }
+
+        [ConCommand(commandName = "hc_revive", flags = HostOnly, helpText = "hc_revive [heroId]: revives a fallen hero for gold (the first fallen one without an id).")]
+        private static void CcRevive(ConCommandArgs args)
+        {
+            var run = Mode.HighCommandRun.Instance;
+            if (run == null) throw new ConCommandException("Not in a High Command run.");
+            Army.Hero target = null;
+            if (args.Count > 0)
+            {
+                foreach (var h in run.Army.Heroes) if (h.Id == args.GetArgInt(0)) target = h;
+            }
+            else target = Army.ArmyService.FirstFallen(run.Army.Heroes);
+            string result = Army.ArmyService.TryRevive(target);
+            Debug.Log("HighCommand: revive -> " + (result == null ? "ok" : result == Net.CommandChannel.Relayed ? "sent" : result));
+        }
+
+        [ConCommand(commandName = "hc_tp", flags = HostOnly, helpText = "hc_tp: the one-button teleporter action (activate / gather / leave).")]
+        private static void CcTeleporter(ConCommandArgs args)
+        {
+            string result = Army.ArmyService.TryTeleporter();
+            var state = Mode.HcState.Instance;
+            Debug.Log($"HighCommand: teleporter action -> {result}; state={(state != null ? state.Teleporter.ToString() : "?")} charge={(state != null ? state.TeleCharge : 0f):0.00}");
+        }
+
+        [ConCommand(commandName = "hc_ability", flags = HostOnly, helpText = "hc_ability <0-3>: uses a commander ability (strike hits the army's centre, mark hits the nearest enemy).")]
+        private static void CcAbility(ConCommandArgs args)
+        {
+            var run = Mode.HighCommandRun.Instance;
+            if (run == null) throw new ConCommandException("Not in a High Command run.");
+            int index = args.GetArgInt(0);
+
+            Vector3 point = Vector3.zero;
+            UnityEngine.Networking.NetworkInstanceId target = UnityEngine.Networking.NetworkInstanceId.Invalid;
+            Vector3 center = Client.ClientRoot.ArmyCenter() ?? Vector3.zero;
+            if (Army.CommanderAbilities.NeedsPoint(index)) point = center + Vector3.forward * 10f;
+            if (Army.CommanderAbilities.NeedsTarget(index))
+            {
+                float best = float.MaxValue;
+                foreach (var tc in TeamComponent.GetTeamMembers(TeamIndex.Monster))
+                {
+                    if (!tc || !tc.body || !tc.body.healthComponent || !tc.body.healthComponent.alive) continue;
+                    float d = (tc.body.corePosition - center).sqrMagnitude;
+                    var id = tc.body.GetComponent<UnityEngine.Networking.NetworkIdentity>();
+                    if (d < best && id) { best = d; target = id.netId; point = tc.body.corePosition; }
+                }
+            }
+            string result = Army.ArmyService.TryAbility(index, point, target);
+            Debug.Log("HighCommand: ability " + index + " -> " + (result == null ? "ok" : result));
+        }
+
+        [ConCommand(commandName = "hc_perf", flags = HostOnly, helpText = "Prints the cost of the mod's own work since the last call (ms per second) and the frame rate.")]
+        private static void CcPerf(ConCommandArgs args)
+        {
+            int enemies = 0;
+            foreach (TeamIndex team in new[] { TeamIndex.Monster, TeamIndex.Lunar, TeamIndex.Void })
+                enemies += TeamComponent.GetTeamMembers(team).Count;
+            var run = Mode.HighCommandRun.Instance;
+            Debug.Log(Dev.Perf.Report() + $" | heroes={(run != null ? run.Army.Count : 0)} enemies={enemies}");
+        }
+
+        [ConCommand(commandName = "hc_cfg", flags = HostOnly, helpText = "hc_cfg <ArmyLimit|IgnoreUnlocks|AllowDuplicates|StartingGold|HeroBasePrice|AutoRetreat> <value>: changes a setting at runtime (testing).")]
+        private static void CcCfg(ConCommandArgs args)
+        {
+            string key = args.GetArgString(0);
+            string value = args.GetArgString(1);
+            switch (key.ToLowerInvariant())
+            {
+                case "armylimit": Settings.ArmyLimit.Value = int.Parse(value); break;
+                case "ignoreunlocks": Settings.IgnoreUnlocks.Value = bool.Parse(value); break;
+                case "allowduplicates": Settings.AllowDuplicates.Value = bool.Parse(value); break;
+                case "startinggold": Settings.StartingGold.Value = int.Parse(value); break;
+                case "herobaseprice": Settings.HeroBasePrice.Value = int.Parse(value); break;
+                case "autoretreat": Settings.AutoRetreat.Value = bool.Parse(value); break;
+                default: throw new ConCommandException("Unknown setting.");
+            }
+            Mode.HcState.Instance?.ServerPublishSettings();
+            Debug.Log($"HighCommand: {key} = {value}");
+        }
+
+        [ConCommand(commandName = "hc_tp_charge", flags = HostOnly, helpText = "Fully charges the teleporter's holdout zone (testing).")]
+        private static void CcTpCharge(ConCommandArgs args)
+        {
+            var tp = TeleporterInteraction.instance;
+            if (!tp || !tp.holdoutZoneController) throw new ConCommandException("No teleporter.");
+            tp.holdoutZoneController.FullyChargeHoldoutZone();
+            Debug.Log("HighCommand: teleporter charge set to full.");
+        }
+
+        [ConCommand(commandName = "hc_flow", flags = HostOnly, helpText = "Prints the run-flow state: defeat countdown, teleporter, rally point.")]
+        private static void CcFlow(ConCommandArgs args)
+        {
+            var run = Mode.HighCommandRun.Instance;
+            var state = Mode.HcState.Instance;
+            if (run == null || state == null) throw new ConCommandException("Not in a High Command run.");
+            Debug.Log($"HighCommand flow: defeatIn={state.DefeatSeconds:0.0}s canRevive={state.DefeatCanRevive} teleporter={state.Teleporter} " +
+                      $"charge={state.TeleCharge:0.00} radius={state.TeleRadius:0.0} at={state.TelePosition:0} rally={run.RallyPoint:0} " +
+                      $"alive={run.Army.AliveCount}/{run.Army.Count} gold={Army.Economy.Gold} revivePrice={state.RevivePrice()} " +
+                      $"participating={Run.instance.participatingPlayerCount} living={Run.instance.livingPlayerCount}");
+        }
+
         [ConCommand(commandName = "hc_drop_random", flags = HostOnly, helpText = "hc_drop_random <count>: adds that many random white/green/red items to the pool (layout and balance tests).")]
         private static void CcDropRandom(ConCommandArgs args)
         {

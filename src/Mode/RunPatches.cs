@@ -65,6 +65,66 @@ namespace HighCommand.Mode
             }
         }
 
+        /// <summary>
+        /// Holdout zones (teleporter, pillars ...) charge only for "player controlled" bodies. The heroes are AI
+        /// bodies, so the zone would never charge: count living heroes instead.
+        /// </summary>
+        [HarmonyPatch(typeof(HoldoutZoneController), nameof(HoldoutZoneController.CountPlayersInRadius))]
+        internal static class ZoneCountInRadius
+        {
+            private static bool Prefix(HoldoutZoneController holdoutZoneController, Vector3 origin, float chargingRadiusSqr,
+                TeamIndex teamIndex, ref int __result)
+            {
+                if (!HighCommandRun.IsActive) return true;
+                int n = 0;
+                foreach (TeamComponent tc in TeamComponent.GetTeamMembers(teamIndex))
+                {
+                    CharacterBody body = tc ? tc.body : null;
+                    if (!body || HeroMarker.Of(body) == null) continue;
+                    if (!body.healthComponent || !body.healthComponent.alive) continue;
+                    if (HoldoutZoneController.IsBodyInChargingRadius(holdoutZoneController, origin, chargingRadiusSqr, body)) n++;
+                }
+                __result = n;
+                return false;
+            }
+        }
+
+        [HarmonyPatch(typeof(HoldoutZoneController), "CountLivingPlayers")]
+        internal static class ZoneCountLiving
+        {
+            private static bool Prefix(TeamIndex teamIndex, ref int __result)
+            {
+                if (!HighCommandRun.IsActive) return true;
+                int n = 0;
+                foreach (TeamComponent tc in TeamComponent.GetTeamMembers(teamIndex))
+                {
+                    CharacterBody body = tc ? tc.body : null;
+                    if (!body || HeroMarker.Of(body) == null) continue;
+                    if (body.healthComponent && body.healthComponent.alive) n++;
+                }
+                __result = n;
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// The game scales monster budgets, boss counts, loot and the difficulty clock by "players in the run". The
+        /// commander is one player, so the army's size is mapped to an equivalent number of players.
+        /// </summary>
+        [HarmonyPatch(typeof(Run), nameof(Run.participatingPlayerCount), MethodType.Getter)]
+        internal static class ParticipatingPlayers
+        {
+            private static void Postfix(ref int __result)
+            {
+                if (!HighCommandRun.IsActive) return;
+                HcState state = HcState.Instance;
+                int heroes = state != null ? state.Heroes.Count : 0;
+                if (heroes <= 1) { __result = Mathf.Max(1, __result); return; }
+                float equivalent = 1f + (heroes - 1) * Settings.ThreatPerExtraHero.Value;
+                __result = Mathf.Max(1, Mathf.RoundToInt(equivalent));
+            }
+        }
+
         /// <summary>The combat director picks a player body to spawn monsters around; give it hero bodies.</summary>
         [HarmonyPatch(typeof(CombatDirector), "PickPlayerAsSpawnTarget")]
         internal static class DirectorSpawnTarget

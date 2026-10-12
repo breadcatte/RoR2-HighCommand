@@ -131,6 +131,7 @@ namespace HighCommand.Army
             }
             if (!given) return false;
 
+            RunStats.AddItem();
             HighCommandRun hc = HighCommandRun.Instance;
             if (hc != null)
             {

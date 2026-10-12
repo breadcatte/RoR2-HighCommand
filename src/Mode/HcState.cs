@@ -29,12 +29,56 @@ namespace HighCommand.Mode
         /// <summary>The host's item sharing mode: true = every hero owns a copy of every item (nothing to hand over).</summary>
         public bool ItemMirror { get; private set; }
 
+        // ---- run flow (written by RunFlow on the server) ----------------------------------------------
+        public enum TeleState : byte { None = 0, Idle = 1, Charging = 2, BossAlive = 3, Charged = 4, Leaving = 5 }
+
+        /// <summary>Seconds left before the run is lost because no hero is alive (&lt; 0 = nothing is counting down).</summary>
+        public float DefeatSeconds { get; private set; } = -1f;
+
+        /// <summary>While the defeat countdown runs: can the army still pay for a revival?</summary>
+        public bool DefeatCanRevive { get; private set; }
+
+        public TeleState Teleporter { get; private set; }
+        public float TeleCharge { get; private set; }
+        public Vector3 TelePosition { get; private set; }
+        public float TeleRadius { get; private set; }
+
+        /// <summary>Run-stopwatch time at which each commander ability is ready again.</summary>
+        public readonly float[] AbilityReadyAt = new float[4];
+
+        public void ServerSetAbilityReady(int index, float runTime)
+        {
+            if (!NetworkServer.active || index < 0 || index >= AbilityReadyAt.Length) return;
+            AbilityReadyAt[index] = runTime;
+            SetDirtyBit(DirtyAll);
+        }
+
+        /// <summary>Server: publishes the run-flow values; only a real change makes the network send anything.</summary>
+        public void ServerSetFlow(float defeatSeconds, bool canRevive, TeleState tele, float charge, Vector3 position, float radius)
+        {
+            if (!NetworkServer.active) return;
+            bool changed = false;
+            if (Mathf.Abs(defeatSeconds - DefeatSeconds) > 0.45f || (defeatSeconds < 0f) != (DefeatSeconds < 0f)) { DefeatSeconds = defeatSeconds; changed = true; }
+            if (canRevive != DefeatCanRevive) { DefeatCanRevive = canRevive; changed = true; }
+            if (tele != Teleporter) { Teleporter = tele; changed = true; }
+            if (Mathf.Abs(charge - TeleCharge) > 0.004f) { TeleCharge = charge; changed = true; }
+            if ((position - TelePosition).sqrMagnitude > 0.25f) { TelePosition = position; changed = true; }
+            if (Mathf.Abs(radius - TeleRadius) > 0.25f) { TeleRadius = radius; changed = true; }
+            if (changed) SetDirtyBit(DirtyAll);
+        }
+
         private struct RosterEntry
         {
             internal int id;
             internal NetworkInstanceId masterId;
             internal int survivorIndex;
             internal int joinOrder;
+            internal byte stance;
+            internal byte autoMask;
+            internal byte orderKind;
+            internal byte queued;
+            internal Vector3 orderPoint;
+            internal byte cd0, cd1, cd2;
         }
 
         private readonly List<RosterEntry> roster = new List<RosterEntry>();
@@ -154,7 +198,15 @@ namespace HighCommand.Mode
                     id = h.Id,
                     masterId = h.MasterId,
                     survivorIndex = h.Survivor ? (int)h.Survivor.survivorIndex : -1,
-                    joinOrder = h.JoinOrder
+                    joinOrder = h.JoinOrder,
+                    stance = h.NetStance,
+                    autoMask = h.NetAutoMask,
+                    orderKind = h.NetOrderKind,
+                    queued = h.NetQueued,
+                    orderPoint = h.NetOrderPoint,
+                    cd0 = h.NetSkillCd[0],
+                    cd1 = h.NetSkillCd[1],
+                    cd2 = h.NetSkillCd[2]
                 });
             }
             spareEquipment.Clear();
@@ -192,6 +244,13 @@ namespace HighCommand.Mode
             writer.Write(PriceMultiplier);
             writer.Write(ReviveFraction);
             writer.Write(ItemMirror);
+            writer.Write(DefeatSeconds);
+            writer.Write(DefeatCanRevive);
+            writer.Write((byte)Teleporter);
+            writer.Write(TeleCharge);
+            writer.Write(TelePosition);
+            writer.Write(TeleRadius);
+            for (int i = 0; i < AbilityReadyAt.Length; i++) writer.Write(AbilityReadyAt[i]);
 
             writer.WritePackedUInt32((uint)roster.Count);
             foreach (RosterEntry e in roster)
@@ -200,6 +259,14 @@ namespace HighCommand.Mode
                 writer.Write(e.masterId);
                 writer.WritePackedUInt32((uint)(e.survivorIndex + 1));
                 writer.WritePackedUInt32((uint)e.joinOrder);
+                writer.Write(e.stance);
+                writer.Write(e.autoMask);
+                writer.Write(e.orderKind);
+                writer.Write(e.queued);
+                writer.Write(e.orderPoint);
+                writer.Write(e.cd0);
+                writer.Write(e.cd1);
+                writer.Write(e.cd2);
             }
 
             writer.WritePackedUInt32((uint)spareEquipment.Count);
@@ -217,6 +284,13 @@ namespace HighCommand.Mode
             PriceMultiplier = reader.ReadSingle();
             ReviveFraction = reader.ReadSingle();
             ItemMirror = reader.ReadBoolean();
+            DefeatSeconds = reader.ReadSingle();
+            DefeatCanRevive = reader.ReadBoolean();
+            Teleporter = (TeleState)reader.ReadByte();
+            TeleCharge = reader.ReadSingle();
+            TelePosition = reader.ReadVector3();
+            TeleRadius = reader.ReadSingle();
+            for (int i = 0; i < AbilityReadyAt.Length; i++) AbilityReadyAt[i] = reader.ReadSingle();
 
             int count = (int)reader.ReadPackedUInt32();
             roster.Clear();
@@ -227,7 +301,15 @@ namespace HighCommand.Mode
                     id = (int)reader.ReadPackedUInt32(),
                     masterId = reader.ReadNetworkId(),
                     survivorIndex = (int)reader.ReadPackedUInt32() - 1,
-                    joinOrder = (int)reader.ReadPackedUInt32()
+                    joinOrder = (int)reader.ReadPackedUInt32(),
+                    stance = reader.ReadByte(),
+                    autoMask = reader.ReadByte(),
+                    orderKind = reader.ReadByte(),
+                    queued = reader.ReadByte(),
+                    orderPoint = reader.ReadVector3(),
+                    cd0 = reader.ReadByte(),
+                    cd1 = reader.ReadByte(),
+                    cd2 = reader.ReadByte()
                 });
             }
 
@@ -251,6 +333,14 @@ namespace HighCommand.Mode
                 if (!old.TryGetValue(e.id, out Hero hero)) hero = new Hero { Id = e.id };
                 hero.MasterId = e.masterId;
                 hero.JoinOrder = e.joinOrder;
+                hero.NetStance = e.stance;
+                hero.NetAutoMask = e.autoMask;
+                hero.NetOrderKind = e.orderKind;
+                hero.NetQueued = e.queued;
+                hero.NetOrderPoint = e.orderPoint;
+                hero.NetSkillCd[0] = e.cd0;
+                hero.NetSkillCd[1] = e.cd1;
+                hero.NetSkillCd[2] = e.cd2;
                 hero.Survivor = e.survivorIndex >= 0 ? SurvivorCatalog.GetSurvivorDef((SurvivorIndex)e.survivorIndex) : null;
                 if (hero.Survivor && hero.Survivor.bodyPrefab)
                 {

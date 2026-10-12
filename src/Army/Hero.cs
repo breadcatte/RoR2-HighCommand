@@ -45,6 +45,27 @@ namespace HighCommand.Army
         /// <summary>Order in which the hero joined the army (the first one is the starting survivor).</summary>
         public int JoinOrder;
 
+        // ---- what the UI needs to know about the hero's orders ------------------------------------------
+        // The HeroBrain lives on the server only; RunFlow copies these into the Hero and the roster replicates them,
+        // so the host and every client draw the same stance, auto-use switches and order lines.
+
+        /// <summary>(byte)Orders.Stance.</summary>
+        public byte NetStance;
+
+        /// <summary>Bit i = automatic use of slot i is on (0 primary .. 3 special, 4 equipment).</summary>
+        public byte NetAutoMask = 0x1F;
+
+        /// <summary>(byte)Orders.OrderKind of the current order, 0 = none.</summary>
+        public byte NetOrderKind;
+
+        /// <summary>Where the current order leads (target position for attack / follow / interact).</summary>
+        public Vector3 NetOrderPoint;
+
+        public byte NetQueued;
+
+        /// <summary>Seconds left (rounded up, 0 = ready) on the secondary, utility and special skills.</summary>
+        public readonly byte[] NetSkillCd = new byte[3];
+
         public CharacterBody Body => Master ? Master.GetBody() : null;
 
         public GameObject BodyObject => Master ? Master.GetBodyObject() : null;
