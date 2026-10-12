@@ -48,6 +48,9 @@ namespace HighCommand
             TryPatch(typeof(Mode.LobbyPatches.LocalMultiplayerMenu), "game mode in the local multiplayer menu");
             TryPatch(typeof(Mode.RunRulePatch), "forced rule choices");
             TryPatch(typeof(Mode.MenuButton), "Extra Game Mode menu button");
+            TryPatch(typeof(Mode.RunPatches.NoCommanderBody), "commander has no body");
+            TryPatch(typeof(Mode.RunPatches.LivingPlayerCount), "living player count = living heroes");
+            TryPatch(typeof(Mode.RunPatches.DirectorSpawnTarget), "director spawns around heroes");
 
             try { Dev.AutoExec.Install(); }
             catch (Exception e) { Log.LogWarning("AutoExec not installed: " + e.Message); }

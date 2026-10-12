@@ -131,6 +131,65 @@ namespace HighCommand.Dev
             for (int i = 0; i < t.childCount; i++) Walk(sb, t.GetChild(i), level + 1, maxDepth);
         }
 
+        [ConCommand(commandName = "hc_status", flags = HostOnly, helpText = "Prints the army: every hero, whether it is alive, where it is and what its AI is doing.")]
+        private static void CcStatus(ConCommandArgs args)
+        {
+            var run = Mode.HighCommandRun.Instance;
+            if (run == null) { Debug.Log("HighCommand: no High Command run."); return; }
+
+            var sb = new StringBuilder();
+            Stage stage = Stage.instance;
+            sb.AppendLine($"HighCommand status: stage={(stage && stage.sceneDef ? stage.sceneDef.cachedName : "none")} " +
+                          $"cleared={Run.instance.stageClearCount} time={Run.instance.GetRunStopwatch():0}s " +
+                          $"difficulty={Run.instance.difficultyCoefficient:0.00} heroes={run.Army.Count} alive={run.Army.AliveCount}");
+            foreach (var hero in run.Army.Heroes)
+            {
+                CharacterBody body = hero.Body;
+                string ai = "-";
+                var baseAi = hero.Master ? hero.Master.GetComponent<RoR2.CharacterAI.BaseAI>() : null;
+                if (baseAi)
+                {
+                    ai = $"driver={(string.IsNullOrEmpty(baseAi.selectedSkilldriverName) ? "none" : baseAi.selectedSkilldriverName)} " +
+                         $"enemy={(baseAi.currentEnemy != null && baseAi.currentEnemy.gameObject ? baseAi.currentEnemy.gameObject.name : "none")} " +
+                         $"state={(baseAi.stateMachine && baseAi.stateMachine.state != null ? baseAi.stateMachine.state.GetType().Name : "none")}";
+                }
+                string hp = body && body.healthComponent ? $"{body.healthComponent.health:0}/{body.healthComponent.fullHealth:0}" : "-";
+                sb.AppendLine($"  {hero} alive={hero.IsAlive} hp={hp} lvl={(body ? body.level : 0):0} pos={hero.Position:0} {ai}");
+            }
+            Debug.Log(sb.ToString());
+        }
+
+        [ConCommand(commandName = "hc_next_stage", flags = HostOnly, helpText = "Host: advances the run to the next stage immediately.")]
+        private static void CcNextStage(ConCommandArgs args)
+        {
+            if (!UnityEngine.Networking.NetworkServer.active || !Run.instance)
+                throw new ConCommandException("Only the host can do this, and a run must be in progress.");
+            if (!Run.instance.nextStageScene)
+                Run.instance.PickNextStageSceneFromCurrentSceneDestinations();
+            SceneDef next = Run.instance.nextStageScene;
+            if (!next) throw new ConCommandException("No next stage is known.");
+            Debug.Log("HighCommand: advancing to " + next.cachedName);
+            Run.instance.AdvanceStage(next);
+        }
+
+        [ConCommand(commandName = "hc_kill_enemies", flags = HostOnly, helpText = "Host: kills every enemy on the map (monster and lunar teams).")]
+        private static void CcKillEnemies(ConCommandArgs args)
+        {
+            if (!UnityEngine.Networking.NetworkServer.active) throw new ConCommandException("Only the host can do this.");
+            int killed = 0;
+            foreach (TeamIndex team in new[] { TeamIndex.Monster, TeamIndex.Lunar, TeamIndex.Void })
+            {
+                var members = new System.Collections.Generic.List<TeamComponent>(TeamComponent.GetTeamMembers(team));
+                foreach (TeamComponent tc in members)
+                {
+                    if (!tc || !tc.body || !tc.body.healthComponent) continue;
+                    tc.body.healthComponent.Suicide();
+                    killed++;
+                }
+            }
+            Debug.Log($"HighCommand: killed {killed} enemies.");
+        }
+
         [ConCommand(commandName = "hc_menu_extra", flags = HostOnly, helpText = "Presses the title menu's Extra Game Mode button (and, with an argument 'click', the High Command button).")]
         private static void CcMenuExtra(ConCommandArgs args)
         {
