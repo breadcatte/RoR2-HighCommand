@@ -3,6 +3,7 @@ using HighCommand.Army;
 using HighCommand.Mode;
 using RoR2;
 using RoR2.CharacterAI;
+using RoR2.Navigation;
 using UnityEngine;
 
 namespace HighCommand.Orders
@@ -281,6 +282,7 @@ namespace HighCommand.Orders
                 {
                     Fleeing = true;
                     fleeSince = Time.time;
+                    fleeGoalAt = -100f; // a fresh place to run to
                     if (Settings.VerboseLog.Value) Plugin.Log.LogInfo($"{Hero}: hurt ({frac:0.00}), fleeing");
                 }
                 return Fleeing;
@@ -307,12 +309,33 @@ namespace HighCommand.Orders
             DebugState = "fleeing";
         }
 
-        // Towards the healthiest friends; alone: straight away from the enemies.
+        /// <summary>Hostile bodies within 20 m (refreshed every think); the executor uses it to time an escape skill.</summary>
+        public int EnemiesNear => enemiesNear;
+
+        private Vector3 fleeGoal;
+        private float fleeGoalAt = -100f;
+        private static readonly List<NodeGraph.NodeIndex> NodeBuffer = new List<NodeGraph.NodeIndex>(256);
+
+        // The place to run to is chosen again only every 1.5 s or when reached: a goal that changes every tick makes
+        // the hero zig-zag on the spot.
         private Vector3 SafePoint(CharacterBody self, Vector3 pos)
         {
+            Vector3 left = fleeGoal - pos;
+            left.y = 0f;
+            if (Time.time - fleeGoalAt < 1.5f && left.sqrMagnitude > 4f * 4f) return fleeGoal;
+            fleeGoalAt = Time.time;
+            fleeGoal = ChooseSafePoint(pos);
+            if (Settings.VerboseLog.Value) Plugin.Log.LogInfo($"{Hero}: flee goal {fleeGoal:0} (from {pos:0})");
+            return fleeGoal;
+        }
+
+        // To the nearest healthy friend; alone: a ground node on about the same level, away from the enemies. A point
+        // far below (the foot of a cliff) is never chosen: a hero walking there falls and lands at 1 HP among enemies.
+        private Vector3 ChooseSafePoint(Vector3 pos)
+        {
             HighCommandRun run = HighCommandRun.Instance;
-            Vector3 sum = Vector3.zero;
-            int n = 0;
+            Hero friend = null;
+            float friendDist = 120f * 120f;
             if (run != null)
             {
                 foreach (Hero h in run.Army.Heroes)
@@ -321,29 +344,61 @@ namespace HighCommand.Orders
                     CharacterBody b = h.Body;
                     HealthComponent hc = b ? b.healthComponent : null;
                     if (!hc || hc.fullCombinedHealth <= 0f || hc.combinedHealth / hc.fullCombinedHealth < 0.4f) continue;
-                    sum += b.footPosition;
-                    n++;
+                    float d = (b.footPosition - pos).sqrMagnitude;
+                    if (d < friendDist) { friendDist = d; friend = h; }
                 }
             }
-            if (n > 0) return Formation.SnapToGround(sum / n);
+            if (friend != null) return friend.Body.footPosition;
 
-            // nobody to run to: the opposite way of the enemy mass, 30 m
             Vector3 enemies = Vector3.zero;
             int e = 0;
             foreach (TeamIndex team in HostileTeams)
             {
-                foreach (TeamComponent tc in TeamComponent.GetTeamMembers(team))
+                var members = TeamComponent.GetTeamMembers(team);
+                for (int i = 0; i < members.Count; i++)
                 {
+                    TeamComponent tc = members[i];
                     if (!tc || !tc.body || (tc.body.corePosition - pos).sqrMagnitude > 40f * 40f) continue;
                     enemies += tc.body.corePosition;
                     e++;
                 }
             }
-            if (e == 0) return run != null ? run.RallyPoint : pos;
-            Vector3 away = pos - enemies / e;
+            Vector3 rally = run != null ? run.RallyPoint : pos;
+            if (e == 0) return rally;
+            Vector3 threat = enemies / e;
+
+            SceneInfo info = SceneInfo.instance;
+            NodeGraph graph = info ? info.groundNodes : null;
+            if (graph)
+            {
+                NodeBuffer.Clear();
+                graph.FindNodesInRange(pos, 10f, 34f, HullMask.Human, NodeBuffer);
+                int step = Mathf.Max(1, NodeBuffer.Count / 120); // a big open map has hundreds: a sample is enough
+                bool found = false;
+                float bestScore = float.MinValue;
+                Vector3 best = pos;
+                for (int i = 0; i < NodeBuffer.Count; i += step)
+                {
+                    if (!graph.GetNodePosition(NodeBuffer[i], out Vector3 np)) continue;
+                    float dy = np.y - pos.y;
+                    if (dy < -5f || dy > 8f) continue; // stay on this level: no cliffs down, no walls up
+                    Vector3 fromThreat = np - threat;
+                    fromThreat.y = 0f;
+                    Vector3 toRally = rally - np;
+                    toRally.y = 0f;
+                    float score = fromThreat.magnitude - 1.5f * Mathf.Abs(dy) - 0.15f * toRally.magnitude;
+                    if (score > bestScore) { bestScore = score; best = np; found = true; }
+                }
+                NodeBuffer.Clear();
+                if (found) return best;
+            }
+
+            // no node graph (or nothing on this level): straight away, but only if the ground there is not far below
+            Vector3 away = pos - threat;
             away.y = 0f;
             if (away.sqrMagnitude < 0.01f) away = Vector3.back;
-            return Formation.SnapToGround(pos + away.normalized * 30f);
+            Vector3 p = Formation.SnapToGround(pos + away.normalized * 20f);
+            return p.y - pos.y < -5f ? pos : p;
         }
 
         // ---- idle / stance ---------------------------------------------------------------------------

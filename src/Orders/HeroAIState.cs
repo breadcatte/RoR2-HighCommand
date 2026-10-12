@@ -133,14 +133,18 @@ namespace HighCommand.Orders
             Vector3 goal = brain.Goal;
             ai.SetGoalPosition(goal);
 
+            // A fleeing hero never steps off an edge: a fall leaves it at 1 HP, usually among the enemies it ran from.
+            // An ordered move may (the path to a clicked point can lead down a ledge).
+            bool fleeing = brain.Fleeing;
+
             BroadNavigationSystem.AgentOutput output = ai.broadNavigationAgent.output;
             Vector3 next = output.nextPosition ?? footPosition;
             // unreachable goal: head straight at it, the local navigator stops at walls
-            if (!output.nextPosition.HasValue && !output.targetReachable) next = goal;
+            if (!fleeing && !output.nextPosition.HasValue && !output.targetReachable) next = goal;
 
             Vector3 target = next + (bodyTransform.position - footPosition);
             ai.localNavigator.targetPosition = target;
-            ai.localNavigator.allowWalkOffCliff = true;
+            ai.localNavigator.allowWalkOffCliff = !fleeing;
             ai.localNavigator.Update(dt);
             bodyInputs.moveVector = ai.localNavigator.moveVector;
         }
@@ -229,13 +233,37 @@ namespace HighCommand.Orders
                     break;
             }
 
+            // Ranged heroes keep their distance (the stock survivor rules always close in, see HeroProfile.standoff).
+            bool kiting = false;
+            float standoff = brain ? brain.Profile.standoff : 0f;
+            if (standoff > 0f && target.characterBody && movementScale > 0f)
+            {
+                Vector3 fromTarget = footPosition - targetPos;
+                fromTarget.y = 0f;
+                float distance = fromTarget.magnitude;
+                Vector3 awayDir = distance > 0.1f ? fromTarget / distance : -bodyTransform.forward;
+                if (distance < standoff * 0.65f)
+                {
+                    desired = bodyTransform.position + awayDir * 10f + side * (0.3f * strafeDirection);
+                    allowWalkOffCliff = false;
+                    kiting = true;
+                }
+                else if (distance < standoff && (movement == AISkillDriver.MovementType.ChaseMoveTarget
+                                                  || movement == AISkillDriver.MovementType.FollowMoveTarget))
+                {
+                    desired = bodyTransform.position + side * strafeDirection;
+                    allowWalkOffCliff = false;
+                    kiting = true;
+                }
+            }
+
             ai.localNavigator.targetPosition = desired;
             ai.localNavigator.allowWalkOffCliff = allowWalkOffCliff;
             ai.localNavigator.Update(dt);
             if (ai.localNavigator.wasObstructedLastUpdate) strafeDirection = -strafeDirection;
 
-            Vector3 move = ai.localNavigator.moveVector * dominantDriver.moveInputScale;
-            bodyInputs.moveVector = movement == AISkillDriver.MovementType.Stop ? Vector3.zero : move * movementScale;
+            Vector3 move = ai.localNavigator.moveVector * (kiting ? 1f : dominantDriver.moveInputScale);
+            bodyInputs.moveVector = movement == AISkillDriver.MovementType.Stop && !kiting ? Vector3.zero : move * movementScale;
 
             // activation conditions (line of sight is tested right now, not from the cached value)
             bool flagTargetLos = dominantDriver.activationRequiresTargetLoS;
@@ -261,6 +289,7 @@ namespace HighCommand.Orders
                 castPressTime = -1f;
                 castFrames = 0;
             }
+            if (mode != BrainMode.Go) escapeFrames = 0;
 
             bodyInputs.pressSkill1 = false;
             bodyInputs.pressSkill2 = false;
@@ -284,6 +313,34 @@ namespace HighCommand.Orders
             bodyInputs.pressSprint = brain && brain.Sprint;
             // look where we are going
             if (bodyInputs.moveVector != Vector3.zero) AimInDirection(ref bodyInputs, bodyInputs.moveVector);
+            TryEscapeSkill();
+        }
+
+        private int escapeFrames;
+
+        // A fleeing hero with enemies close by uses its "get away" skill (profile fleeSlot): the move vector and the aim
+        // both point away (dashes follow one or the other, depending on the survivor), held for a few frames.
+        private void TryEscapeSkill()
+        {
+            if (brain == null) { escapeFrames = 0; return; }
+            int slot = brain.Profile.fleeSlot;
+            if (slot < 0 || slot > 3 || !brain.AutoSlot[slot]) { escapeFrames = 0; return; }
+
+            if (escapeFrames > 0)
+            {
+                escapeFrames--;
+                SetPress(slot, true);
+                return;
+            }
+            if (!brain.Fleeing || brain.EnemiesNear == 0 || bodyInputs.moveVector == Vector3.zero) return;
+
+            GenericSkill skill = GetSkill(slot);
+            if (!skill || !skill.IsReady()) return;
+
+            escapeFrames = 3;
+            SetPress(slot, true);
+            if (Settings.VerboseLog.Value)
+                Plugin.Log.LogInfo($"{characterMaster.name}: escape skill {skill.skillDef.skillName} ({brain.EnemiesNear} enemies near)");
         }
 
         private void GenerateFightInputs(in BaseAI.BodyInputs previous)
@@ -425,14 +482,20 @@ namespace HighCommand.Orders
         private bool SlotAllowed(SkillSlot slot)
         {
             if (brain == null) return true;
+            int index;
             switch (slot)
             {
-                case SkillSlot.Primary: return brain.AutoSlot[0] && brain.RuleAllows(0);
-                case SkillSlot.Secondary: return brain.AutoSlot[1] && brain.RuleAllows(1);
-                case SkillSlot.Utility: return brain.AutoSlot[2] && brain.RuleAllows(2);
-                case SkillSlot.Special: return brain.AutoSlot[3] && brain.RuleAllows(3);
+                case SkillSlot.Primary: index = 0; break;
+                case SkillSlot.Secondary: index = 1; break;
+                case SkillSlot.Utility: index = 2; break;
+                case SkillSlot.Special: index = 3; break;
                 default: return true;
             }
+            if (!brain.AutoSlot[index] || !brain.RuleAllows(index)) return false;
+            // an "escape" skill must not be spent by a rule that runs at the enemy (Huntress' BlinkToCloseGap at low HP)
+            if (dominantDriver && dominantDriver.movementType == AISkillDriver.MovementType.ChaseMoveTarget
+                && brain.Profile.RuleFor(index) == "escape") return false;
+            return true;
         }
 
         private bool AutoEquipment => brain == null || (brain.AutoSlot[4] && brain.RuleAllows(4));
