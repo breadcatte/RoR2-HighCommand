@@ -262,9 +262,8 @@ namespace HighCommand.Mode
 
             foreach (Hero h in run.Army.Heroes)
             {
-                if (!h.Master) continue;
-                HeroBrain brain = h.Master.GetComponent<HeroBrain>();
-                if (brain == null) continue;
+                HeroBrain brain = OrderService.BrainOf(h);
+                if (!brain) continue;
                 brain.ZoneCenter = center;
                 brain.ZoneRadius = radius;
             }

@@ -98,7 +98,10 @@ namespace HighCommand.Orders
         private float targetDistance = float.MaxValue;
         private bool lowHealth;
 
+        private static readonly TeamIndex[] HostileTeams = { TeamIndex.Monster, TeamIndex.Lunar, TeamIndex.Void };
+
         private readonly List<Order> queue = new List<Order>(4);
+        private BaseAI cachedAi;
         private float thinkTimer;
         private Vector3 progressPos;
         private float progressTime;
@@ -187,7 +190,8 @@ namespace HighCommand.Orders
                 if (Settings.VerboseLog.Value) Plugin.Log.LogInfo($"{Hero}: anchor set at {pos}");
             }
 
-            BaseAI ai = Hero.Master ? Hero.Master.GetComponent<BaseAI>() : null;
+            if (!cachedAi && Hero.Master) cachedAi = Hero.Master.GetComponent<BaseAI>();
+            BaseAI ai = cachedAi;
 
             // defaults for this tick
             MoveScale = 1f;
@@ -268,11 +272,12 @@ namespace HighCommand.Orders
 
             bool fleeable = order == null || order.Kind == OrderKind.AttackMove || order.Kind == OrderKind.Attack
                             || order.Kind == OrderKind.Patrol || order.Kind == OrderKind.Follow;
-            bool threatened = Perception.CountEnemies(pos, 38f, self.teamComponent.teamIndex) > 0;
 
             if (!Fleeing)
             {
-                if (fleeable && threatened && frac < Profile.retreatHealth)
+                // the (costly) look around is made only for a hero that is hurt enough to care
+                if (fleeable && frac < Profile.retreatHealth
+                    && Perception.CountEnemies(pos, 38f, self.teamComponent.teamIndex) > 0)
                 {
                     Fleeing = true;
                     fleeSince = Time.time;
@@ -282,6 +287,7 @@ namespace HighCommand.Orders
             }
 
             // stop fleeing: recovered, nothing around any more, or the order changed to something explicit
+            bool threatened = Perception.CountEnemies(pos, 38f, self.teamComponent.teamIndex) > 0;
             bool calm = Time.time - lastThreatTime > 3f && !threatened;
             if (frac >= Profile.recoverHealth || calm || !fleeable || Time.time - fleeSince > 25f)
             {
@@ -324,7 +330,7 @@ namespace HighCommand.Orders
             // nobody to run to: the opposite way of the enemy mass, 30 m
             Vector3 enemies = Vector3.zero;
             int e = 0;
-            foreach (TeamIndex team in new[] { TeamIndex.Monster, TeamIndex.Lunar, TeamIndex.Void })
+            foreach (TeamIndex team in HostileTeams)
             {
                 foreach (TeamComponent tc in TeamComponent.GetTeamMembers(team))
                 {
@@ -371,7 +377,7 @@ namespace HighCommand.Orders
             {
                 Enemy = enemy;
                 Mode = BrainMode.Fight;
-                DebugState = "idle: fighting " + enemy.name;
+                DebugState = "idle: fighting";
                 return;
             }
 
@@ -450,7 +456,7 @@ namespace HighCommand.Orders
                     }
                     Enemy = target;
                     Mode = BrainMode.Fight;
-                    DebugState = "attack " + target.name;
+                    DebugState = "attack";
                     break;
                 }
 
@@ -478,7 +484,7 @@ namespace HighCommand.Orders
                     CastPoint = o.Point;
                     CastTarget = o.Target ? o.Target.GetComponent<CharacterBody>() : null;
                     MoveScale = 0f;
-                    DebugState = "cast slot " + o.Slot;
+                    DebugState = "cast";
                     if (Time.time - castStarted > 3f) Finish(); // could not be cast: do not block the queue
                     break;
 
@@ -497,7 +503,7 @@ namespace HighCommand.Orders
             {
                 Enemy = enemy;
                 Mode = BrainMode.Fight;
-                DebugState = (patrol ? "patrol: fighting " : "attack-move: fighting ") + enemy.name;
+                DebugState = patrol ? "patrol: fighting" : "attack-move: fighting";
                 return;
             }
 

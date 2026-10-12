@@ -57,6 +57,7 @@ namespace HighCommand.UI
         {
             map.texture = MapInfo.MinimapTexture;
             map.enabled = MapInfo.MinimapTexture != null;
+            boxFocus = new Vector3(float.NaN, 0f, 0f); // the new map has a new scale: place the view box again
         }
 
         /// <summary>Screen point inside the map -> world position (XZ valid), or null when not over the map.</summary>
@@ -82,20 +83,31 @@ namespace HighCommand.UI
             RefreshDots();
         }
 
+        // the view box is written only when the camera really moved (a rect touched every frame rebuilds the canvas)
+        private Vector3 boxFocus = new Vector3(float.NaN, 0f, 0f);
+        private float boxDistance = float.NaN, boxYaw = float.NaN;
+
         private void PlaceViewBox(RtsCamera camera)
         {
+            Vector3 focus = camera.Focus;
+            float distance = camera.Distance, yaw = camera.Yaw;
+            if (boxFocus == focus && boxDistance == distance && boxYaw == yaw) return;
+            boxFocus = focus;
+            boxDistance = distance;
+            boxYaw = yaw;
+
             Rect r = mapRect.rect;
-            Vector2 uv = MapInfo.WorldToMinimap01(camera.Focus);
+            Vector2 uv = MapInfo.WorldToMinimap01(focus);
             viewBox.rectTransform.anchorMin = viewBox.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             viewBox.rectTransform.anchoredPosition = new Vector2((uv.x - 0.5f) * r.width, (uv.y - 0.5f) * r.height);
 
-            float groundHalfHeight = camera.Distance * 0.85f;
+            float groundHalfHeight = distance * 0.85f;
             float aspect = Screen.height > 0 ? (float)Screen.width / Screen.height : 1.78f;
             float w = groundHalfHeight * 2f * aspect;
             float h = groundHalfHeight * 2f;
             float unit = MapInfo.MetersToMinimap01(1f);
             viewBox.rectTransform.sizeDelta = new Vector2(Mathf.Max(8f, w * unit * r.width), Mathf.Max(8f, h * unit * r.height));
-            viewBox.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -camera.Yaw);
+            viewBox.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -yaw);
         }
 
         private void RefreshDots()

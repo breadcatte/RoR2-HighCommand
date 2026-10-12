@@ -56,7 +56,11 @@ namespace HighCommand.Orders
 
             if (command.NewStance.HasValue)
             {
-                foreach (Hero h in heroes) BrainOf(h)?.SetStance(command.NewStance.Value);
+                foreach (Hero h in heroes)
+                {
+                    HeroBrain stanceBrain = BrainOf(h);
+                    if (stanceBrain) stanceBrain.SetStance(command.NewStance.Value);
+                }
                 if (command.Kind == OrderKind.None) return;
             }
             if (command.Kind == OrderKind.None) return;
@@ -108,7 +112,9 @@ namespace HighCommand.Orders
 
         internal static HeroBrain BrainOf(Hero hero)
         {
-            return hero != null && hero.Master ? hero.Master.GetComponent<HeroBrain>() : null;
+            if (hero == null) return null;
+            if (hero.Brain) return hero.Brain; // set when the hero is created: no component lookup per call
+            return hero.Master ? hero.Master.GetComponent<HeroBrain>() : null;
         }
     }
 }

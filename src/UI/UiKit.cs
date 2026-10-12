@@ -168,6 +168,12 @@ namespace HighCommand.UI
             return t;
         }
 
+        /// <summary>Sets a text only when it differs: writing an equal string would still rebuild the text mesh.</summary>
+        internal static void SetText(TMP_Text text, string value)
+        {
+            if (text && !string.Equals(text.text, value, StringComparison.Ordinal)) text.text = value;
+        }
+
         internal static void Stretch(RectTransform rt, float left = 0, float bottom = 0, float right = 0, float top = 0)
         {
             rt.anchorMin = Vector2.zero;

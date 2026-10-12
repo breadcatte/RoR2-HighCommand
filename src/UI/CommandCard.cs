@@ -29,6 +29,7 @@ namespace HighCommand.UI
             internal Func<string> hotkey;
             internal string nameToken;
             internal string descToken;
+            internal byte shownFormation = 255; // formation button only: which name its label shows
         }
 
         private sealed class SkillButton
@@ -38,13 +39,24 @@ namespace HighCommand.UI
             internal int slot;           // 1 secondary, 2 utility, 3 special, 4 equipment
             internal OrderController.Act act;
             internal Func<string> hotkey;
+
+            // what the button shows now: the icon, name and description are looked up when the skill changes only
+            internal object key;
+            internal bool hasIcon;
+            internal string name = "", desc = "";
+            internal int badge = -1;
         }
 
         private sealed class AbilityButton
         {
             internal UiButton button;
             internal int index;
+            internal int badge = -1;
         }
+
+        // title line: rebuilt when the selection changes, not every frame
+        private Hero titleHero;
+        private int titleCount = -1;
 
         private readonly RectTransform root;
         private readonly TextMeshProUGUI title;
@@ -184,9 +196,15 @@ namespace HighCommand.UI
             bool any = first != null;
             HcState state = HcState.Instance;
 
-            title.text = any
-                ? Loc.Format("HIGHCOMMAND_CARD_TITLE", first.DisplayName) + (selection.Count > 1 ? "  +" + (selection.Count - 1) : "")
-                : Loc.Get("HIGHCOMMAND_CARD_NOSELECTION");
+            int selected = selection.Count;
+            if (titleHero != first || titleCount != selected)
+            {
+                titleHero = first;
+                titleCount = selected;
+                UiKit.SetText(title, any
+                    ? Loc.Format("HIGHCOMMAND_CARD_TITLE", first.DisplayName) + (selected > 1 ? "  +" + (selected - 1) : "")
+                    : Loc.Get("HIGHCOMMAND_CARD_NOSELECTION"));
+            }
 
             // ---- order / stance buttons ----
             foreach (OrderButton o in orderButtons)
@@ -195,9 +213,19 @@ namespace HighCommand.UI
                 bool global = o.act == OrderController.Act.Rally || o.act == OrderController.Act.Formation;
                 b.Enabled = any || global;
                 b.Active = IsActive(o.act, orders, first);
-                string label = Loc.Get(o.nameToken);
-                if (o.act == OrderController.Act.Formation) label += "\n<size=75%>" + orders.FormationName + "</size>";
-                if (b.Label.text != label) b.Label.text = label;
+                if (o.act == OrderController.Act.Formation)
+                {
+                    if (o.shownFormation != orders.Formation)
+                    {
+                        o.shownFormation = orders.Formation;
+                        UiKit.SetText(b.Label, Loc.Get(o.nameToken) + "\n<size=75%>" + orders.FormationName + "</size>");
+                    }
+                }
+                else if (o.shownFormation == 255)
+                {
+                    o.shownFormation = 0; // "label is set" marker for the plain buttons
+                    UiKit.SetText(b.Label, Loc.Get(o.nameToken));
+                }
                 bool hover = b.Refresh(mouse);
                 b.Accent = AccentOf(o.act);
                 if (hover) Tooltip.Show(Loc.Get(o.nameToken), Loc.Get(o.descToken) + "\n\n[" + o.hotkey() + "]");
@@ -212,7 +240,7 @@ namespace HighCommand.UI
             foreach (SkillButton s in skillButtons) TickSkill(s, first, body, mouse, click, toggleAuto, orders);
 
             // ---- commander abilities ----
-            commanderTitle.text = Loc.Get("HIGHCOMMAND_COMMANDER_TITLE");
+            UiKit.SetText(commanderTitle, Loc.Get("HIGHCOMMAND_COMMANDER_TITLE"));
             foreach (AbilityButton a in abilityButtons)
             {
                 UiButton b = a.button;
@@ -222,7 +250,12 @@ namespace HighCommand.UI
                 b.Active = orders.Mode == (CommanderAbilities.NeedsPoint(a.index) ? OrderController.Pending.AbilityPoint : OrderController.Pending.AbilityTarget)
                            && orders.AbilityIndex == a.index;
                 b.Cooldown.fillAmount = left > 0f ? Mathf.Clamp01(left / total) : 0f;
-                b.Badge.text = left > 0f ? Mathf.CeilToInt(left).ToString() : "";
+                int badge = left > 0f ? Mathf.CeilToInt(left) : 0;
+                if (a.badge != badge)
+                {
+                    a.badge = badge;
+                    UiKit.SetText(b.Badge, badge > 0 ? badge.ToString() : "");
+                }
                 bool hover = b.Refresh(mouse);
                 if (hover)
                 {
@@ -290,8 +323,7 @@ namespace HighCommand.UI
             }
             b.Enabled = enabled;
             b.Active = tele == HcState.TeleState.Charged;
-            string label = Loc.Get(token);
-            if (b.Label.text != label) b.Label.text = label;
+            UiKit.SetText(b.Label, Loc.Get(token));
             bool hover = b.Refresh(mouse);
             if (hover) Tooltip.Show(Loc.Get("HIGHCOMMAND_TP_TITLE"), Loc.Get("HIGHCOMMAND_TP_DESC") + "\n\n[" + Key(Settings.KeyTeleporter) + "]");
             if (b.Clicked(click)) orders.TeleporterAction();
@@ -303,9 +335,10 @@ namespace HighCommand.UI
         {
             UiButton b = s.button;
             bool hasIcon = false;
-            string name = "", desc = "";
             float cooldown = 0f, interval = 1f;
+            object key = null;
 
+            // The icon, name and description are looked up when the skill (or equipment) changes, not every frame.
             if (body)
             {
                 if (s.slot == 4)
@@ -317,9 +350,16 @@ namespace HighCommand.UI
                         EquipmentDef def = EquipmentCatalog.GetEquipmentDef(eq);
                         if (def != null)
                         {
-                            hasIcon = PickupIcons.Apply(b.Icon, PickupIcons.DefOf(eq));
-                            name = Language.GetString(def.nameToken);
-                            desc = Language.GetString(def.pickupToken);
+                            key = def;
+                            if (!ReferenceEquals(s.key, key))
+                            {
+                                s.key = key;
+                                s.hasIcon = PickupIcons.Apply(b.Icon, PickupIcons.DefOf(eq));
+                                s.name = Language.GetString(def.nameToken);
+                                s.desc = Language.GetString(def.pickupToken);
+                            }
+                            else if (!s.hasIcon) s.hasIcon = PickupIcons.Apply(b.Icon, PickupIcons.DefOf(eq)); // not there yet: try again
+                            hasIcon = s.hasIcon;
                             EquipmentState st = inv.currentEquipmentState;
                             if (st.isPerfomingRecharge) cooldown = st.chargeFinishTime.timeUntilClamped;
                             interval = Mathf.Max(1f, def.cooldown);
@@ -331,30 +371,43 @@ namespace HighCommand.UI
                     GenericSkill skill = s.slot == 1 ? body.skillLocator.secondary : s.slot == 2 ? body.skillLocator.utility : body.skillLocator.special;
                     if (skill && skill.skillDef)
                     {
-                        hasIcon = PickupIcons.ApplySprite(b.Icon, skill.icon);
-                        name = Language.GetString(skill.skillNameToken);
-                        desc = Tags.Replace(Language.GetString(skill.skillDescriptionToken), "");
+                        key = skill.skillDef;
+                        if (!ReferenceEquals(s.key, key))
+                        {
+                            s.key = key;
+                            s.hasIcon = PickupIcons.ApplySprite(b.Icon, skill.icon);
+                            s.name = Language.GetString(skill.skillNameToken);
+                            s.desc = Tags.Replace(Language.GetString(skill.skillDescriptionToken), "");
+                        }
+                        else if (!s.hasIcon) s.hasIcon = PickupIcons.ApplySprite(b.Icon, skill.icon);
+                        hasIcon = s.hasIcon;
                         cooldown = hero.NetSkillCd[s.slot - 1];
                         interval = Mathf.Max(1f, skill.baseRechargeInterval);
                     }
                 }
             }
+            if (key == null) s.key = null;
 
-            b.Icon.enabled = hasIcon;
+            if (b.Icon.enabled != hasIcon) b.Icon.enabled = hasIcon;
             b.Icon.color = cooldown > 0f ? new Color(0.65f, 0.65f, 0.65f, 1f) : Color.white;
             b.Enabled = hasIcon;
             b.Cooldown.fillAmount = cooldown > 0f ? Mathf.Clamp01(cooldown / interval) : 0f;
-            b.Badge.text = cooldown > 0f ? Mathf.CeilToInt(cooldown).ToString() : "";
+            int badge = cooldown > 0f ? Mathf.CeilToInt(cooldown) : 0;
+            if (s.badge != badge)
+            {
+                s.badge = badge;
+                UiKit.SetText(b.Badge, badge > 0 ? badge.ToString() : "");
+            }
 
             bool auto = hero == null || (hero.NetAutoMask & (1 << s.slot)) != 0;
-            s.autoDot.enabled = hasIcon;
+            if (s.autoDot.enabled != hasIcon) s.autoDot.enabled = hasIcon;
             s.autoDot.color = auto ? UiKit.Good : UiKit.Bad;
 
             bool hover = b.Refresh(mouse);
             if (hover && hasIcon)
             {
                 string autoText = Loc.Get(auto ? "HIGHCOMMAND_CARD_AUTO_ON" : "HIGHCOMMAND_CARD_AUTO_OFF");
-                Tooltip.Show(name, desc + "\n\n" + autoText + "\n[" + s.hotkey() + "]  Alt+[" + s.hotkey() + "]", UiKit.Text);
+                Tooltip.Show(s.name, s.desc + "\n\n" + autoText + "\n[" + s.hotkey() + "]  Alt+[" + s.hotkey() + "]", UiKit.Text);
             }
             if (b.Clicked(click))
             {

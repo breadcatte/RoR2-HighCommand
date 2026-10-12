@@ -59,6 +59,10 @@ namespace HighCommand.UI
             UiKit.Place(goldText.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(16f, 6f), new Vector2(240f, 44f));
             subText = UiKit.NewText("Sub", goldPanel, "", 19f, UiKit.TextDim, TextAlignmentOptions.Left);
             UiKit.Place(subText.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(16f, -22f), new Vector2(490f, 26f));
+            // big numbers (a rich army, a high income) must shrink the line, not run out of the panel
+            subText.enableAutoSizing = true;
+            subText.fontSizeMin = 12f;
+            subText.fontSizeMax = 19f;
 
             ClientInput.RegisterUiHitTest(Contains);
         }
@@ -89,36 +93,72 @@ namespace HighCommand.UI
             Run run = Run.instance;
             if (!run || !visibleFlag) return;
 
-            // --- info ---
-            string stage = "";
+            // --- info (rebuilt when stage, second or difficulty changes) ---
             SceneInfo info = SceneInfo.instance;
-            if (info && info.sceneDef) stage = Language.GetString(info.sceneDef.nameToken);
-            float t = run.GetRunStopwatch();
-            string time = $"{(int)(t / 60f):00}:{(int)(t % 60f):00}";
-            string difficulty = "";
-            DifficultyDef dd = DifficultyCatalog.GetDifficultyDef(run.selectedDifficulty);
-            if (dd != null) difficulty = Language.GetString(dd.nameToken);
-            infoText.text = $"{Loc.Format("HIGHCOMMAND_TOP_STAGE", run.stageClearCount + 1)}  {stage}\n<size=80%><color=#A6B3C7>{time}   {difficulty}</color></size>";
+            SceneDef scene = info && info.sceneDef ? info.sceneDef : null;
+            int seconds = (int)run.GetRunStopwatch();
+            int cleared = run.stageClearCount;
+            DifficultyIndex difficultyIndex = run.selectedDifficulty;
+            if (scene != infoScene || seconds != infoSeconds || cleared != infoCleared || difficultyIndex != infoDifficulty)
+            {
+                infoScene = scene;
+                infoSeconds = seconds;
+                infoCleared = cleared;
+                infoDifficulty = difficultyIndex;
+
+                string stage = scene ? Language.GetString(scene.nameToken) : "";
+                string time = $"{seconds / 60:00}:{seconds % 60:00}";
+                string difficulty = "";
+                DifficultyDef dd = DifficultyCatalog.GetDifficultyDef(difficultyIndex);
+                if (dd != null) difficulty = Language.GetString(dd.nameToken);
+                UiKit.SetText(infoText, $"{Loc.Format("HIGHCOMMAND_TOP_STAGE", cleared + 1)}  {stage}\n<size=80%><color=#A6B3C7>{time}   {difficulty}</color></size>");
+            }
 
             // --- gold ---
             HcState state = HcState.Instance;
-            if (state == null) { goldText.text = ""; subText.text = ""; return; }
+            if (state == null) { UiKit.SetText(goldText, ""); UiKit.SetText(subText, ""); return; }
 
             shownGold = Mathf.MoveTowards(shownGold, state.Gold, Mathf.Max(8f, Mathf.Abs(state.Gold - shownGold) * 6f) * dt);
-            goldText.text = "$" + Mathf.RoundToInt(shownGold);
+            int gold = Mathf.RoundToInt(shownGold);
+            if (gold != shownGoldInt || goldText.text.Length == 0)
+            {
+                shownGoldInt = gold;
+                UiKit.SetText(goldText, "$" + gold);
+            }
 
-            int heroes = state.Heroes.Count;
+            var heroList = state.Heroes;
+            int heroes = heroList.Count;
             int alive = 0;
-            foreach (Hero h in state.Heroes) if (h.IsAlive) alive++;
-            float income = Economy.IncomePerMinute();
-            string incomeText = income > 0f ? $"  +{Mathf.RoundToInt(income)}/{Loc.Get("HIGHCOMMAND_TOP_PERMIN")}" : "";
-            subText.text = Loc.Format("HIGHCOMMAND_TOP_ARMY", alive, heroes, state.ArmyLimit)
-                           + "   " + Loc.Format("HIGHCOMMAND_TOP_NEXT", state.NextHeroPrice()) + incomeText
-                           + "   [" + Settings.KeyBarracks.Value + "]";
+            for (int i = 0; i < heroes; i++) if (heroList[i].IsAlive) alive++;
+            int income = Mathf.RoundToInt(Economy.IncomePerMinute());
+            int limit = state.ArmyLimit;
+            int price = state.NextHeroPrice();
+            if (alive != subAlive || heroes != subHeroes || limit != subLimit || income != subIncome || price != subPrice
+                || subText.text.Length == 0)
+            {
+                subAlive = alive;
+                subHeroes = heroes;
+                subLimit = limit;
+                subIncome = income;
+                subPrice = price;
+                string incomeText = income > 0 ? $"  +{income}/{Loc.Get("HIGHCOMMAND_TOP_PERMIN")}" : "";
+                UiKit.SetText(subText, Loc.Format("HIGHCOMMAND_TOP_ARMY", alive, heroes, limit)
+                                       + "   " + Loc.Format("HIGHCOMMAND_TOP_NEXT", price) + incomeText
+                                       + "   [" + Settings.KeyBarracks.Value + "]");
+            }
 
             TickTeleporter(state);
             TickDefeat(state);
         }
+
+        // what the texts show now
+        private SceneDef infoScene;
+        private int infoSeconds = -1, infoCleared = -1;
+        private DifficultyIndex infoDifficulty = DifficultyIndex.Invalid;
+        private int shownGoldInt = int.MinValue;
+        private int subAlive = -1, subHeroes = -1, subLimit = -1, subIncome = -1, subPrice = -1;
+        private int teleporterKey = int.MinValue;
+        private int defeatKey = int.MinValue;
 
         private void TickTeleporter(HcState state)
         {
@@ -126,37 +166,49 @@ namespace HighCommand.UI
             if (teleporterPanel.gameObject.activeSelf != show) teleporterPanel.gameObject.SetActive(show);
             if (!show) return;
 
-            string text;
             Color barColor = new Color(0.45f, 0.75f, 1f, 1f);
             float fraction = state.TeleCharge;
+            int percent = Mathf.FloorToInt(Mathf.Clamp01(fraction) * 100f);
             switch (state.Teleporter)
             {
                 case HcState.TeleState.Idle:
-                    text = Loc.Format("HIGHCOMMAND_TP_STATE_IDLE", Settings.KeyTeleporter.Value);
                     fraction = 0f;
+                    percent = 0;
                     break;
                 case HcState.TeleState.Charging:
-                    text = Loc.Format("HIGHCOMMAND_TP_STATE_CHARGING", Mathf.FloorToInt(Mathf.Clamp01(fraction) * 100f));
                     break;
                 case HcState.TeleState.BossAlive:
-                    text = Loc.Get("HIGHCOMMAND_TP_STATE_BOSS");
                     barColor = new Color(1f, 0.4f, 0.3f, 1f);
                     fraction = 1f;
+                    percent = 0;
                     break;
-                case HcState.TeleState.Charged:
-                    text = Loc.Format("HIGHCOMMAND_TP_STATE_CHARGED", Settings.KeyTeleporter.Value);
+                default: // charged / leaving
                     barColor = UiKit.Good;
                     fraction = 1f;
-                    break;
-                default:
-                    text = Loc.Get("HIGHCOMMAND_TP_STATE_LEAVING");
-                    barColor = UiKit.Good;
-                    fraction = 1f;
+                    percent = 0;
                     break;
             }
-            teleporterText.text = text;
+
+            // the text depends on the state and, while charging, on the whole percent only
+            int key = (int)state.Teleporter * 1000 + percent;
+            if (key != teleporterKey)
+            {
+                teleporterKey = key;
+                string text;
+                switch (state.Teleporter)
+                {
+                    case HcState.TeleState.Idle: text = Loc.Format("HIGHCOMMAND_TP_STATE_IDLE", Settings.KeyTeleporter.Value); break;
+                    case HcState.TeleState.Charging: text = Loc.Format("HIGHCOMMAND_TP_STATE_CHARGING", percent); break;
+                    case HcState.TeleState.BossAlive: text = Loc.Get("HIGHCOMMAND_TP_STATE_BOSS"); break;
+                    case HcState.TeleState.Charged: text = Loc.Format("HIGHCOMMAND_TP_STATE_CHARGED", Settings.KeyTeleporter.Value); break;
+                    default: text = Loc.Get("HIGHCOMMAND_TP_STATE_LEAVING"); break;
+                }
+                UiKit.SetText(teleporterText, text);
+            }
             teleporterBar.color = barColor;
-            teleporterBar.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(fraction), 1f);
+            float anchor = Mathf.Clamp01(fraction);
+            if (Mathf.Abs(teleporterBar.rectTransform.anchorMax.x - anchor) > 0.0005f)
+                teleporterBar.rectTransform.anchorMax = new Vector2(anchor, 1f);
         }
 
         private void TickDefeat(HcState state)
@@ -166,9 +218,14 @@ namespace HighCommand.UI
             if (!show) return;
 
             int seconds = Mathf.CeilToInt(state.DefeatSeconds);
-            defeatText.text = state.DefeatCanRevive
-                ? Loc.Format("HIGHCOMMAND_DEFEAT_CAN_REVIVE", seconds, Settings.KeyRevive.Value)
-                : Loc.Format("HIGHCOMMAND_DEFEAT_BROKE", seconds);
+            int key = seconds * 2 + (state.DefeatCanRevive ? 1 : 0);
+            if (key != defeatKey)
+            {
+                defeatKey = key;
+                UiKit.SetText(defeatText, state.DefeatCanRevive
+                    ? Loc.Format("HIGHCOMMAND_DEFEAT_CAN_REVIVE", seconds, Settings.KeyRevive.Value)
+                    : Loc.Format("HIGHCOMMAND_DEFEAT_BROKE", seconds));
+            }
             // pulse a little so it cannot be missed
             float pulse = 0.75f + 0.25f * Mathf.Sin(Time.unscaledTime * 6f);
             Color c = UiKit.Bad;

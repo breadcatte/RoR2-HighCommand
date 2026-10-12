@@ -18,6 +18,11 @@ namespace HighCommand.UI
         {
             internal RectTransform root;
             internal Image back, health, shield, barrier, frame;
+
+            // what was written last: the bar is touched only when its picture really changes
+            internal Vector2 position;
+            internal float width, height, health01 = -1f, shield01 = -1f, barrier01 = -1f;
+            internal bool selected;
         }
 
         private readonly RectTransform layer;
@@ -36,6 +41,9 @@ namespace HighCommand.UI
         {
             layer = UiKit.NewRect("WorldOverlay", parent);
             UiKit.Stretch(layer);
+            // Its own canvas: the bars and rings change every frame, and a change rebuilds only the canvas it is on.
+            // Without this the static panels would be re-batched together with them each frame.
+            layer.gameObject.AddComponent<Canvas>();
 
             dragBox = UiKit.NewImage("DragBox", layer, UiKit.White, new Color(0.4f, 1f, 0.5f, 0.12f));
             dragBox.enabled = false;
@@ -277,32 +285,35 @@ namespace HighCommand.UI
             Camera cam = camera.SceneCam;
             Vector3 camPos = cam.transform.position;
             float maxDistance = Mathf.Max(70f, camera.Distance * 2.4f);
+            float maxDistanceSqr = maxDistance * maxDistance;
             var bodies = CharacterBody.readOnlyInstancesList;
 
             for (int i = 0; i < bodies.Count; i++)
             {
                 CharacterBody b = bodies[i];
-                if (!b || !b.healthComponent || !b.healthComponent.alive || !b.teamComponent) continue;
-
-                TeamIndex team = b.teamComponent.teamIndex;
-                bool ally = team == TeamIndex.Player;
-                bool enemy = WorldPicker.IsHostileToPlayer(team);
-                if (!ally && !enemy) continue;
-
+                if (!b) continue;
                 HealthComponent hc = b.healthComponent;
-                if ((camPos - b.transform.position).sqrMagnitude > maxDistance * maxDistance) continue;
+                TeamComponent teamComponent = b.teamComponent;
+                if (!hc || !hc.alive || !teamComponent) continue;
 
-                float topOffset = Mathf.Max(1.2f, b.radius * 1.8f);
-                Vector3 anchor = b.corePosition + Vector3.up * (topOffset + 0.6f);
-                if (!WorldPicker.Project(anchor, 0.5f, out Vector2 s, out float _)) continue;
+                TeamIndex team = teamComponent.teamIndex;
+                bool ally = team == TeamIndex.Player;
+                if (!ally && !WorldPicker.IsHostileToPlayer(team)) continue;
+
+                Vector3 core = b.corePosition;
+                if ((camPos - core).sqrMagnitude > maxDistanceSqr) continue;
+
+                float radius = b.radius;
+                Vector3 anchor = core + Vector3.up * (Mathf.Max(1.2f, radius * 1.8f) + 0.6f);
+                if (!WorldPicker.ProjectPoint(cam, anchor, out Vector2 s)) continue;
                 if (!WorldPicker.IsOnScreen(s)) continue;
 
-                bool hero = HeroMarker.Of(b) != null;
+                Hero hero = ally ? HeroMarker.Of(b) : null;
                 bool boss = b.isChampion || b.isBoss;
 
                 // bar width: heroes and bosses wider, grows slightly with body size
-                float width = hero ? 74f : boss ? 110f : 40f + Mathf.Min(24f, b.radius * 10f);
-                float height = hero ? 8f : boss ? 9f : 5f;
+                float width = hero != null ? 74f : boss ? 110f : 40f + Mathf.Min(24f, radius * 10f);
+                float height = hero != null ? 8f : boss ? 9f : 5f;
 
                 Bar bar = AcquireBar();
                 float total = Mathf.Max(1f, hc.fullHealth + hc.fullShield);
@@ -310,21 +321,46 @@ namespace HighCommand.UI
                 float sh = Mathf.Clamp01(hc.shield / total);
                 float ba = Mathf.Clamp01(hc.barrier / total);
 
-                bar.root.sizeDelta = new Vector2(width, height);
-                bar.root.position = new Vector3(s.x, s.y, 0f);
+                if (bar.width != width || bar.height != height)
+                {
+                    bar.width = width;
+                    bar.height = height;
+                    bar.root.sizeDelta = new Vector2(width, height);
+                }
+                if (bar.position != s)
+                {
+                    bar.position = s;
+                    bar.root.position = new Vector3(s.x, s.y, 0f);
+                }
 
                 Color healthColor = ally ? new Color(0.35f, 0.9f, 0.4f) : new Color(0.95f, 0.28f, 0.25f);
                 if (!ally && b.isElite) healthColor = new Color(1f, 0.55f, 0.15f);
                 bar.health.color = healthColor;
 
-                SetFill(bar.health.rectTransform, 0f, h);
-                SetFill(bar.shield.rectTransform, h, Mathf.Min(1f, h + sh));
-                bar.shield.enabled = sh > 0.001f;
-                bar.barrier.enabled = ba > 0.001f;
-                if (ba > 0.001f) SetFill(bar.barrier.rectTransform, 0f, ba);
+                // the fills move only when the numbers did (a hair of difference is not visible)
+                if (Mathf.Abs(bar.health01 - h) > 0.002f || Mathf.Abs(bar.shield01 - sh) > 0.002f)
+                {
+                    bar.health01 = h;
+                    bar.shield01 = sh;
+                    SetFill(bar.health.rectTransform, 0f, h);
+                    SetFill(bar.shield.rectTransform, h, Mathf.Min(1f, h + sh));
+                    bool hasShield = sh > 0.001f;
+                    if (bar.shield.enabled != hasShield) bar.shield.enabled = hasShield;
+                }
+                bool hasBarrier = ba > 0.001f;
+                if (bar.barrier.enabled != hasBarrier) bar.barrier.enabled = hasBarrier;
+                if (hasBarrier && Mathf.Abs(bar.barrier01 - ba) > 0.002f)
+                {
+                    bar.barrier01 = ba;
+                    SetFill(bar.barrier.rectTransform, 0f, ba);
+                }
 
-                bool selected = hero && selection.Contains(HeroMarker.Of(b));
-                bar.frame.color = selected ? new Color(0.5f, 1f, 0.55f, 1f) : new Color(0f, 0f, 0f, 0.9f);
+                bool selected = hero != null && selection.Contains(hero);
+                if (bar.selected != selected)
+                {
+                    bar.selected = selected;
+                    bar.frame.color = selected ? new Color(0.5f, 1f, 0.55f, 1f) : new Color(0f, 0f, 0f, 0.9f);
+                }
             }
         }
 

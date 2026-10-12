@@ -142,6 +142,12 @@ namespace HighCommand.Client
             HelpOverlay.Add("Esc", Loc.Get("HIGHCOMMAND_HELP_PAUSE"));
         }
 
+        /// <summary>Testing: hides / shows the whole interface (measures what drawing it costs).</summary>
+        internal void SetUiHidden(bool hidden)
+        {
+            if (canvas) canvas.gameObject.SetActive(!hidden);
+        }
+
         private void OnStageStart(Stage stage)
         {
             mapDirty = true;
@@ -214,18 +220,37 @@ namespace HighCommand.Client
                 if (ClientInput.KeyDown(Settings.KeyFocusSelected.Value)) FocusSelectionOrArmy();
             }
 
+            long t = Dev.Perf.Begin();
             orders.Tick(heroes, inputAllowed);
-            selectionController.Tick(heroes, Camera, inputAllowed);
+            Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartOrders], t);
 
+            t = Dev.Perf.Begin();
+            selectionController.Tick(heroes, Camera, inputAllowed);
+            Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartPick], t);
+
+            t = Dev.Perf.Begin();
             topBar.Tick(Time.unscaledDeltaTime);
+            Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartTopBar], t);
+
+            t = Dev.Perf.Begin();
             barracks.Tick();
             inventory.Tick();
+            Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartOther], t);
+
+            t = Dev.Perf.Begin();
             roster.Tick(Selection, orders, inStage);
+            Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartRoster], t);
+
+            t = Dev.Perf.Begin();
             commandCard.Tick(Selection, orders, inStage);
+            Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartCommand], t);
+
+            t = Dev.Perf.Begin();
             selectionPanel.Tick(Selection, inStage);
             lootFeed.Tick();
             toast.Tick();
             tooltip.Tick(); // last: shows what the panels above asked for this frame
+            Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartOther], t);
             Dev.Perf.End(ref Dev.Perf.Ui, perfStart);
         }
 
@@ -233,10 +258,14 @@ namespace HighCommand.Client
         private void LateUpdate()
         {
             bool inStage = Stage.instance != null && Run.instance != null && !Run.instance.isGameOverServer;
+            long t = Dev.Perf.Begin();
             if (inStage && Camera && Camera.SceneCam) overlay.Draw(Camera, Selection, CurrentHeroes(), orders.ModeHint);
             else overlay.Draw(null, Selection, CurrentHeroes(), "");
+            Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartOverlay], t);
 
+            t = Dev.Perf.Begin();
             minimap.Tick(Camera, Time.unscaledDeltaTime);
+            Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartMinimap], t);
         }
 
         /// <summary>Looks at the army when a stage begins (first friendly body appears).</summary>

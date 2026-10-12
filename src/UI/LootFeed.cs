@@ -26,6 +26,8 @@ namespace HighCommand.UI
             internal PickupIndex pickup;
             internal int count;
             internal float born;
+            internal float fade = -1f; // the last fade written (-1 = write the colours again)
+            internal int slot = -1;    // the last list position written
         }
 
         private readonly RectTransform container;
@@ -111,6 +113,8 @@ namespace HighCommand.UI
 
         private static void Refresh(Row r)
         {
+            r.fade = -1f;
+            r.slot = -1;
             PickupDef def = PickupCatalog.GetPickupDef(r.pickup);
             if (def == null) { r.label.text = "?"; return; }
             bool hasIcon = PickupIcons.Apply(r.icon, def);
@@ -135,12 +139,21 @@ namespace HighCommand.UI
                     pool.Add(r);
                     continue;
                 }
+                // fully visible for most of its life: the colours are written only while it fades
                 float fade = Mathf.Clamp01((Life - (now - r.born)) * 1.5f);
-                r.back.color = new Color(0.04f, 0.05f, 0.07f, 0.75f * fade);
-                r.icon.color = new Color(1f, 1f, 1f, fade);
+                if (r.fade != fade && (fade < 1f || r.fade != 1f))
+                {
+                    r.fade = fade;
+                    r.back.color = new Color(0.04f, 0.05f, 0.07f, 0.75f * fade);
+                    r.icon.color = new Color(1f, 1f, 1f, fade);
+                }
             }
             for (int i = 0; i < rows.Count; i++)
+            {
+                if (rows[i].slot == i) continue;
+                rows[i].slot = i;
                 rows[i].root.anchoredPosition = new Vector2(0f, -i * RowHeight);
+            }
         }
     }
 }

@@ -13,6 +13,8 @@ namespace HighCommand.UI
     /// <summary>
     /// Left strip with the whole army: portrait, name, level, health, current order. Click selects (Shift adds),
     /// double click flies the camera there; a fallen hero's card shows the revival price and a click pays for it.
+    /// Every card remembers what it showed last, so a quiet frame touches nothing (a touched text or rect would
+    /// rebuild the whole canvas).
     /// </summary>
     internal sealed class RosterPanel
     {
@@ -31,10 +33,28 @@ namespace HighCommand.UI
             internal Image barBack;
             internal Image healthFill;
             internal Image shieldFill;
+
+            // what is shown now
+            internal Hero hero;
+            internal int index = -1;
+            internal float height;
+            internal bool compact;
+            internal float health = -1f, shield = -1f;
+            internal int level = -1;
+            internal byte order = 255;
+            internal bool alive;
+            internal bool stateKnown;
+            internal int revivePrice = -1;
+            internal bool affordable;
+            internal string infoText;
+            internal string infoKey;
         }
+
+        private static readonly IReadOnlyList<Hero> NoHeroes = new List<Hero>();
 
         private readonly RectTransform root;
         private readonly List<Card> cards = new List<Card>();
+        private readonly List<Hero> sortedFallback = new List<Hero>();
         private float lastClickTime;
         private Hero lastClickHero;
 
@@ -95,86 +115,133 @@ namespace HighCommand.UI
             return cards[index];
         }
 
+        // The army keeps its heroes in join order (the list a client rebuilds follows the same order); a copy is
+        // sorted only in the unexpected case that the order is broken.
+        private IReadOnlyList<Hero> InJoinOrder(IReadOnlyList<Hero> heroes)
+        {
+            for (int i = 1; i < heroes.Count; i++)
+            {
+                if (heroes[i].JoinOrder >= heroes[i - 1].JoinOrder) continue;
+                sortedFallback.Clear();
+                for (int k = 0; k < heroes.Count; k++) sortedFallback.Add(heroes[k]);
+                sortedFallback.Sort((a, b) => a.JoinOrder.CompareTo(b.JoinOrder));
+                return sortedFallback;
+            }
+            return heroes;
+        }
+
         internal void Tick(Selection selection, OrderController orders, bool visible)
         {
             HcState state = HcState.Instance;
-            IReadOnlyList<Hero> heroes = state != null ? state.Heroes : new List<Hero>();
+            IReadOnlyList<Hero> heroes = state != null ? InJoinOrder(state.Heroes) : NoHeroes;
             bool show = visible && heroes.Count > 0;
             if (root.gameObject.activeSelf != show) root.gameObject.SetActive(show);
             if (!show) return;
 
-            // the list is sorted by join order; the cards shrink so that up to 20 heroes fit above the minimap
-            var sorted = new List<Hero>(heroes);
-            sorted.Sort((a, b) => a.JoinOrder.CompareTo(b.JoinOrder));
-
+            // the cards shrink so that up to 20 heroes fit above the minimap
             float available = 1080f - 92f - 300f;
-            float height = Mathf.Clamp(available / Mathf.Max(1, sorted.Count) - 4f, MinCardHeight, MaxCardHeight);
+            float height = Mathf.Clamp(available / Mathf.Max(1, heroes.Count) - 4f, MinCardHeight, MaxCardHeight);
             bool compact = height < 46f;
 
             Vector2 mouse = ClientInput.Mouse;
             bool click = ClientInput.MouseDown(0);
             int revivePrice = state != null ? state.RevivePrice() : 0;
+            bool affordable = state != null && state.Gold >= (uint)revivePrice;
 
-            for (int i = 0; i < sorted.Count; i++)
+            for (int i = 0; i < heroes.Count; i++)
             {
-                Hero hero = sorted[i];
+                Hero hero = heroes[i];
                 Card c = GetCard(i);
                 if (!c.root.gameObject.activeSelf) c.root.gameObject.SetActive(true);
 
-                c.root.anchoredPosition = new Vector2(0f, -i * (height + 4f));
-                c.root.sizeDelta = new Vector2(Width, height);
+                if (c.index != i || c.height != height || c.compact != compact) Layout(c, i, height, compact);
 
-                float portrait = height - 8f;
-                UiKit.Place(c.portrait.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(5f, 0f), new Vector2(portrait, portrait));
-                float textX = portrait + 11f;
-                float textW = Width - textX - 6f;
-                UiKit.Place(c.name.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(textX, -3f), new Vector2(textW, 20f));
-                UiKit.Place(c.info.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(textX, compact ? -3f : -22f), new Vector2(textW, 16f));
-                if (compact) c.info.alignment = TextAlignmentOptions.Right;
-                else c.info.alignment = TextAlignmentOptions.Left;
-                UiKit.Place(c.barBack.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(textX, 5f), new Vector2(textW, 7f));
+                if (c.hero != hero)
+                {
+                    c.hero = hero;
+                    c.stateKnown = false;
+                    UiKit.SetText(c.name, hero.DisplayName);
+                    c.portrait.texture = null;
+                    c.level = -1;
+                    c.order = 255;
+                    c.infoKey = null;
+                    c.revivePrice = -1;
+                    c.health = c.shield = -1f;
+                }
 
                 CharacterBody body = hero.Body;
                 bool alive = hero.IsAlive;
-                bool selected = selection.Contains(hero);
 
-                c.name.text = hero.DisplayName;
-                if (body)
+                // portrait: the live body's, or the survivor's prefab while the hero is down
+                if (!c.portrait.texture)
                 {
-                    if (c.portrait.texture != body.portraitIcon) c.portrait.texture = body.portraitIcon;
+                    Texture icon = null;
+                    if (body) icon = body.portraitIcon;
+                    else if (hero.Survivor && hero.Survivor.bodyPrefab)
+                    {
+                        CharacterBody prefab = hero.Survivor.bodyPrefab.GetComponent<CharacterBody>();
+                        if (prefab) icon = prefab.portraitIcon;
+                    }
+                    if (icon) c.portrait.texture = icon;
                 }
-                else if (hero.Survivor && hero.Survivor.bodyPrefab)
+                if (!c.stateKnown || c.alive != alive)
                 {
-                    CharacterBody prefab = hero.Survivor.bodyPrefab.GetComponent<CharacterBody>();
-                    if (prefab && c.portrait.texture != prefab.portraitIcon) c.portrait.texture = prefab.portraitIcon;
+                    c.stateKnown = true;
+                    c.alive = alive;
+                    c.portrait.color = alive ? Color.white : new Color(0.35f, 0.35f, 0.35f, 1f);
+                    c.info.color = alive ? UiKit.Gold : (affordable ? UiKit.Good : UiKit.Bad);
+                    c.infoKey = null;
                 }
-                c.portrait.color = alive ? Color.white : new Color(0.35f, 0.35f, 0.35f, 1f);
 
+                // health and shield
                 float h = 0f, s = 0f;
-                if (alive && body && body.healthComponent)
+                if (alive && body)
                 {
                     HealthComponent hc = body.healthComponent;
-                    float total = Mathf.Max(1f, hc.fullHealth + hc.fullShield);
-                    h = Mathf.Clamp01(hc.health / total);
-                    s = Mathf.Clamp01(hc.shield / total);
+                    if (hc)
+                    {
+                        float total = Mathf.Max(1f, hc.fullHealth + hc.fullShield);
+                        h = Mathf.Clamp01(hc.health / total);
+                        s = Mathf.Clamp01(hc.shield / total);
+                    }
                 }
-                SetFill(c.healthFill.rectTransform, 0f, h);
-                SetFill(c.shieldFill.rectTransform, h, Mathf.Min(1f, h + s));
-                c.healthFill.color = h > 0.5f ? UiKit.Good : h > 0.25f ? new Color(1f, 0.8f, 0.25f, 1f) : UiKit.Bad;
+                if (Mathf.Abs(c.health - h) > 0.002f || Mathf.Abs(c.shield - s) > 0.002f)
+                {
+                    c.health = h;
+                    c.shield = s;
+                    SetFill(c.healthFill.rectTransform, 0f, h);
+                    SetFill(c.shieldFill.rectTransform, h, Mathf.Min(1f, h + s));
+                    c.healthFill.color = h > 0.5f ? UiKit.Good : h > 0.25f ? new Color(1f, 0.8f, 0.25f, 1f) : UiKit.Bad;
+                }
 
+                // info line: level and order, or the revival price
                 if (alive)
                 {
-                    string level = body ? Loc.Format("HIGHCOMMAND_LEVEL_SHORT", (int)body.level) : "";
-                    string order = OrderShort((OrderKind)hero.NetOrderKind);
-                    c.info.text = compact ? level : level + (order.Length > 0 ? "  <color=#A6B3C7>" + order + "</color>" : "");
-                    c.info.color = UiKit.Gold;
+                    int level = body ? (int)body.level : 0;
+                    byte order = hero.NetOrderKind;
+                    if (c.level != level || c.order != order || c.infoKey != "alive")
+                    {
+                        c.level = level;
+                        c.order = order;
+                        c.infoKey = "alive";
+                        string levelText = body ? Loc.Format("HIGHCOMMAND_LEVEL_SHORT", level) : "";
+                        string orderText = OrderShort((OrderKind)order);
+                        c.infoText = compact ? levelText : levelText + (orderText.Length > 0 ? "  <color=#A6B3C7>" + orderText + "</color>" : "");
+                        UiKit.SetText(c.info, c.infoText);
+                    }
                 }
-                else
+                else if (c.revivePrice != revivePrice || c.affordable != affordable || c.infoKey != "dead")
                 {
-                    c.info.text = Loc.Format("HIGHCOMMAND_ROSTER_REVIVE", revivePrice);
-                    c.info.color = state != null && state.Gold >= (uint)revivePrice ? UiKit.Good : UiKit.Bad;
+                    c.revivePrice = revivePrice;
+                    c.affordable = affordable;
+                    c.infoKey = "dead";
+                    c.level = -1;
+                    c.order = 255;
+                    UiKit.SetText(c.info, Loc.Format("HIGHCOMMAND_ROSTER_REVIVE", revivePrice));
+                    c.info.color = affordable ? UiKit.Good : UiKit.Bad;
                 }
 
+                bool selected = selection.Contains(hero);
                 bool over = UiKit.Contains(c.root, mouse);
                 c.frame.color = selected ? UiKit.Good : over ? Color.white : (alive ? UiKit.Border : new Color(0.7f, 0.25f, 0.25f, 0.8f));
 
@@ -184,8 +251,32 @@ namespace HighCommand.UI
                     if (click) OnClick(hero, alive, selection, orders);
                 }
             }
-            for (int i = sorted.Count; i < cards.Count; i++)
-                if (cards[i].root.gameObject.activeSelf) cards[i].root.gameObject.SetActive(false);
+            for (int i = heroes.Count; i < cards.Count; i++)
+                if (cards[i].root.gameObject.activeSelf)
+                {
+                    cards[i].root.gameObject.SetActive(false);
+                    cards[i].hero = null;
+                }
+        }
+
+        private static void Layout(Card c, int index, float height, bool compact)
+        {
+            c.index = index;
+            c.height = height;
+            c.compact = compact;
+            c.infoKey = null; // the info line depends on the layout
+
+            c.root.anchoredPosition = new Vector2(0f, -index * (height + 4f));
+            c.root.sizeDelta = new Vector2(Width, height);
+
+            float portrait = height - 8f;
+            UiKit.Place(c.portrait.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(5f, 0f), new Vector2(portrait, portrait));
+            float textX = portrait + 11f;
+            float textW = Width - textX - 6f;
+            UiKit.Place(c.name.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(textX, -3f), new Vector2(textW, 20f));
+            UiKit.Place(c.info.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(textX, compact ? -3f : -22f), new Vector2(textW, 16f));
+            c.info.alignment = compact ? TextAlignmentOptions.Right : TextAlignmentOptions.Left;
+            UiKit.Place(c.barBack.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(textX, 5f), new Vector2(textW, 7f));
         }
 
         private void OnClick(Hero hero, bool alive, Selection selection, OrderController orders)

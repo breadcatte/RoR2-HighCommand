@@ -159,6 +159,7 @@ namespace HighCommand.Army
             // The decision layer and its body executor replace the monsters' wander/combat states.
             HeroBrain brain = master.gameObject.AddComponent<HeroBrain>();
             brain.Hero = hero;
+            hero.Brain = brain;
             BaseAI ai = master.GetComponent<BaseAI>();
             if (ai)
             {

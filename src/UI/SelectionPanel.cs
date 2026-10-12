@@ -24,7 +24,16 @@ namespace HighCommand.UI
             internal Image healthFill;
             internal Image shieldFill;
             internal Image frame;
+
+            // what is shown now (written only when it changes)
+            internal int index = -1;
+            internal Hero hero;
+            internal float health = -1f, shield = -1f;
+            internal int shownLevel = -2;
+            internal bool grey;
         }
+
+        private int shownCount = -1;
 
         private readonly RectTransform root;
         private readonly RectTransform content;
@@ -61,18 +70,26 @@ namespace HighCommand.UI
             if (root.gameObject.activeSelf != show) root.gameObject.SetActive(show);
             if (!show) return;
 
-            summary.text = Loc.Format("HIGHCOMMAND_SELECTED_COUNT", heroes.Count);
-
-            // keep the card strip centred: fit the panel to the card count
             int shown = Mathf.Min(MaxCards, heroes.Count);
-            UiKit.Place(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 14f),
-                new Vector2(Mathf.Max(120f, CardWidth * shown + 24f), CardHeight + 16f));
+            if (shownCount != heroes.Count)
+            {
+                shownCount = heroes.Count;
+                UiKit.SetText(summary, Loc.Format("HIGHCOMMAND_SELECTED_COUNT", heroes.Count));
+
+                // keep the card strip centred: fit the panel to the card count
+                UiKit.Place(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 14f),
+                    new Vector2(Mathf.Max(120f, CardWidth * shown + 24f), CardHeight + 16f));
+            }
 
             for (int i = 0; i < shown; i++)
             {
                 Card card = GetCard(i);
                 if (!card.root.gameObject.activeSelf) card.root.gameObject.SetActive(true);
-                card.root.anchoredPosition = new Vector2(i * CardWidth, 0f);
+                if (card.index != i)
+                {
+                    card.index = i;
+                    card.root.anchoredPosition = new Vector2(i * CardWidth, 0f);
+                }
                 Fill(card, heroes[i]);
             }
             for (int i = shown; i < cards.Count; i++)
@@ -121,27 +138,44 @@ namespace HighCommand.UI
         private static void Fill(Card card, Hero hero)
         {
             CharacterBody body = hero.Body;
-            card.name.text = hero.DisplayName;
+            if (card.hero != hero)
+            {
+                card.hero = hero;
+                card.shownLevel = -2;
+                card.health = card.shield = -1f;
+                UiKit.SetText(card.name, hero.DisplayName);
+            }
 
+            float h = 0f, s = 0f;
+            bool grey = true;
+            int level = -1;
             if (body)
             {
                 if (card.portrait.texture != body.portraitIcon) card.portrait.texture = body.portraitIcon;
-                card.level.text = Loc.Format("HIGHCOMMAND_LEVEL_SHORT", (int)body.level);
-
+                level = (int)body.level;
                 HealthComponent hc = body.healthComponent;
                 float total = hc ? Mathf.Max(1f, hc.fullHealth + hc.fullShield) : 1f;
-                float h = hc ? Mathf.Clamp01(hc.health / total) : 0f;
-                float s = hc ? Mathf.Clamp01(hc.shield / total) : 0f;
+                h = hc ? Mathf.Clamp01(hc.health / total) : 0f;
+                s = hc ? Mathf.Clamp01(hc.shield / total) : 0f;
+                grey = !hero.IsAlive;
+            }
+
+            if (card.shownLevel != level)
+            {
+                card.shownLevel = level;
+                UiKit.SetText(card.level, level >= 0 ? Loc.Format("HIGHCOMMAND_LEVEL_SHORT", level) : "");
+            }
+            if (Mathf.Abs(card.health - h) > 0.002f || Mathf.Abs(card.shield - s) > 0.002f)
+            {
+                card.health = h;
+                card.shield = s;
                 SetFill(card.healthFill.rectTransform, 0f, h);
                 SetFill(card.shieldFill.rectTransform, h, Mathf.Min(1f, h + s));
-                card.portrait.color = hero.IsAlive ? Color.white : new Color(0.4f, 0.4f, 0.4f, 1f);
             }
-            else
+            if (card.grey != grey)
             {
-                card.level.text = "";
-                SetFill(card.healthFill.rectTransform, 0f, 0f);
-                SetFill(card.shieldFill.rectTransform, 0f, 0f);
-                card.portrait.color = new Color(0.4f, 0.4f, 0.4f, 1f);
+                card.grey = grey;
+                card.portrait.color = grey ? new Color(0.4f, 0.4f, 0.4f, 1f) : Color.white;
             }
         }
 

@@ -11,6 +11,9 @@ namespace HighCommand.Client
     /// </summary>
     internal static class WorldPicker
     {
+        // a body whose centre is farther than this (pixels) from the cursor cannot be the one picked
+        private const float FarFromCursor = 400f;
+
         private static Camera Cam
         {
             get
@@ -35,6 +38,14 @@ namespace HighCommand.Client
             Vector3 edge = cam.WorldToScreenPoint(world + cam.transform.right * worldRadius);
             pixelRadius = Mathf.Abs(edge.x - p.x);
             return true;
+        }
+
+        /// <summary>Screen position of a world point for an explicit camera (no radius): one projection, no property lookups.</summary>
+        internal static bool ProjectPoint(Camera cam, Vector3 world, out Vector2 screen)
+        {
+            Vector3 p = cam.WorldToScreenPoint(world);
+            screen = new Vector2(p.x, p.y);
+            return p.z > 0.1f;
         }
 
         internal static bool IsOnScreen(Vector2 s, float margin = 40f)
@@ -96,6 +107,10 @@ namespace HighCommand.Client
         {
             CharacterBody best = null;
             float bestScore = float.MaxValue;
+            Camera cam = Cam;
+            if (!cam) return null;
+            float far = FarFromCursor * Mathf.Max(1f, Screen.height / 1080f);
+            float farSqr = far * far;
             var bodies = CharacterBody.readOnlyInstancesList;
             for (int i = 0; i < bodies.Count; i++)
             {
@@ -103,7 +118,12 @@ namespace HighCommand.Client
                 if (!b || !b.healthComponent || !b.healthComponent.alive || !b.teamComponent) continue;
                 if (!IsHostileToPlayer(b.teamComponent.teamIndex)) continue;
 
-                if (!Project(b.corePosition, Mathf.Max(0.6f, b.radius * 1.2f), out Vector2 s, out float r)) continue;
+                // one cheap projection first: bodies far from the cursor never need the size measured
+                Vector3 core = b.corePosition;
+                if (!ProjectPoint(cam, core, out Vector2 rough)) continue;
+                if ((rough - screen).sqrMagnitude > farSqr) continue;
+
+                if (!Project(core, Mathf.Max(0.6f, b.radius * 1.2f), out Vector2 s, out float r)) continue;
                 float reach = Mathf.Max(16f, r + 6f);
                 float d = (s - screen).magnitude;
                 if (d <= reach && d < bestScore)

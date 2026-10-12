@@ -66,6 +66,9 @@ namespace HighCommand.Army
         /// <summary>Seconds left (rounded up, 0 = ready) on the secondary, utility and special skills.</summary>
         public readonly byte[] NetSkillCd = new byte[3];
 
+        /// <summary>The hero's decision layer (server only; set when the hero is created, null on clients).</summary>
+        public HighCommand.Orders.HeroBrain Brain;
+
         public CharacterBody Body => Master ? Master.GetBody() : null;
 
         public GameObject BodyObject => Master ? Master.GetBodyObject() : null;

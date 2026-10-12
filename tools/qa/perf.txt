@@ -1,0 +1,54 @@
+# Load test: 6 heroes, calm and with 60 extra enemies, interface shown and hidden. Compare the hc_perf lines.
+# fps_max is restored to 144 (the author's setting) at the end.
+@wait 4
+@log === PERF start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 20
+hc_gold 6000
+hc_recruit Commando
+hc_recruit Huntress
+hc_recruit Bandit2
+hc_recruit Mage
+hc_recruit Toolbot
+@wait 25
+hc_select all
+fps_max -1
+@log === A calm, UI on
+@wait 3
+hc_perf
+@wait 12
+hc_perf
+hc_screenshot perf_a
+hc_ui off
+@log === B calm, UI off
+@wait 2
+hc_perf
+@wait 12
+hc_perf
+hc_ui on
+@log === C stress 60 enemies, UI on
+hc_spawn 40 LemurianMaster
+hc_spawn 20 BeetleMaster
+@wait 3
+hc_perf
+@wait 8
+hc_perf
+@log === D stress 60 enemies, UI off
+hc_ui off
+hc_spawn 40 LemurianMaster
+hc_spawn 20 BeetleMaster
+@wait 3
+hc_perf
+@wait 8
+hc_perf
+hc_ui on
+fps_max 144
+@log === END
+disconnect
+@norun
+@wait 4
+@quit

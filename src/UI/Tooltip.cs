@@ -35,6 +35,8 @@ namespace HighCommand.UI
         private readonly RectTransform root;
         private readonly TextMeshProUGUI title;
         private readonly TextMeshProUGUI body;
+        private string shownTitle, shownBody;
+        private float height = 80f;
 
         internal TooltipView(Transform parent)
         {
@@ -72,19 +74,27 @@ namespace HighCommand.UI
             Tooltip.Clear();
 
             if (!root.gameObject.activeSelf) root.gameObject.SetActive(true);
-            title.text = Tooltip.Title;
+
+            // The panels ask every frame; measuring the text is the costly part, so it is redone only for new text.
+            if (!string.Equals(shownTitle, Tooltip.Title, System.StringComparison.Ordinal)
+                || !string.Equals(shownBody, Tooltip.Body, System.StringComparison.Ordinal))
+            {
+                shownTitle = Tooltip.Title;
+                shownBody = Tooltip.Body;
+                title.text = shownTitle;
+                body.text = shownBody;
+
+                float innerW = Width - 2f * Pad;
+                float titleH = Mathf.Max(26f, title.GetPreferredValues(shownTitle, innerW, 0f).y);
+                float bodyH = string.IsNullOrEmpty(shownBody) ? 0f : body.GetPreferredValues(shownBody, innerW, 0f).y;
+                height = Pad * 2f + titleH + (bodyH > 0f ? 6f + bodyH : 0f);
+
+                title.rectTransform.sizeDelta = new Vector2(innerW, titleH);
+                body.rectTransform.anchoredPosition = new Vector2(Pad, -Pad - titleH - 6f);
+                body.rectTransform.sizeDelta = new Vector2(innerW, bodyH);
+                root.sizeDelta = new Vector2(Width, height);
+            }
             title.color = Tooltip.TitleColor;
-            body.text = Tooltip.Body;
-
-            float innerW = Width - 2f * Pad;
-            float titleH = Mathf.Max(26f, title.GetPreferredValues(Tooltip.Title, innerW, 0f).y);
-            float bodyH = string.IsNullOrEmpty(Tooltip.Body) ? 0f : body.GetPreferredValues(Tooltip.Body, innerW, 0f).y;
-            float height = Pad * 2f + titleH + (bodyH > 0f ? 6f + bodyH : 0f);
-
-            title.rectTransform.sizeDelta = new Vector2(innerW, titleH);
-            body.rectTransform.anchoredPosition = new Vector2(Pad, -Pad - titleH - 6f);
-            body.rectTransform.sizeDelta = new Vector2(innerW, bodyH);
-            root.sizeDelta = new Vector2(Width, height);
 
             float scale = canvas ? Mathf.Max(0.01f, canvas.scaleFactor) : 1f;
             Vector2 mouse = Client.ClientInput.Mouse / scale;

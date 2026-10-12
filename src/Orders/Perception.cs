@@ -32,8 +32,12 @@ namespace HighCommand.Orders
                 for (int i = 0; i < members.Count; i++)
                 {
                     TeamComponent tc = members[i];
-                    if (!tc || !tc.body || !IsTargetable(tc.body, ownTeam)) continue;
-                    if ((tc.body.corePosition - center).sqrMagnitude <= r2) n++;
+                    if (!tc) continue;
+                    CharacterBody body = tc.body;
+                    if (!body) continue;
+                    // the distance first: most bodies are far away, and the targetability tests cost more
+                    if ((body.corePosition - center).sqrMagnitude > r2) continue;
+                    if (IsTargetable(body, ownTeam)) n++;
                 }
             }
             return n;
@@ -66,12 +70,12 @@ namespace HighCommand.Orders
                     TeamComponent tc = members[i];
                     if (!tc || !tc.body) continue;
                     CharacterBody b = tc.body;
-                    if (!IsTargetable(b, self.teamComponent.teamIndex)) continue;
 
                     Vector3 p = b.corePosition;
                     float d2 = (p - searchCenter).sqrMagnitude;
                     if (d2 > max2) continue;
                     if (leashPoint.HasValue && (p - leashPoint.Value).sqrMagnitude > leashFromPoint * leashFromPoint) continue;
+                    if (!IsTargetable(b, self.teamComponent.teamIndex)) continue;
 
                     float dist = Mathf.Sqrt((p - origin).sqrMagnitude);
                     float score = dist;

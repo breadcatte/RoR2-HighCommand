@@ -409,6 +409,16 @@ namespace HighCommand.Dev
             Debug.Log($"HighCommand: spawned {made}/{count} x {name}.");
         }
 
+        [ConCommand(commandName = "hc_ui", flags = HostOnly, helpText = "hc_ui on|off: shows or hides the whole interface of the mode (load tests).")]
+        private static void CcUi(ConCommandArgs args)
+        {
+            var root = Client.ClientRoot.Instance;
+            if (!root) throw new ConCommandException("Not in a High Command run.");
+            bool off = args.Count > 0 && args.GetArgString(0) == "off";
+            root.SetUiHidden(off);
+            Debug.Log("HighCommand: interface " + (off ? "hidden" : "shown"));
+        }
+
         [ConCommand(commandName = "hc_perf", flags = HostOnly, helpText = "Prints the cost of the mod's own work since the last call (ms per second) and the frame rate.")]
         private static void CcPerf(ConCommandArgs args)
         {
