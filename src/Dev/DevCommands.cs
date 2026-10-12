@@ -252,6 +252,57 @@ namespace HighCommand.Dev
             Debug.Log("HighCommand: drop " + (ok ? "granted" : "failed"));
         }
 
+        [ConCommand(commandName = "hc_inventory", flags = HostOnly, helpText = "Prints what every hero carries (items and equipment).")]
+        private static void CcInventory(ConCommandArgs args)
+        {
+            var run = Mode.HighCommandRun.Instance;
+            if (run == null) throw new ConCommandException("Not in a High Command run.");
+            foreach (Army.Hero h in run.Army.Heroes)
+            {
+                var inv = h.Master ? h.Master.inventory : null;
+                var sb = new StringBuilder($"HighCommand inventory {h}:");
+                int total = 0;
+                if (inv)
+                {
+                    foreach (ItemIndex idx in inv.itemAcquisitionOrder)
+                    {
+                        int n = inv.GetItemCountPermanent(idx);
+                        var def = ItemCatalog.GetItemDef(idx);
+                        if (n <= 0 || def == null || def.hidden || def.tier == ItemTier.NoTier) continue;
+                        total += n;
+                        sb.Append($" {def.name}x{n}");
+                    }
+                    sb.Append($" | total={total} equipment={inv.currentEquipmentIndex}");
+                }
+                Debug.Log(sb.ToString());
+            }
+        }
+
+        [ConCommand(commandName = "hc_items_move", flags = HostOnly, helpText = "hc_items_move <fromHeroId> <toHeroId> <ItemName> [count]: hands items from one hero to another.")]
+        private static void CcItemsMove(ConCommandArgs args)
+        {
+            var run = Mode.HighCommandRun.Instance;
+            if (run == null || !UnityEngine.Networking.NetworkServer.active) throw new ConCommandException("Only the host can do this during a High Command run.");
+            Army.Hero from = null, to = null;
+            foreach (Army.Hero h in run.Army.Heroes)
+            {
+                if (h.Id == args.GetArgInt(0)) from = h;
+                if (h.Id == args.GetArgInt(1)) to = h;
+            }
+            ItemIndex idx = ItemCatalog.FindItemIndex(args.GetArgString(2));
+            if (from == null || to == null || idx == ItemIndex.None) throw new ConCommandException("Unknown hero or item.");
+            int count = args.Count > 3 ? Mathf.Max(1, args.GetArgInt(3)) : 1;
+            string error = Army.ArmyService.TryMoveItem(from, to, idx, count);
+            Debug.Log(error == null ? $"HighCommand: moved {count} x {args.GetArgString(2)} {from} -> {to}." : "HighCommand: move failed: " + error);
+        }
+
+        [ConCommand(commandName = "hc_items_auto", flags = HostOnly, helpText = "Takes all pooled items back and deals them out again by role.")]
+        private static void CcItemsAuto(ConCommandArgs args)
+        {
+            string error = Army.ArmyService.RedistributeItems();
+            Debug.Log(error == null ? "HighCommand: items redistributed." : "HighCommand: " + error);
+        }
+
         [ConCommand(commandName = "hc_interactables", flags = HostOnly, helpText = "Counts interactables on the map by name.")]
         private static void CcInteractables(ConCommandArgs args)
         {

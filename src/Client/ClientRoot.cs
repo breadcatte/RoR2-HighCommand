@@ -33,6 +33,8 @@ namespace HighCommand.Client
         private ToastView toast;
         private TopBar topBar;
         private BarracksPanel barracks;
+        private InventoryPanel inventory;
+        private TooltipView tooltip;
         private LootFeed lootFeed;
 
         private bool mapDirty = true;
@@ -59,9 +61,11 @@ namespace HighCommand.Client
             selectionPanel = new SelectionPanel(canvas.transform);
             topBar = new TopBar(canvas.transform);
             barracks = new BarracksPanel(canvas.transform);
+            inventory = new InventoryPanel(canvas.transform);
             help = new HelpOverlay(canvas.transform);
             toast = new ToastView(canvas.transform);
             lootFeed = new LootFeed(canvas.transform);
+            tooltip = new TooltipView(canvas.transform);
             selectionController = new SelectionController(Selection, overlay);
             orders = new OrderController(Selection, minimap, overlay);
 
@@ -80,6 +84,8 @@ namespace HighCommand.Client
             selectionPanel?.Destroy();
             topBar?.Destroy();
             barracks?.Destroy();
+            inventory?.Destroy();
+            tooltip?.Destroy();
             lootFeed?.Destroy();
             toast?.Destroy();
             Toast.Clear();
@@ -117,6 +123,7 @@ namespace HighCommand.Client
             HelpOverlay.Add(Settings.KeyStanceAggressive.Value + " / " + Settings.KeyStanceDefensive.Value + " / " + Settings.KeyStancePassive.Value, Loc.Get("HIGHCOMMAND_HELP_STANCE"));
             HelpOverlay.Add(Settings.KeyFormationCycle.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FORMATION"));
             HelpOverlay.Add(Settings.KeyBarracks.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_BARRACKS"));
+            HelpOverlay.Add(Settings.KeyInventory.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_INVENTORY"));
             HelpOverlay.Add(Settings.KeyHelp.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_HELP"));
             HelpOverlay.Add("Esc", Loc.Get("HIGHCOMMAND_HELP_PAUSE"));
         }
@@ -170,8 +177,16 @@ namespace HighCommand.Client
                 if (ClientInput.KeyDown(Settings.KeyBarracks.Value)) barracks.Toggle();
                 if (ClientInput.MouseDown(0) && topBar.GoldPanelContains(ClientInput.Mouse)) barracks.Toggle();
                 if (barracks.Visible && ClientInput.RawKeyDown(KeyCode.Escape)) barracks.Hide();
+
+                if (ClientInput.KeyDown(Settings.KeyInventory.Value)) { inventory.Toggle(); barracks.Hide(); }
+                if (inventory.Visible && ClientInput.RawKeyDown(KeyCode.Escape)) inventory.Hide();
+                if (barracks.Visible) inventory.Hide();
             }
-            else barracks.Hide();
+            else
+            {
+                barracks.Hide();
+                inventory.Hide();
+            }
 
             IReadOnlyList<Hero> heroes = CurrentHeroes();
             bool inputAllowed = inStage && !PauseManager.isPaused && !help.Visible;
@@ -187,9 +202,11 @@ namespace HighCommand.Client
 
             topBar.Tick(Time.unscaledDeltaTime);
             barracks.Tick();
+            inventory.Tick();
             selectionPanel.Tick(Selection, inStage);
             lootFeed.Tick();
             toast.Tick();
+            tooltip.Tick(); // last: shows what the panels above asked for this frame
         }
 
         // Overlays use the camera pose of this very frame (this component runs after the stock camera rig).

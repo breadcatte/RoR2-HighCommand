@@ -113,10 +113,8 @@ namespace HighCommand.UI
         {
             PickupDef def = PickupCatalog.GetPickupDef(r.pickup);
             if (def == null) { r.label.text = "?"; return; }
-            Texture tex = def.iconTexture;
-            if (!tex && def.iconSprite) tex = def.iconSprite.texture;
-            r.icon.texture = tex;
-            r.icon.color = tex ? Color.white : def.baseColor;
+            bool hasIcon = PickupIcons.Apply(r.icon, def);
+            r.icon.color = hasIcon ? Color.white : def.baseColor;
 
             string name = Language.GetString(def.nameToken);
             Color color = def.baseColor;

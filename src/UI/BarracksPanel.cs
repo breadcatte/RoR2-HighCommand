@@ -218,36 +218,4 @@ namespace HighCommand.UI
             }
         }
     }
-
-    /// <summary>Short role label for every known survivor (data-driven profiles come with the AI profiles).</summary>
-    internal static class HeroRoles
-    {
-        internal static string RoleToken(string survivorName)
-        {
-            switch (survivorName)
-            {
-                case "Commando": return "HIGHCOMMAND_ROLE_RANGED";
-                case "Huntress": return "HIGHCOMMAND_ROLE_RANGED";
-                case "Bandit2": return "HIGHCOMMAND_ROLE_ASSASSIN";
-                case "Merc": return "HIGHCOMMAND_ROLE_ASSASSIN";
-                case "Toolbot": return "HIGHCOMMAND_ROLE_TANK";
-                case "Croco": return "HIGHCOMMAND_ROLE_MELEE";
-                case "Loader": return "HIGHCOMMAND_ROLE_MELEE";
-                case "FalseSon": return "HIGHCOMMAND_ROLE_TANK";
-                case "Enforcer2": return "HIGHCOMMAND_ROLE_TANK";
-                case "Mage": return "HIGHCOMMAND_ROLE_CASTER";
-                case "VoidSurvivor": return "HIGHCOMMAND_ROLE_CASTER";
-                case "Railgunner": return "HIGHCOMMAND_ROLE_SNIPER";
-                case "Treebot": return "HIGHCOMMAND_ROLE_SUPPORT";
-                case "Seeker": return "HIGHCOMMAND_ROLE_SUPPORT";
-                case "Captain": return "HIGHCOMMAND_ROLE_SUPPORT";
-                case "Engi": return "HIGHCOMMAND_ROLE_SUMMONER";
-                case "DroneTech": return "HIGHCOMMAND_ROLE_SUMMONER";
-                case "Chef": return "HIGHCOMMAND_ROLE_RANGED";
-                case "Drifter": return "HIGHCOMMAND_ROLE_MELEE";
-                case "Acolyte": return "HIGHCOMMAND_ROLE_MELEE";
-                default: return "HIGHCOMMAND_ROLE_GENERIC";
-            }
-        }
-    }
 }

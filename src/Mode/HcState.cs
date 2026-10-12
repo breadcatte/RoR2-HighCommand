@@ -52,6 +52,19 @@ namespace HighCommand.Mode
             }
         }
 
+        private readonly List<EquipmentIndex> spareEquipment = new List<EquipmentIndex>();
+
+        /// <summary>Equipment the army owns that no hero holds right now.</summary>
+        public IReadOnlyList<EquipmentIndex> SpareEquipment
+        {
+            get
+            {
+                HighCommandRun run = HighCommandRun.Instance;
+                if (NetworkServer.active && run != null) return run.Army.EquipmentPool;
+                return spareEquipment;
+            }
+        }
+
         // ---- RPC: item feed (server -> every machine) -------------------------------------------------
         // Written by hand, exactly as the UNET weaver would generate a [ClientRpc].
 
@@ -140,6 +153,8 @@ namespace HighCommand.Mode
                     joinOrder = h.JoinOrder
                 });
             }
+            spareEquipment.Clear();
+            spareEquipment.AddRange(army.EquipmentPool);
             SetDirtyBit(DirtyAll);
         }
 
@@ -181,6 +196,9 @@ namespace HighCommand.Mode
                 writer.WritePackedUInt32((uint)(e.survivorIndex + 1));
                 writer.WritePackedUInt32((uint)e.joinOrder);
             }
+
+            writer.WritePackedUInt32((uint)spareEquipment.Count);
+            foreach (EquipmentIndex eq in spareEquipment) writer.WritePackedUInt32((uint)((int)eq + 1));
             return true;
         }
 
@@ -206,6 +224,10 @@ namespace HighCommand.Mode
                     joinOrder = (int)reader.ReadPackedUInt32()
                 });
             }
+
+            int spare = (int)reader.ReadPackedUInt32();
+            spareEquipment.Clear();
+            for (int i = 0; i < spare; i++) spareEquipment.Add((EquipmentIndex)((int)reader.ReadPackedUInt32() - 1));
             clientHeroesDirty = true;
         }
 

@@ -94,6 +94,42 @@ namespace HighCommand.Army
             return null;
         }
 
+        // ---- item actions ----------------------------------------------------------------------------------
+        // Server side only for now (single player / host). A co-op client would send these as commands.
+
+        /// <summary>Moves units of an item between two heroes. Returns null on success, else a message.</summary>
+        internal static string TryMoveItem(Hero from, Hero to, ItemIndex item, int count)
+        {
+            HighCommandRun run = HighCommandRun.Instance;
+            if (!NetworkServer.active || run == null) return Loc.Get("HIGHCOMMAND_ERR_NORUN");
+            int moved = run.Items.Move(item, from, to, count);
+            return moved > 0 ? null : Loc.Get("HIGHCOMMAND_ERR_FAILED");
+        }
+
+        internal static string TryMoveEquipment(Hero from, Hero to)
+        {
+            HighCommandRun run = HighCommandRun.Instance;
+            if (!NetworkServer.active || run == null) return Loc.Get("HIGHCOMMAND_ERR_NORUN");
+            return run.Items.MoveEquipment(from, to) ? null : Loc.Get("HIGHCOMMAND_ERR_FAILED");
+        }
+
+        internal static string TryEquipFromPool(int poolIndex, Hero to)
+        {
+            HighCommandRun run = HighCommandRun.Instance;
+            if (!NetworkServer.active || run == null) return Loc.Get("HIGHCOMMAND_ERR_NORUN");
+            bool ok = run.Items.EquipFromPool(run.Army, poolIndex, to);
+            if (ok) run.PublishRoster();
+            return ok ? null : Loc.Get("HIGHCOMMAND_ERR_FAILED");
+        }
+
+        internal static string RedistributeItems()
+        {
+            HighCommandRun run = HighCommandRun.Instance;
+            if (!NetworkServer.active || run == null) return Loc.Get("HIGHCOMMAND_ERR_NORUN");
+            run.Items.RedistributeAll(run.Army);
+            return null;
+        }
+
         internal static string StatusText(RecruitStatus status, HcState state)
         {
             switch (status)

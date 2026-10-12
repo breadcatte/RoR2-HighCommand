@@ -97,6 +97,24 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_ROLE_SUPPORT", "Support", "Поддержка");
             Loc.Add("HIGHCOMMAND_ROLE_SUMMONER", "Summoner", "Призыватель");
             Loc.Add("HIGHCOMMAND_ROLE_GENERIC", "Survivor", "Выживший");
+
+            // inventory
+            Loc.Add("HIGHCOMMAND_HELP_INVENTORY", "Items: who carries what, drag to give", "Предметы: у кого что, перетащите, чтобы передать");
+            Loc.Add("HIGHCOMMAND_INV_TITLE", "Army items ({0} total)", "Предметы армии (всего {0})");
+            Loc.Add("HIGHCOMMAND_INV_HINT_SPLIT", "Drag an item onto another hero to give it. Shift = the whole stack. Esc closes.",
+                "Перетащите предмет на другого героя, чтобы отдать. Shift - вся стопка. Esc закрывает.");
+            Loc.Add("HIGHCOMMAND_INV_HINT_MIRROR", "Mirror mode: every hero has every item, nothing to move. Esc closes.",
+                "Режим «зеркало»: у каждого героя есть все предметы, передавать нечего. Esc закрывает.");
+            Loc.Add("HIGHCOMMAND_INV_AUTO", "Auto-distribute", "Раздать заново");
+            Loc.Add("HIGHCOMMAND_INV_AUTO_DONE", "Items redistributed by role", "Предметы розданы заново по ролям");
+            Loc.Add("HIGHCOMMAND_INV_EMPTY", "no items yet", "предметов пока нет");
+            Loc.Add("HIGHCOMMAND_INV_MORE", "+{0} more", "ещё +{0}");
+            Loc.Add("HIGHCOMMAND_INV_EQUIPMENT", "Equipment", "Снаряжение");
+            Loc.Add("HIGHCOMMAND_INV_SPARE", "Spare equipment (drag onto a hero):", "Запасное снаряжение (перетащите на героя):");
+            Loc.Add("HIGHCOMMAND_INV_NOEQUIP", "no equipment", "без снаряжения");
+            Loc.Add("HIGHCOMMAND_INV_MOVED", "{0} -> {1}: {2}", "{0} -> {1}: {2}");
+            Loc.Add("HIGHCOMMAND_INV_COUNT", "Owned: {0}", "В наличии: {0}");
+            Loc.Add("HIGHCOMMAND_INV_DEAD", "fallen", "пал");
         }
     }
 }

@@ -110,8 +110,8 @@ namespace HighCommand.Army
             bool given = false;
             if (def.itemIndex != ItemIndex.None)
             {
-                if (pickup.isTempItem) pool.inventory.GiveItemTemp(def.itemIndex, pickup.decayValue);
-                else pool.inventory.GiveItemPermanent(def.itemIndex, 1);
+                // temporary (decaying) items would stay in the pool forever and never reach a hero: make them permanent
+                pool.inventory.GiveItemPermanent(def.itemIndex, 1);
                 given = true;
             }
             else if (def.equipmentIndex != EquipmentIndex.None)

@@ -40,10 +40,15 @@ namespace HighCommand.Mode
         /// <summary>Server: where reinforcements land and where retreating heroes run to.</summary>
         public Vector3 RallyPoint { get; set; }
 
+        /// <summary>Server: hands the pool's items out to the heroes.</summary>
+        internal ItemDistributor Items { get; } = new ItemDistributor();
+
         /// <summary>Server: the item pool changed (an item was gained). Triggers redistribution among heroes.</summary>
         public void OnPoolChanged()
         {
-            // the item distributor hooks in here (inventory milestone)
+            try { Items.Sync(Army); }
+            catch (Exception e) { Plugin.Log.LogError("Item distribution failed: " + e); }
+            PublishRoster(); // spare equipment travels with the roster
             PoolChanged?.Invoke();
         }
 
@@ -79,6 +84,7 @@ namespace HighCommand.Mode
             }
             if (Instance == this) Instance = null;
             Army.Clear();
+            Items.Reset();
         }
 
         // ---- server: stage flow --------------------------------------------------------------------
@@ -142,7 +148,15 @@ namespace HighCommand.Mode
         public Hero RecruitHero(SurvivorDef survivor, Loadout loadout, Vector3 position, Quaternion rotation, bool withPod)
         {
             Hero hero = Army.Recruit(survivor, loadout, position, rotation, withPod);
-            if (hero != null && withPod) StartCoroutine(OpenPodWhenLanded(hero));
+            if (hero == null) return null;
+
+            if (withPod) StartCoroutine(OpenPodWhenLanded(hero));
+            try
+            {
+                Items.CatchUp(Army, hero);
+                Items.Sync(Army);
+            }
+            catch (Exception e) { Plugin.Log.LogError("Item catch-up failed: " + e); }
             return hero;
         }
 

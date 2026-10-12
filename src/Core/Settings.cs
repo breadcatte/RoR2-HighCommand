@@ -29,7 +29,7 @@ namespace HighCommand
         internal static ConfigEntry<KeyCode> KeyAttackMove, KeyStop, KeyHold, KeyFocusFire, KeyRetreat, KeyPatrol, KeyRally;
         internal static ConfigEntry<KeyCode> KeyCastSecondary, KeyCastUtility, KeyCastSpecial, KeyCastEquipment;
         internal static ConfigEntry<KeyCode> KeyStanceAggressive, KeyStanceDefensive, KeyStancePassive;
-        internal static ConfigEntry<KeyCode> KeyToggleAuto, KeyBarracks;
+        internal static ConfigEntry<KeyCode> KeyToggleAuto, KeyBarracks, KeyInventory;
         internal static ConfigEntry<KeyCode> KeyFormationCycle;
 
         // ---- economy / army ----
@@ -50,6 +50,8 @@ namespace HighCommand
         internal static ConfigEntry<float> ItemDropMultiplier;
         internal static ConfigEntry<bool> RemovePaidInteractables;
         internal static ConfigEntry<string> KeepInteractables;
+        internal static ConfigEntry<Army.ItemDistributor.SharingMode> ItemSharing;
+        internal static ConfigEntry<bool> RebalanceOnRecruit;
 
         private static string[] keepCache;
         private static string keepCacheSource;
@@ -111,6 +113,7 @@ namespace HighCommand
             KeyCastSpecial = cfg.Bind("Keys", "CastSpecial", KeyCode.C, "Use the selected heroes' special skill.");
             KeyCastEquipment = cfg.Bind("Keys", "CastEquipment", KeyCode.Y, "Use the selected heroes' equipment.");
             KeyBarracks = cfg.Bind("Keys", "Barracks", KeyCode.B, "Open / close the recruiting panel.");
+            KeyInventory = cfg.Bind("Keys", "Inventory", KeyCode.I, "Open / close the item panel (the army's items, per hero; drag an item onto a hero to give it).");
             KeyStanceAggressive = cfg.Bind("Keys", "StanceAggressive", KeyCode.F2, "Stance: aggressive (chase anything seen).");
             KeyStanceDefensive = cfg.Bind("Keys", "StanceDefensive", KeyCode.F3, "Stance: defensive (fight near the post, then return).");
             KeyStancePassive = cfg.Bind("Keys", "StancePassive", KeyCode.F4, "Stance: passive (never start a fight).");
@@ -136,6 +139,10 @@ namespace HighCommand
             ItemDropMultiplier = F("Loot", "ItemDropMultiplier", 1.0f, 0f, 10f, "Multiplier on the chance of every item drop.");
             RemovePaidInteractables = cfg.Bind("Loot", "RemovePaidInteractables", true, "Do not place chests, printers, shrines of chance and other interactables that cost something.");
             KeepInteractables = cfg.Bind("Loot", "KeepInteractables", "", "Comma separated name fragments of paid interactables that should stay (for example: ShrineBoss,Duplicator).");
+
+            ItemSharing = cfg.Bind("Loot", "ItemSharing", Army.ItemDistributor.SharingMode.Split,
+                "Split: every item unit belongs to one hero (like a normal co-op run). Mirror: every hero gets a copy of every item (much stronger).");
+            RebalanceOnRecruit = cfg.Bind("Loot", "RebalanceOnRecruit", true, "A newly recruited hero takes a fair share of items from the heroes who have the most.");
 
             MinimapEnabled = cfg.Bind("Minimap", "Enabled", true, "Show the minimap.");
             MinimapSize = F("Minimap", "Size", 260f, 140f, 520f, "Minimap size in reference pixels (1080p).");
