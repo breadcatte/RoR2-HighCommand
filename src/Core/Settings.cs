@@ -33,10 +33,11 @@ namespace HighCommand
         internal static ConfigEntry<KeyCode> KeyRevive, KeyTeleporter;
         internal static readonly ConfigEntry<KeyCode>[] KeyAbility = new ConfigEntry<KeyCode>[4];
         internal static ConfigEntry<KeyCode> KeyFormationCycle;
-        internal static ConfigEntry<KeyCode> KeyCycleSelection, KeySelectAll;
+        internal static ConfigEntry<KeyCode> KeyCycleSelection, KeySelectAll, KeyLastAlert;
 
         // ---- interface ----
         internal static ConfigEntry<float> UiScale;
+        internal static ConfigEntry<bool> Alerts;
 
         // ---- economy / army ----
         internal static ConfigEntry<int> StartingGold;
@@ -140,6 +141,9 @@ namespace HighCommand
             KeyFastCamera = cfg.Bind("Keys", "FastCamera", KeyCode.LeftShift, "Hold to pan the camera faster.");
             KeyCycleSelection = cfg.Bind("Keys", "CycleSelection", KeyCode.Tab, "Select the next hero (hold Shift: the previous one).");
             KeySelectAll = cfg.Bind("Keys", "SelectAll", KeyCode.A, "Together with Ctrl: select the whole army. (Digits 1-0 are the control groups: Ctrl+digit sets, digit recalls.)");
+
+            KeyLastAlert = cfg.Bind("Keys", "LastAlert", KeyCode.Backspace, "Fly the camera to the place of the last alert (a fallen or nearly dead hero).");
+            Alerts = cfg.Bind("Interface", "Alerts", true, "Message, sound and a mark on the map when a hero falls or is nearly dead.");
 
             UiScale = F("Interface", "UiScale", 1.0f, 0.6f, 1.6f,
                 "Size of the whole interface of the mode: 1 = normal, 1.25 = bigger text and panels, 0.8 = smaller. It comes on top of the automatic scaling to the screen resolution.");

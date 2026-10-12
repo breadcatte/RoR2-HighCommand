@@ -43,6 +43,7 @@ namespace HighCommand.Client
         private TooltipView tooltip;
         private LootFeed lootFeed;
 
+        private readonly AlertService alerts = new AlertService();
         private bool mapDirty = true;
         private bool focusedThisStage;
         private bool draggingMinimap;
@@ -115,6 +116,7 @@ namespace HighCommand.Client
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_WHEEL"), Loc.Get("HIGHCOMMAND_HELP_ZOOM"));
             HelpOverlay.Add($"{Loc.Get("HIGHCOMMAND_KEY_MMB")} / {Settings.KeyRotateLeft.Value} {Settings.KeyRotateRight.Value}", Loc.Get("HIGHCOMMAND_HELP_ROTATE"));
             HelpOverlay.Add(Settings.KeyFocusSelected.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FOCUS"));
+            HelpOverlay.Add(Settings.KeyLastAlert.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_ALERT"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_MINIMAP"), Loc.Get("HIGHCOMMAND_HELP_MINIMAP"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_LMB"), Loc.Get("HIGHCOMMAND_HELP_SELECT"));
             HelpOverlay.Add("Shift + " + Loc.Get("HIGHCOMMAND_KEY_LMB"), Loc.Get("HIGHCOMMAND_HELP_SELECT_ADD"));
@@ -263,7 +265,10 @@ namespace HighCommand.Client
             {
                 HandleMinimapMouse();
                 if (ClientInput.KeyDown(Settings.KeyFocusSelected.Value)) FocusSelectionOrArmy();
+                if (alerts.HasAlert && ClientInput.KeyDown(Settings.KeyLastAlert.Value)) Camera.FocusOn(alerts.LastPosition);
             }
+            if (inStage) alerts.Tick(heroes);
+            else alerts.Reset();
 
             long t = Dev.Perf.Begin();
             orders.Tick(heroes, inputAllowed);

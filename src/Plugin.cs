@@ -20,7 +20,7 @@ namespace HighCommand
     {
         public const string Guid = "kantemiir.HighCommand";
         public const string Name = "HighCommand";
-        public const string Version = "0.9.0";
+        public const string Version = "0.9.1";
 
         internal static Plugin Instance;
         internal static ManualLogSource Log;

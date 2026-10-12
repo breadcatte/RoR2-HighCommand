@@ -188,6 +188,9 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_REVIVE_NONE", "Nobody has fallen", "Никто не пал");
             Loc.Add("HIGHCOMMAND_REVIVE_ALIVE", "The hero is alive", "Герой жив");
             Loc.Add("HIGHCOMMAND_REVIVED", "Revived: {0}", "Воскрешён: {0}");
+            Loc.Add("HIGHCOMMAND_ALERT_DIED", "{0} has fallen", "{0} погиб");
+            Loc.Add("HIGHCOMMAND_ALERT_LOWHP", "{0} is almost dead", "{0} на грани гибели");
+            Loc.Add("HIGHCOMMAND_HELP_ALERT", "Fly to the last alert", "Перелёт к последнему оповещению");
             Loc.Add("HIGHCOMMAND_HELP_REVIVE", "Revive the first fallen hero", "Воскресить первого павшего героя");
             Loc.Add("HIGHCOMMAND_HELP_TELEPORTER", "Teleporter: activate / gather / leave", "Телепорт: запустить / собраться / уйти");
             Loc.Add("HIGHCOMMAND_TP_NONE", "No teleporter on this stage", "На этой стадии нет телепорта");

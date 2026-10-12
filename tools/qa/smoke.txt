@@ -1,0 +1,15 @@
+# Smoke test: the installed build loads, a run starts and the army exists.
+@wait 4
+hc_ping
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 20
+hc_status
+hc_ping
+disconnect
+@norun
+@wait 4
+@quit

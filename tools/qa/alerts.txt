@@ -1,0 +1,34 @@
+# Alerts: a fallen hero raises a message / mark, Backspace flies the camera to it.
+@wait 4
+@log === ALERT start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 20
+hc_gold 3000
+hc_recruit Commando
+hc_recruit Huntress
+@wait 15
+hc_cam info
+@log === A1 move the camera away, then kill hero 2
+hc_cam at 0 0
+@wait 2
+hc_cam info
+hc_kill_heroes 2
+@wait 2
+hc_screenshot alert_died
+@log === A2 Backspace must fly to the fallen hero
+hc_key Backspace
+@wait 3
+hc_cam info
+hc_screenshot alert_flown
+@log === A3 revive and make sure no extra alert comes
+hc_revive 2
+@wait 8
+@log === ALERT end
+disconnect
+@norun
+@wait 4
+@quit

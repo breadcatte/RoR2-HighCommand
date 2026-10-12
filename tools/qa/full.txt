@@ -1,0 +1,90 @@
+# Full single-player pass: run start, selection, orders, recruiting, stage change, death / revival, defeat, restart, exit.
+@wait 4
+@log === F1 menu and run start
+hc_ping
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 22
+hc_status
+@log === F2 selection and groups
+hc_select none
+hc_click_hero 1
+@wait 1
+hc_sel
+hc_key Alpha1 ctrl
+hc_select none
+hc_key Alpha1
+@wait 1
+hc_sel
+@log === F3 orders: move, attack-move, hold, stop, retreat, stance, queue
+hc_select all
+hc_click 960 700 1
+@wait 4
+hc_key Q
+@wait 1
+hc_click 1300 450 0
+@wait 4
+hc_key R
+@wait 2
+hc_status
+hc_key E
+@wait 1
+hc_key V
+@wait 3
+hc_key F3
+@wait 1
+hc_status
+hc_key F2
+hc_click 700 600 1 shift
+hc_click 1300 600 1 shift
+@wait 1
+hc_status
+@wait 8
+@log === F4 recruit
+hc_gold 5000
+hc_recruit Commando
+hc_recruit Huntress
+hc_recruit Bandit2
+@wait 20
+hc_status
+@log === F5 stage change
+hc_next_stage
+@wait 35
+hc_status
+hc_screenshot full_stage2
+@log === F6 death and revival
+hc_kill_heroes 1
+@wait 3
+hc_gold 1000
+hc_revive 1
+@wait 8
+hc_status
+@log === F7 defeat (the army cannot pay for a revival)
+hc_cfg herobaseprice 100000
+hc_kill_heroes
+@wait 30
+hc_flow
+hc_screenshot full_gameover
+@wait 5
+@log === F8 exit and restart
+disconnect
+@norun
+@wait 6
+hc_ping
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 22
+hc_status
+@log === F9 exit
+disconnect
+@norun
+@wait 5
+hc_ping
+@log === END
+@quit
