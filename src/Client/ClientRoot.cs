@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using HighCommand.Army;
 using HighCommand.Mode;
@@ -28,6 +28,8 @@ namespace HighCommand.Client
         private WorldOverlay overlay;
         private SelectionPanel selectionPanel;
         private SelectionController selectionController;
+        private OrderController orders;
+        private ToastView toast;
 
         private bool mapDirty = true;
         private bool focusedThisStage;
@@ -53,6 +55,8 @@ namespace HighCommand.Client
             selectionPanel = new SelectionPanel(canvas.transform);
             help = new HelpOverlay(canvas.transform);
             selectionController = new SelectionController(Selection, overlay);
+            orders = new OrderController(Selection, minimap, overlay);
+            toast = new ToastView(canvas.transform);
 
             RegisterHelp();
             Stage.onStageStartGlobal += OnStageStart;
@@ -65,6 +69,8 @@ namespace HighCommand.Client
             help?.Destroy();
             overlay?.Destroy();
             selectionPanel?.Destroy();
+            toast?.Destroy();
+            Toast.Clear();
             if (Instance == this) Instance = null;
         }
 
@@ -86,6 +92,26 @@ namespace HighCommand.Client
             HelpOverlay.Add("Ctrl + 1..9", Loc.Get("HIGHCOMMAND_HELP_GROUP_SET"));
             HelpOverlay.Add("1..9 (x2)", Loc.Get("HIGHCOMMAND_HELP_GROUP_RECALL"));
             HelpOverlay.Add("Tab", Loc.Get("HIGHCOMMAND_HELP_CYCLE"));
+            HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_RMB"), Loc.Get("HIGHCOMMAND_HELP_RMB"));
+            HelpOverlay.Add("Shift + " + Loc.Get("HIGHCOMMAND_KEY_RMB"), Loc.Get("HIGHCOMMAND_HELP_QUEUE"));
+            HelpOverlay.Add(Settings.KeyAttackMove.Value + " + " + Loc.Get("HIGHCOMMAND_KEY_LMB"), Loc.Get("HIGHCOMMAND_HELP_ATTACKMOVE"));
+            HelpOverlay.Add(Settings.KeyFocusFire.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FOCUSFIRE"));
+            HelpOverlay.Add(Settings.KeyStop.Value + " / " + Settings.KeyHold.Value, Loc.Get("HIGHCOMMAND_HELP_STOPHOLD"));
+            HelpOverlay.Add(Settings.KeyRetreat.Value + " / " + Settings.KeyPatrol.Value + " / " + Settings.KeyRally.Value, Loc.Get("HIGHCOMMAND_HELP_RETREAT"));
+            HelpOverlay.Add(Settings.KeyCastSecondary.Value + " " + Settings.KeyCastUtility.Value + " " + Settings.KeyCastSpecial.Value + " " + Settings.KeyCastEquipment.Value, Loc.Get("HIGHCOMMAND_HELP_CAST"));
+            HelpOverlay.Add(Settings.KeyToggleAuto.Value + " + Z/X/C/B", Loc.Get("HIGHCOMMAND_HELP_AUTO"));
+            HelpOverlay.Add(Settings.KeyStanceAggressive.Value + " / " + Settings.KeyStanceDefensive.Value + " / " + Settings.KeyStancePassive.Value, Loc.Get("HIGHCOMMAND_HELP_STANCE"));
+            HelpOverlay.Add(Settings.KeyFormationCycle.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FORMATION"));
+            HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_RMB"), Loc.Get("HIGHCOMMAND_HELP_RMB"));
+            HelpOverlay.Add("Shift + " + Loc.Get("HIGHCOMMAND_KEY_RMB"), Loc.Get("HIGHCOMMAND_HELP_QUEUE"));
+            HelpOverlay.Add(Settings.KeyAttackMove.Value + " + " + Loc.Get("HIGHCOMMAND_KEY_LMB"), Loc.Get("HIGHCOMMAND_HELP_ATTACKMOVE"));
+            HelpOverlay.Add(Settings.KeyFocusFire.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FOCUSFIRE"));
+            HelpOverlay.Add(Settings.KeyStop.Value + " / " + Settings.KeyHold.Value, Loc.Get("HIGHCOMMAND_HELP_STOPHOLD"));
+            HelpOverlay.Add(Settings.KeyRetreat.Value + " / " + Settings.KeyPatrol.Value + " / " + Settings.KeyRally.Value, Loc.Get("HIGHCOMMAND_HELP_RETREAT"));
+            HelpOverlay.Add(Settings.KeyCastSecondary.Value + " " + Settings.KeyCastUtility.Value + " " + Settings.KeyCastSpecial.Value + " " + Settings.KeyCastEquipment.Value, Loc.Get("HIGHCOMMAND_HELP_CAST"));
+            HelpOverlay.Add(Settings.KeyToggleAuto.Value + " + Z/X/C/B", Loc.Get("HIGHCOMMAND_HELP_AUTO"));
+            HelpOverlay.Add(Settings.KeyStanceAggressive.Value + " / " + Settings.KeyStanceDefensive.Value + " / " + Settings.KeyStancePassive.Value, Loc.Get("HIGHCOMMAND_HELP_STANCE"));
+            HelpOverlay.Add(Settings.KeyFormationCycle.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FORMATION"));
             HelpOverlay.Add(Settings.KeyHelp.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_HELP"));
             HelpOverlay.Add("Esc", Loc.Get("HIGHCOMMAND_HELP_PAUSE"));
         }
@@ -137,8 +163,9 @@ namespace HighCommand.Client
                 if (ClientInput.KeyDown(Settings.KeyFocusSelected.Value)) FocusSelectionOrArmy();
             }
 
-            if (inStage) selectionController.Tick(heroes, Camera, inputAllowed);
-            else selectionController.Tick(heroes, Camera, false);
+            orders.Tick(heroes, inStage && inputAllowed);
+            selectionController.Tick(heroes, Camera, inStage && inputAllowed);
+            toast.Tick();
 
             selectionPanel.Tick(Selection, inStage);
         }
@@ -147,8 +174,8 @@ namespace HighCommand.Client
         private void LateUpdate()
         {
             bool inStage = Stage.instance != null && Run.instance != null && !Run.instance.isGameOverServer;
-            if (inStage && Camera && Camera.SceneCam) overlay.Draw(Camera, Selection, CurrentHeroes());
-            else overlay.Draw(null, Selection, CurrentHeroes());
+            if (inStage && Camera && Camera.SceneCam) overlay.Draw(Camera, Selection, CurrentHeroes(), orders.ModeHint);
+            else overlay.Draw(null, Selection, CurrentHeroes(), "");
 
             minimap.Tick(Camera, Time.unscaledDeltaTime);
         }
@@ -161,6 +188,7 @@ namespace HighCommand.Client
             Camera.FocusOn(where.Value, snap: true);
             Camera.SetDistance(Mathf.Lerp(Settings.CameraMinDistance.Value, Settings.CameraMaxDistance.Value, 0.28f));
             focusedThisStage = true;
+            orders.RallyPoint = where.Value;
         }
 
         private void HandleMinimapMouse()

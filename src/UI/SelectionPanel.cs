@@ -34,13 +34,13 @@ namespace HighCommand.UI
         internal SelectionPanel(Transform parent)
         {
             root = UiKit.NewPanel("SelectionPanel", parent, UiKit.PanelColor);
-            UiKit.Place(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 14f), new Vector2(CardWidth * MaxCards + 24f, CardHeight + 30f));
+            UiKit.Place(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 14f), new Vector2(CardWidth * MaxCards + 24f, CardHeight + 16f));
 
             content = UiKit.NewRect("Content", root);
-            UiKit.Stretch(content, 10, 8, 10, 22);
+            UiKit.Stretch(content, 10, 8, 10, 8);
 
             summary = UiKit.NewText("Summary", root, "", 18f, UiKit.TextDim, TextAlignmentOptions.Left);
-            UiKit.Place(summary.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(12f, -6f), new Vector2(600f, 22f));
+            UiKit.Place(summary.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(4f, 2f), new Vector2(600f, 22f));
 
             ClientInput.RegisterUiHitTest(Contains);
             root.gameObject.SetActive(false);
@@ -66,7 +66,7 @@ namespace HighCommand.UI
             // keep the card strip centred: fit the panel to the card count
             int shown = Mathf.Min(MaxCards, heroes.Count);
             UiKit.Place(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 14f),
-                new Vector2(Mathf.Max(220f, CardWidth * shown + 24f), CardHeight + 30f));
+                new Vector2(Mathf.Max(120f, CardWidth * shown + 24f), CardHeight + 16f));
 
             for (int i = 0; i < shown; i++)
             {

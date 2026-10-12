@@ -153,6 +153,9 @@ namespace HighCommand.Dev
                          $"enemy={(baseAi.currentEnemy != null && baseAi.currentEnemy.gameObject ? baseAi.currentEnemy.gameObject.name : "none")} " +
                          $"state={(baseAi.stateMachine && baseAi.stateMachine.state != null ? baseAi.stateMachine.state.GetType().Name : "none")}";
                 }
+                var brain = hero.Master ? hero.Master.GetComponent<Orders.HeroBrain>() : null;
+                if (brain != null)
+                    ai += $" | brain: mode={brain.Mode} {brain.DebugState} order={(brain.Current != null ? brain.Current.ToString() : "-")} queued={brain.QueuedCount} stance={brain.Stance} stuck={brain.Stuck} anchor={brain.Anchor:0} goal={brain.Goal:0}";
                 string hp = body && body.healthComponent ? $"{body.healthComponent.health:0}/{body.healthComponent.fullHealth:0}" : "-";
                 sb.AppendLine($"  {hero} '{hero.DisplayName}' alive={hero.IsAlive} hp={hp} lvl={(body ? body.level : 0):0} pos={hero.Position:0} {ai}");
             }
@@ -271,6 +274,43 @@ namespace HighCommand.Dev
             throw new ConCommandException("No such hero.");
         }
 
+        [ConCommand(commandName = "hc_click_enemy", flags = HostOnly, helpText = "hc_click_enemy [button] [shift]: clicks on the enemy nearest to the camera focus.")]
+        private static void CcClickEnemy(ConCommandArgs args)
+        {
+            var cam = Client.RtsCamera.Instance;
+            if (!cam) throw new ConCommandException("No camera.");
+            int button = args.Count > 0 ? args.GetArgInt(0) : 1;
+            CharacterBody best = null;
+            float bestD = float.MaxValue;
+            foreach (TeamIndex team in new[] { TeamIndex.Monster, TeamIndex.Lunar, TeamIndex.Void })
+            {
+                foreach (TeamComponent tc in TeamComponent.GetTeamMembers(team))
+                {
+                    if (!tc || !tc.body || !tc.body.healthComponent || !tc.body.healthComponent.alive) continue;
+                    if (!Client.WorldPicker.Project(tc.body.corePosition, 1f, out Vector2 s, out float _)) continue;
+                    if (!Client.WorldPicker.IsOnScreen(s, -60f)) continue;
+                    float d = (tc.body.corePosition - cam.Focus).sqrMagnitude;
+                    if (d < bestD) { bestD = d; best = tc.body; }
+                }
+            }
+            if (!best) throw new ConCommandException("No enemy on screen.");
+            Client.WorldPicker.Project(best.corePosition, 1f, out Vector2 at, out float _);
+            Debug.Log($"HighCommand: clicking enemy {best.name} at ({at.x:0},{at.y:0})");
+            Client.ClientInput.InjectClick(at, button, HasFlag(args, 1, "shift"));
+        }
+
+        [ConCommand(commandName = "hc_click_teleporter", flags = HostOnly, helpText = "hc_click_teleporter [button]: clicks on the teleporter if it is on screen.")]
+        private static void CcClickTeleporter(ConCommandArgs args)
+        {
+            var tp = TeleporterInteraction.instance;
+            if (!tp) throw new ConCommandException("No teleporter.");
+            int button = args.Count > 0 ? args.GetArgInt(0) : 1;
+            if (!Client.WorldPicker.Project(tp.transform.position + Vector3.up, 1f, out Vector2 at, out float _))
+                throw new ConCommandException("Teleporter is behind the camera.");
+            Debug.Log($"HighCommand: clicking teleporter at ({at.x:0},{at.y:0}); picked={(Client.WorldPicker.PickInteractable(at) ? Client.WorldPicker.PickInteractable(at).name : "nothing")}");
+            Client.ClientInput.InjectClick(at, button);
+        }
+
         [ConCommand(commandName = "hc_input_end", flags = HostOnly, helpText = "Ends synthetic input; the real mouse works again.")]
         private static void CcInputEnd(ConCommandArgs args) => Client.ClientInput.EndSynthetic();
 
@@ -368,6 +408,38 @@ namespace HighCommand.Dev
                 }
                 throw new ConCommandException("High Command button not found.");
             }
+        }
+
+        [ConCommand(commandName = "hc_dump_ai", flags = HostOnly, helpText = "hc_dump_ai <MasterName|all>: prints the AI skill drivers of a master prefab (in evaluation order).")]
+        private static void CcDumpAi(ConCommandArgs args)
+        {
+            string want = args.Count > 0 ? args.GetArgString(0) : "CommandoMonsterMaster";
+            var sb = new StringBuilder();
+            foreach (SurvivorDef def in SurvivorCatalog.allSurvivorDefs)
+            {
+                if (!def || !def.bodyPrefab) continue;
+                var body = def.bodyPrefab.GetComponent<CharacterBody>();
+                if (!body) continue;
+                var idx = MasterCatalog.FindAiMasterIndexForBody(body.bodyIndex);
+                if (!idx.isValid) continue;
+                string masterName = MasterCatalog.GetMasterName(idx);
+                if (want != "all" && !string.Equals(masterName, want, System.StringComparison.OrdinalIgnoreCase)) continue;
+
+                GameObject prefab = MasterCatalog.GetMasterPrefab(idx);
+                var ai = prefab.GetComponent<RoR2.CharacterAI.BaseAI>();
+                var drivers = prefab.GetComponents<RoR2.CharacterAI.AISkillDriver>();
+                sb.AppendLine($"== {masterName}  scanState={(ai ? ai.scanState.stateType?.Name : "-")} fullVision={ai?.fullVision} drivers={drivers.Length}");
+                foreach (var d in drivers)
+                {
+                    sb.AppendLine($"  [{d.customName}] slot={d.skillSlot} ready={d.requireSkillReady} range={d.minDistance:0}-{d.maxDistance:0} " +
+                                  $"los={d.selectionRequiresTargetLoS}/{d.activationRequiresTargetLoS} target={d.moveTargetType} aim={d.aimType} " +
+                                  $"move={d.movementType} press={d.buttonPressType} sprint={d.shouldSprint} jump={d.shouldJump} equip={d.shouldFireEquipment} " +
+                                  $"userHp={d.minUserHealthFraction:0.##}-{d.maxUserHealthFraction:0.##} targetHp={d.minTargetHealthFraction:0.##}-{d.maxTargetHealthFraction:0.##} " +
+                                  $"skill={(d.requiredSkill ? d.requiredSkill.skillName : "-")} enabled={d.enabled}");
+                }
+            }
+            if (sb.Length == 0) sb.Append("no such master");
+            Debug.Log(sb.ToString());
         }
 
         [ConCommand(commandName = "hc_dump_gamemodes", flags = HostOnly, helpText = "Lists the registered game modes.")]

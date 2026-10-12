@@ -35,6 +35,40 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_HELP_CYCLE", "Next hero (Shift: previous)", "Следующий герой (Shift: предыдущий)");
             Loc.Add("HIGHCOMMAND_SELECTED_COUNT", "Selected: {0}", "Выбрано: {0}");
             Loc.Add("HIGHCOMMAND_LEVEL_SHORT", "Lv {0}", "Ур. {0}");
+
+            // orders
+            Loc.Add("HIGHCOMMAND_KEY_RMB", "Right click", "ПКМ");
+            Loc.Add("HIGHCOMMAND_HELP_RMB", "Move / attack / follow / use", "Идти / атаковать / следовать / использовать");
+            Loc.Add("HIGHCOMMAND_HELP_QUEUE", "Queue the order", "Добавить приказ в очередь");
+            Loc.Add("HIGHCOMMAND_HELP_ATTACKMOVE", "Attack-move to a point", "Идти в точку, сражаясь");
+            Loc.Add("HIGHCOMMAND_HELP_FOCUSFIRE", "Focus fire on the enemy under the cursor", "Фокус на враге под курсором");
+            Loc.Add("HIGHCOMMAND_HELP_STOPHOLD", "Stop / hold position", "Стоп / держать позицию");
+            Loc.Add("HIGHCOMMAND_HELP_RETREAT", "Retreat / patrol / rally point", "Отступить / патруль / точка сбора");
+            Loc.Add("HIGHCOMMAND_HELP_CAST", "Use secondary / utility / special / equipment", "Применить: вторичный / рывок / особый / экипировку");
+            Loc.Add("HIGHCOMMAND_HELP_AUTO", "Switch a skill's auto-use", "Вкл/выкл автоприменение умения");
+            Loc.Add("HIGHCOMMAND_HELP_STANCE", "Stance: aggressive / defensive / passive", "Стойка: агрессивная / защитная / пассивная");
+            Loc.Add("HIGHCOMMAND_HELP_FORMATION", "Formation: blob / line / column", "Построение: кучка / линия / колонна");
+            Loc.Add("HIGHCOMMAND_HINT_ATTACKMOVE", "Attack-move: left click a point (right click cancels)", "Атака-движение: ЛКМ по точке (ПКМ — отмена)");
+            Loc.Add("HIGHCOMMAND_HINT_FOCUS", "Focus fire: left click an enemy", "Фокус: ЛКМ по врагу");
+            Loc.Add("HIGHCOMMAND_HINT_PATROL", "Patrol: left click the far point", "Патруль: ЛКМ по дальней точке");
+            Loc.Add("HIGHCOMMAND_HINT_RALLY", "Rally point: left click", "Точка сбора: ЛКМ");
+            Loc.Add("HIGHCOMMAND_HINT_CAST", "Skill: left click a target or ground", "Умение: ЛКМ по цели или земле");
+            Loc.Add("HIGHCOMMAND_RALLY_SET", "Rally point set", "Точка сбора задана");
+            Loc.Add("HIGHCOMMAND_FORMATION_BLOB", "blob", "кучка");
+            Loc.Add("HIGHCOMMAND_FORMATION_LINE", "line", "линия");
+            Loc.Add("HIGHCOMMAND_FORMATION_COLUMN", "column", "колонна");
+            Loc.Add("HIGHCOMMAND_FORMATION_SET", "Formation: {0}", "Построение: {0}");
+            Loc.Add("HIGHCOMMAND_STANCE_AGGRESSIVE", "aggressive", "агрессивная");
+            Loc.Add("HIGHCOMMAND_STANCE_DEFENSIVE", "defensive", "защитная");
+            Loc.Add("HIGHCOMMAND_STANCE_PASSIVE", "passive", "пассивная");
+            Loc.Add("HIGHCOMMAND_STANCE_SET", "Stance: {0}", "Стойка: {0}");
+            Loc.Add("HIGHCOMMAND_AUTO_ON", "Auto-use ON: {0}", "Автоприменение ВКЛ: {0}");
+            Loc.Add("HIGHCOMMAND_AUTO_OFF", "Auto-use OFF: {0}", "Автоприменение ВЫКЛ: {0}");
+            Loc.Add("HIGHCOMMAND_SLOT_PRIMARY", "primary", "основное");
+            Loc.Add("HIGHCOMMAND_SLOT_SECONDARY", "secondary", "вторичное");
+            Loc.Add("HIGHCOMMAND_SLOT_UTILITY", "utility", "рывок");
+            Loc.Add("HIGHCOMMAND_SLOT_SPECIAL", "special", "особое");
+            Loc.Add("HIGHCOMMAND_SLOT_EQUIPMENT", "equipment", "экипировка");
         }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using HighCommand.Orders;
 using RoR2;
 using RoR2.CharacterAI;
 using UnityEngine;
@@ -150,6 +151,24 @@ namespace HighCommand.Army
 
             HeroMarker marker = master.gameObject.AddComponent<HeroMarker>();
             marker.Hero = hero;
+
+            // The decision layer and its body executor replace the monsters' wander/combat states.
+            HeroBrain brain = master.gameObject.AddComponent<HeroBrain>();
+            brain.Hero = hero;
+            BaseAI ai = master.GetComponent<BaseAI>();
+            if (ai)
+            {
+                // BaseAI starts its state machine from scanState, but the machine itself also falls back to its own
+                // initial / main state types (Wander): all three have to point at the hero state.
+                var heroState = new EntityStates.SerializableEntityStateType(typeof(HeroAIState));
+                ai.scanState = heroState;
+                EntityStateMachine machine = ai.stateMachine ? ai.stateMachine : EntityStateMachine.FindByCustomName(master.gameObject, "AI");
+                if (machine)
+                {
+                    machine.initialStateType = heroState;
+                    machine.mainStateType = heroState;
+                }
+            }
         }
     }
 }

@@ -115,6 +115,24 @@ namespace HighCommand.Client
             return best;
         }
 
+        /// <summary>An interactable object (teleporter, shrine, portal, chest ...) under the cursor, or null.</summary>
+        internal static GameObject PickInteractable(Vector2 screen)
+        {
+            Camera cam = Cam;
+            if (!cam) return null;
+
+            Ray ray = cam.ScreenPointToRay(screen);
+            int mask = LayerIndex.CommonMasks.interactable;
+            if (!Physics.Raycast(ray, out RaycastHit hit, 1200f, mask, QueryTriggerInteraction.Collide)) return null;
+
+            if (!EntityLocator.HasEntityLocator(hit.collider.gameObject, out EntityLocator locator)) return null;
+            GameObject entity = locator.entity;
+            if (!entity) return null;
+            if (!entity.TryGetComponent<IInteractable>(out IInteractable interactable)) return null;
+            if (!((MonoBehaviour)interactable).isActiveAndEnabled) return null;
+            return entity;
+        }
+
         internal static bool IsHostileToPlayer(TeamIndex team)
         {
             return team == TeamIndex.Monster || team == TeamIndex.Lunar || team == TeamIndex.Void;

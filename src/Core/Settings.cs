@@ -26,6 +26,11 @@ namespace HighCommand
         // ---- keys ----
         internal static ConfigEntry<KeyCode> KeyUp, KeyDown, KeyLeft, KeyRight, KeyRotateLeft, KeyRotateRight;
         internal static ConfigEntry<KeyCode> KeyFocusSelected, KeyHelp, KeyFastCamera;
+        internal static ConfigEntry<KeyCode> KeyAttackMove, KeyStop, KeyHold, KeyFocusFire, KeyRetreat, KeyPatrol, KeyRally;
+        internal static ConfigEntry<KeyCode> KeyCastSecondary, KeyCastUtility, KeyCastSpecial, KeyCastEquipment;
+        internal static ConfigEntry<KeyCode> KeyStanceAggressive, KeyStanceDefensive, KeyStancePassive;
+        internal static ConfigEntry<KeyCode> KeyToggleAuto;
+        internal static ConfigEntry<KeyCode> KeyFormationCycle;
 
         // ---- minimap ----
         internal static ConfigEntry<bool> MinimapEnabled;
@@ -56,8 +61,25 @@ namespace HighCommand
             KeyDown = cfg.Bind("Keys", "CameraDown", KeyCode.S, "Camera back.");
             KeyLeft = cfg.Bind("Keys", "CameraLeft", KeyCode.A, "Camera left.");
             KeyRight = cfg.Bind("Keys", "CameraRight", KeyCode.D, "Camera right.");
-            KeyRotateLeft = cfg.Bind("Keys", "RotateLeft", KeyCode.Q, "Rotate the camera left.");
-            KeyRotateRight = cfg.Bind("Keys", "RotateRight", KeyCode.E, "Rotate the camera right.");
+            KeyRotateLeft = cfg.Bind("Keys", "RotateLeft", KeyCode.LeftBracket, "Rotate the camera left (middle mouse drag also rotates).");
+            KeyRotateRight = cfg.Bind("Keys", "RotateRight", KeyCode.RightBracket, "Rotate the camera right.");
+
+            KeyAttackMove = cfg.Bind("Keys", "AttackMove", KeyCode.Q, "Attack-move: press, then left click a point (A would clash with camera panning).");
+            KeyStop = cfg.Bind("Keys", "Stop", KeyCode.E, "Stop: drop all orders.");
+            KeyHold = cfg.Bind("Keys", "HoldPosition", KeyCode.R, "Hold position: stand and fight only what comes into range.");
+            KeyFocusFire = cfg.Bind("Keys", "FocusFire", KeyCode.F, "Focus fire: attack the enemy under the cursor (or press, then click an enemy).");
+            KeyRetreat = cfg.Bind("Keys", "Retreat", KeyCode.V, "Retreat to the rally point.");
+            KeyPatrol = cfg.Bind("Keys", "Patrol", KeyCode.T, "Patrol: press, then left click the far point.");
+            KeyRally = cfg.Bind("Keys", "RallyPoint", KeyCode.G, "Set the rally point: press, then left click.");
+            KeyCastSecondary = cfg.Bind("Keys", "CastSecondary", KeyCode.Z, "Use the selected heroes' secondary skill (then click a target).");
+            KeyCastUtility = cfg.Bind("Keys", "CastUtility", KeyCode.X, "Use the selected heroes' utility skill.");
+            KeyCastSpecial = cfg.Bind("Keys", "CastSpecial", KeyCode.C, "Use the selected heroes' special skill.");
+            KeyCastEquipment = cfg.Bind("Keys", "CastEquipment", KeyCode.B, "Use the selected heroes' equipment.");
+            KeyStanceAggressive = cfg.Bind("Keys", "StanceAggressive", KeyCode.F2, "Stance: aggressive (chase anything seen).");
+            KeyStanceDefensive = cfg.Bind("Keys", "StanceDefensive", KeyCode.F3, "Stance: defensive (fight near the post, then return).");
+            KeyStancePassive = cfg.Bind("Keys", "StancePassive", KeyCode.F4, "Stance: passive (never start a fight).");
+            KeyToggleAuto = cfg.Bind("Keys", "ToggleAutoSkills", KeyCode.Y, "Hold with Z / X / C / B to switch that skill's automatic use on or off.");
+            KeyFormationCycle = cfg.Bind("Keys", "FormationCycle", KeyCode.N, "Cycle the formation used by move orders: blob / line / column.");
             KeyFocusSelected = cfg.Bind("Keys", "FocusSelected", KeyCode.Space, "Fly the camera to the selected heroes (or the whole army).");
             KeyHelp = cfg.Bind("Keys", "Help", KeyCode.F1, "Show / hide the hotkey cheat sheet.");
             KeyFastCamera = cfg.Bind("Keys", "FastCamera", KeyCode.LeftShift, "Hold to pan the camera faster.");

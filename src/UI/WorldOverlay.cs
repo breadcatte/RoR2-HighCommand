@@ -49,21 +49,154 @@ namespace HighCommand.UI
         }
 
         /// <summary>Redraws everything. Call after the camera has been positioned for this frame.</summary>
-        internal void Draw(RtsCamera camera, Selection selection, IReadOnlyList<Hero> heroes)
+        internal void Draw(RtsCamera camera, Selection selection, IReadOnlyList<Hero> heroes, string modeHint = "")
         {
             barsUsed = 0;
             ringsUsed = 0;
+            linesUsed = 0;
+            pingsUsed = 0;
 
             if (camera && camera.SceneCam)
             {
                 DrawRings(selection);
                 DrawBars(camera, selection);
+                DrawOrders(selection);
+                DrawPings();
             }
 
             LastBars = barsUsed;
             LastRings = ringsUsed;
             HideUnused();
             DrawDragRect();
+            DrawModeHint(modeHint);
+        }
+
+        // ---- orders: destination markers, lines and pings ----------------------------------------
+
+        private readonly List<Image> lines = new List<Image>(32);
+        private readonly List<Image> pings = new List<Image>(16);
+        private int linesUsed, pingsUsed;
+        private TMPro.TextMeshProUGUI hintText;
+
+        private void DrawOrders(Selection selection)
+        {
+            var sel = selection.Heroes;
+            for (int i = 0; i < sel.Count; i++)
+            {
+                Hero hero = sel[i];
+                CharacterBody body = hero.Body;
+                if (!body) continue;
+                Orders.HeroBrain brain = Orders.OrderService.BrainOf(hero);
+                if (brain == null) continue;
+
+                Vector3 from = body.footPosition + Vector3.up * 0.2f;
+                DrawOrderLeg(from, brain.Current, out Vector3 last);
+            }
+        }
+
+        private void DrawOrderLeg(Vector3 from, Orders.Order order, out Vector3 end)
+        {
+            end = from;
+            if (order == null) return;
+
+            Vector3? destination = null;
+            Color color = new Color(0.4f, 1f, 0.5f, 0.7f);
+            switch (order.Kind)
+            {
+                case Orders.OrderKind.Move: destination = order.Point; break;
+                case Orders.OrderKind.AttackMove: destination = order.Point; color = new Color(1f, 0.55f, 0.3f, 0.7f); break;
+                case Orders.OrderKind.Retreat: destination = order.Point; color = new Color(0.5f, 0.8f, 1f, 0.7f); break;
+                case Orders.OrderKind.Patrol: destination = order.patrolToSecond ? order.Point2 : order.Point; color = new Color(1f, 0.8f, 0.3f, 0.7f); break;
+                case Orders.OrderKind.Attack:
+                    if (order.Target) destination = order.Target.transform.position;
+                    color = new Color(1f, 0.3f, 0.25f, 0.8f);
+                    break;
+                case Orders.OrderKind.Follow:
+                    if (order.Target) destination = order.Target.transform.position;
+                    break;
+                case Orders.OrderKind.Interact:
+                    if (order.Target) destination = order.Target.transform.position;
+                    color = new Color(1f, 0.9f, 0.3f, 0.8f);
+                    break;
+            }
+            if (!destination.HasValue) return;
+            end = destination.Value;
+
+            if (!WorldPicker.Project(from, 0.1f, out Vector2 a, out float _)) return;
+            if (!WorldPicker.Project(end, 0.1f, out Vector2 b, out float _)) return;
+            DrawLine(a, b, color, 2f);
+
+            // small marker at the destination
+            Image marker = AcquireRing();
+            marker.color = color;
+            float inv = 1f / Mathf.Max(0.0001f, layer.lossyScale.x);
+            marker.rectTransform.sizeDelta = new Vector2(20f, 12f);
+            marker.rectTransform.position = new Vector3(b.x, b.y, 0f);
+        }
+
+        private void DrawLine(Vector2 a, Vector2 b, Color color, float thickness)
+        {
+            if (linesUsed >= lines.Count)
+            {
+                Image img = UiKit.NewImage("Line", layer, UiKit.White, Color.white);
+                img.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                lines.Add(img);
+            }
+            Image line = lines[linesUsed++];
+            if (!line.enabled) line.enabled = true;
+            float scale = Mathf.Max(0.0001f, layer.lossyScale.x);
+            Vector2 d = b - a;
+            float length = d.magnitude;
+            line.color = color;
+            line.rectTransform.sizeDelta = new Vector2(length / scale, thickness);
+            line.rectTransform.position = new Vector3((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f, 0f);
+            line.rectTransform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
+        }
+
+        private void DrawPings()
+        {
+            float now = Time.unscaledTime;
+            var list = Feedback.Pings;
+            for (int i = list.Count - 1; i >= 0; i--)
+            {
+                var p = list[i];
+                float age = now - p.born;
+                if (age > p.life) { list.RemoveAt(i); continue; }
+
+                float t = age / p.life;
+                if (!WorldPicker.Project(p.position, p.size * (0.5f + t), out Vector2 s, out float px)) continue;
+
+                if (pingsUsed >= pings.Count)
+                    pings.Add(UiKit.NewImage("Ping", layer, UiKit.Ring, Color.white));
+                Image img = pings[pingsUsed++];
+                if (!img.enabled) img.enabled = true;
+
+                Color c = p.color;
+                c.a = (1f - t) * 0.95f;
+                img.color = c;
+                float pitch = Settings.CameraPitch.Value * Mathf.Deg2Rad;
+                float inv = 1f / Mathf.Max(0.0001f, layer.lossyScale.x);
+                float w = Mathf.Max(16f, px * 2f) * inv;
+                img.rectTransform.sizeDelta = new Vector2(w, w * Mathf.Clamp(Mathf.Sin(pitch), 0.35f, 1f));
+                img.rectTransform.position = new Vector3(s.x, s.y, 0f);
+            }
+        }
+
+        private void DrawModeHint(string hint)
+        {
+            if (!hintText)
+            {
+                hintText = UiKit.NewText("ModeHint", layer, "", 22f, new Color(1f, 0.85f, 0.4f, 1f), TMPro.TextAlignmentOptions.Left);
+                hintText.rectTransform.sizeDelta = new Vector2(520f, 34f);
+                hintText.rectTransform.pivot = new Vector2(0f, 1f);
+                hintText.enabled = false;
+            }
+            bool show = !string.IsNullOrEmpty(hint);
+            if (hintText.enabled != show) hintText.enabled = show;
+            if (!show) return;
+            if (hintText.text != hint) hintText.text = hint;
+            Vector2 m = ClientInput.Mouse;
+            hintText.rectTransform.position = new Vector3(m.x + 26f, m.y - 6f, 0f);
         }
 
         // diagnostics (hc_overlay)
@@ -243,6 +376,10 @@ namespace HighCommand.UI
                 if (bars[i].root.gameObject.activeSelf) bars[i].root.gameObject.SetActive(false);
             for (int i = ringsUsed; i < rings.Count; i++)
                 if (rings[i].enabled) rings[i].enabled = false;
+            for (int i = linesUsed; i < lines.Count; i++)
+                if (lines[i].enabled) lines[i].enabled = false;
+            for (int i = pingsUsed; i < pings.Count; i++)
+                if (pings[i].enabled) pings[i].enabled = false;
         }
     }
 }

@@ -44,6 +44,7 @@ namespace HighCommand
 
             Settings.Init(Config);
             Strings.Register();
+            Pack.entityStateTypes.Add(new[] { typeof(Orders.HeroAIState) });
             TryPatch(typeof(LanguagePatches), "language tokens");
             TryPatch(typeof(Mode.LobbyPatches.MultiplayerMenu), "game mode in the multiplayer menu");
             TryPatch(typeof(Mode.LobbyPatches.LocalMultiplayerMenu), "game mode in the local multiplayer menu");
