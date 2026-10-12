@@ -72,6 +72,7 @@ namespace HighCommand.Mode
                 Economy.ResetForNewRun();
                 RunStats.Reset();
                 RunStats.Subscribe();
+                ArmyUpgrades.Reset();
                 Net.CommandChannel.RegisterServer();
                 if (!GetComponent<RunFlow>()) gameObject.AddComponent<RunFlow>();
             }
@@ -151,6 +152,29 @@ namespace HighCommand.Mode
                 Loadout loadout = commander ? commander.loadout : null;
                 bool pod = stage.usePod && Run.instance && Run.instance.spawnWithPod;
                 if (RecruitHero(survivor, loadout, position, rotation, pod) != null) created++;
+            }
+
+            // A lone AI hero is fragile and leaves nothing to command: companions join for free (random unlocked
+            // survivors, not counted as bought, so the first recruit keeps its price).
+            int wanted = Mathf.Min(Settings.StartingHeroes.Value, LobbyRules.ArmyLimit);
+            if (created > 0 && Army.Count < wanted)
+            {
+                var pool = new System.Collections.Generic.List<SurvivorDef>();
+                foreach (SurvivorDef def in ArmyService.Candidates())
+                {
+                    if (Army.Contains(def) || !ArmyService.IsUnlocked(def)) continue;
+                    if (!def.CheckRequiredExpansionEnabled() || !def.CheckLocalUserHasRequiredEntitlement()) continue;
+                    pool.Add(def);
+                }
+                while (Army.Count < wanted && pool.Count > 0)
+                {
+                    int pick = UnityEngine.Random.Range(0, pool.Count);
+                    SurvivorDef def = pool[pick];
+                    pool.RemoveAt(pick);
+                    Vector3 where = Formation.GroundNear(RallyPoint, 3f, 9f, Army.Heroes);
+                    bool pod = stage.usePod && Run.instance && Run.instance.spawnWithPod;
+                    if (RecruitHero(def, ArmyService.LoadoutFor(def), where, Quaternion.identity, pod) != null) created++;
+                }
             }
             PublishRoster();
             RunFlow flow = GetComponent<RunFlow>();

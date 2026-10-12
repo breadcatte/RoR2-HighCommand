@@ -129,8 +129,9 @@ namespace HighCommand.Orders
                     UpdateCast();
                     break;
                 case BrainMode.Idle:
-                    // standing: still lets the skill rules shoot at what is in range, but never moves
-                    UpdateDrivers(dt, movementScale: 0f);
+                    // standing: still lets the skill rules shoot at what is in range, but does not walk off; a ranged
+                    // hero that is being hit sidesteps instead of standing still as a target
+                    UpdateDrivers(dt, movementScale: 0f, dodge: brain && brain.Profile.standoff > 0f && !body.outOfDanger);
                     break;
                 default:
                     UpdateDrivers(dt, brain ? brain.MoveScale : 1f);
@@ -175,7 +176,7 @@ namespace HighCommand.Orders
 
         // ---- Fight / Idle: follow the skill-driver rules ----------------------------------------------
 
-        private void UpdateDrivers(float dt, float movementScale)
+        private void UpdateDrivers(float dt, float movementScale, bool dodge = false)
         {
             BaseAI.SkillDriverEvaluation eval = ai.skillDriverEvaluation;
             dominantDriver = eval.dominantSkillDriver;
@@ -271,6 +272,20 @@ namespace HighCommand.Orders
                     allowWalkOffCliff = false;
                     kiting = true;
                 }
+            }
+
+            if (dodge)
+            {
+                // short sidesteps, changing side every 1-2 s, so the hero stays near its post
+                if (strafeTimer <= 0f)
+                {
+                    strafeTimer = Random.Range(0.8f, 1.8f);
+                    strafeDirection = -strafeDirection;
+                }
+                desired = bodyTransform.position + side * strafeDirection;
+                allowWalkOffCliff = false;
+                kiting = true;
+                movementScale = 0.75f;
             }
 
             ai.localNavigator.targetPosition = desired;

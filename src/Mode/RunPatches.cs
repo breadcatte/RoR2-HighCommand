@@ -120,8 +120,10 @@ namespace HighCommand.Mode
                 HcState state = HcState.Instance;
                 int heroes = state != null ? state.Heroes.Count : 0;
                 if (heroes <= 1) { __result = Mathf.Max(1, __result); return; }
+                // rounded down (+0.25): with the default 0.65 a second hero alone no longer counts as a whole player
+                // (1.65 used to round to 2); 3 heroes = 2, 4 = 3, 6 = 4 players
                 float equivalent = 1f + (heroes - 1) * LobbyRules.ThreatPerExtraHero;
-                __result = Mathf.Max(1, Mathf.RoundToInt(equivalent));
+                __result = Mathf.Max(1, Mathf.FloorToInt(equivalent + 0.25f));
             }
         }
 

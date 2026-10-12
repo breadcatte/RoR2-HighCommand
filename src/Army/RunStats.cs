@@ -61,7 +61,11 @@ namespace HighCommand.Army
         private static void OnDeath(DamageReport report)
         {
             if (!HighCommandRun.IsActive || report == null) return;
-            if (report.attackerTeamIndex == TeamIndex.Player && IsHostile(report.victimTeamIndex)) kills++;
+            if (report.attackerTeamIndex == TeamIndex.Player && IsHostile(report.victimTeamIndex))
+            {
+                kills++;
+                ArmyUpgrades.CountKill(report);
+            }
             if (report.victimTeamIndex == TeamIndex.Player && report.victimBody && HeroMarker.Of(report.victimBody) != null) deaths++;
         }
 

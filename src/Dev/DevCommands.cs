@@ -813,6 +813,49 @@ namespace HighCommand.Dev
             Run.instance.AdvanceStage(next);
         }
 
+        [ConCommand(commandName = "hc_upgrade", flags = HostOnly, helpText = "hc_upgrade [0-3]: buys an army upgrade (0 weapons, 1 armor, 2 medicine, 3 logistics) and prints the heroes' stats.")]
+        private static void CcUpgrade(ConCommandArgs args)
+        {
+            if (args.Count > 0)
+            {
+                string error = Army.ArmyUpgrades.Buy(args.GetArgInt(0));
+                Debug.Log("HighCommand: upgrade -> " + (error ?? "ok"));
+            }
+            PrintHeroStats();
+        }
+
+        [ConCommand(commandName = "hc_veteran", flags = HostOnly, helpText = "hc_veteran <hero id>: gives the hero the kills for its next veteran rank.")]
+        private static void CcVeteran(ConCommandArgs args)
+        {
+            var run = Mode.HighCommandRun.Instance;
+            if (run == null) throw new ConCommandException("No High Command run.");
+            int id = args.GetArgInt(0);
+            foreach (var hero in run.Army.Heroes)
+            {
+                if (hero.Id != id || hero.Rank >= Army.ArmyUpgrades.RankKills.Length) continue;
+                hero.Kills = Army.ArmyUpgrades.RankKills[hero.Rank] - 1;
+                // one more kill through the real counting path
+                var report = new DamageReport(new DamageInfo { attacker = hero.BodyObject }, null, 0f, 0f);
+                Army.ArmyUpgrades.CountKill(report);
+            }
+            PrintHeroStats();
+        }
+
+        private static void PrintHeroStats()
+        {
+            var run = Mode.HighCommandRun.Instance;
+            if (run == null) return;
+            var sb = new StringBuilder("HighCommand stats: upgrades=" + string.Join(",", Army.ArmyUpgrades.Levels));
+            foreach (var hero in run.Army.Heroes)
+            {
+                CharacterBody b = hero.Body;
+                if (!b) continue;
+                b.RecalculateStats();
+                sb.Append($"\n  {hero} rank={hero.Rank} kills={hero.Kills} damage={b.damage:0.0} armor={b.armor:0} regen={b.regen:0.00} speed={b.moveSpeed:0.0}");
+            }
+            Debug.Log(sb.ToString());
+        }
+
         [ConCommand(commandName = "hc_dump_scenes", flags = HostOnly, helpText = "Lists the scenes where the game does not bring allied AI along (suppressNpcEntry).")]
         private static void CcDumpScenes(ConCommandArgs args)
         {

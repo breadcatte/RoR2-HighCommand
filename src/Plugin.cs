@@ -20,7 +20,7 @@ namespace HighCommand
     {
         public const string Guid = "kantemiir.HighCommand";
         public const string Name = "HighCommand";
-        public const string Version = "0.9.2";
+        public const string Version = "0.10.0";
 
         internal static Plugin Instance;
         internal static ManualLogSource Log;
@@ -67,6 +67,7 @@ namespace HighCommand
             TryPatch(typeof(Army.LootPatches.KillDrops), "enemies drop items");
             TryPatch(typeof(Army.LootPatches.NoPaidInteractables), "no chests and other paid interactables");
             TryPatch(typeof(Army.GameOverStatsPatch), "army statistics on the end-of-run screen");
+            TryPatch(typeof(Army.UpgradeStatsPatch), "army upgrades and veteran ranks");
 
             try
             {

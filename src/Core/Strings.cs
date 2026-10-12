@@ -86,6 +86,23 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_RECRUIT_FULL", "Army is full", "Армия заполнена");
             Loc.Add("HIGHCOMMAND_RECRUIT_NEEDGOLD", "Not enough gold: ${0}", "Не хватает золота: ${0}");
             Loc.Add("HIGHCOMMAND_RECRUITED", "Recruited: {0}", "Нанят: {0}");
+
+            // army upgrades and veteran ranks
+            Loc.Add("HIGHCOMMAND_UPGRADE_0_NAME", "Weapons", "Оружие");
+            Loc.Add("HIGHCOMMAND_UPGRADE_0_DESC", "+10% damage for every hero per level.", "+10% урона каждому герою за уровень.");
+            Loc.Add("HIGHCOMMAND_UPGRADE_1_NAME", "Armor", "Броня");
+            Loc.Add("HIGHCOMMAND_UPGRADE_1_DESC", "+8 armor for every hero per level (about 7% less damage taken).", "+8 брони каждому герою за уровень (около 7% меньше урона).");
+            Loc.Add("HIGHCOMMAND_UPGRADE_2_NAME", "Field medicine", "Полевая медицина");
+            Loc.Add("HIGHCOMMAND_UPGRADE_2_DESC", "+0.6 health regeneration per second per level, growing with the hero's level.", "+0,6 здоровья в секунду за уровень, растёт с уровнем героя.");
+            Loc.Add("HIGHCOMMAND_UPGRADE_3_NAME", "Logistics", "Логистика");
+            Loc.Add("HIGHCOMMAND_UPGRADE_3_DESC", "+8% movement speed for every hero per level.", "+8% скорости бега каждому герою за уровень.");
+            Loc.Add("HIGHCOMMAND_UPGRADE_HEADER", "Army upgrades (every hero, recruits too):", "Улучшения армии (для всех героев, и новых тоже):");
+            Loc.Add("HIGHCOMMAND_UPGRADE_BUTTON", "{0} {1}/{2}\n${3}", "{0} {1}/{2}\n${3}");
+            Loc.Add("HIGHCOMMAND_UPGRADE_BUTTON_MAX", "{0} {1}/{1}\nMAX", "{0} {1}/{1}\nМАКС.");
+            Loc.Add("HIGHCOMMAND_UPGRADE_MAXED", "Fully upgraded", "Уже максимум");
+            Loc.Add("HIGHCOMMAND_UPGRADE_DONE", "{0}: level {1}", "{0}: уровень {1}");
+            Loc.Add("HIGHCOMMAND_RANK_UP", "{0} is now a veteran: rank {1} (+10% damage, +5 armor per rank)", "{0}: ранг ветерана {1} (+10% урона и +5 брони за ранг)");
+            Loc.Add("HIGHCOMMAND_RANK_INFO", "Veteran rank {0} ({1} kills). Next rank at {2} kills.", "Ранг ветерана {0} ({1} убийств). Следующий ранг: {2} убийств.");
             Loc.Add("HIGHCOMMAND_ERR_NORUN", "No run in progress", "Забег не идёт");
             Loc.Add("HIGHCOMMAND_ERR_FAILED", "Could not recruit (gold refunded)", "Не удалось нанять (золото возвращено)");
             Loc.Add("HIGHCOMMAND_ERR_NOLINK", "No connection to the host", "Нет связи с хостом");

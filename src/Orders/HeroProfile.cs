@@ -20,7 +20,7 @@ namespace HighCommand.Orders
 
         public float acquireAggressive = 55f;
         public float acquireDefensive = 32f;
-        public float leashAggressive = 95f;
+        public float leashAggressive = 60f;
         public float leashDefensive = 42f;
 
         public float retreatHealth = 0.28f;  // below this fraction (and enemies near) the hero runs to its friends
@@ -271,7 +271,7 @@ namespace HighCommand.Orders
         }
 
         private static HeroProfile P(string survivor, string role, float retreat, float standoff = 0f, string utility = "auto", string special = "auto",
-            string secondary = "auto", float acquire = 55f, float leash = 95f)
+            string secondary = "auto", float acquire = 55f, float leash = 60f)
         {
             return new HeroProfile
             {
@@ -298,7 +298,7 @@ namespace HighCommand.Orders
             l.Add(P("Commando", "Ranged", 0.3f, standoff: 18f, utility: "escape", special: "burst"));
             l.Add(P("Huntress", "Ranged", 0.35f, standoff: 24f, utility: "escape", special: "burst", acquire: 62f));
             l.Add(P("Chef", "Ranged", 0.3f, standoff: 12f, utility: "escape", special: "burst"));
-            l.Add(P("Railgunner", "Sniper", 0.35f, standoff: 30f, utility: "escape", special: "burst", acquire: 70f, leash: 110f));
+            l.Add(P("Railgunner", "Sniper", 0.35f, standoff: 30f, utility: "escape", special: "burst", acquire: 70f, leash: 75f));
             l.Add(P("Mage", "Caster", 0.35f, standoff: 18f, utility: "escape", special: "burst"));
             l.Add(P("VoidSurvivor", "Caster", 0.3f, standoff: 14f, utility: "escape", special: "burst"));
 

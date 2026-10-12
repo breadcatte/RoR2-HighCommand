@@ -219,12 +219,14 @@ namespace HighCommand.UI
                 {
                     int level = body ? (int)body.level : 0;
                     byte order = hero.NetOrderKind;
-                    if (c.level != level || c.order != order || c.infoKey != "alive")
+                    int levelKey = level * 10 + hero.Rank; // a new veteran rank redraws the line too
+                    if (c.level != levelKey || c.order != order || c.infoKey != "alive")
                     {
-                        c.level = level;
+                        c.level = levelKey;
                         c.order = order;
                         c.infoKey = "alive";
                         string levelText = body ? Loc.Format("HIGHCOMMAND_LEVEL_SHORT", level) : "";
+                        if (hero.Rank > 0) levelText += " <color=#FFD24A>" + new string('★', hero.Rank) + "</color>";
                         string orderText = OrderShort((OrderKind)order);
                         c.infoText = compact ? levelText : levelText + (orderText.Length > 0 ? "  <color=#A6B3C7>" + orderText + "</color>" : "");
                         UiKit.SetText(c.info, c.infoText);

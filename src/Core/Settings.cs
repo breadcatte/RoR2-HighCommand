@@ -46,6 +46,7 @@ namespace HighCommand
         internal static ConfigEntry<float> HeroPriceGrowth;
         internal static ConfigEntry<float> PriceMultiplier;
         internal static ConfigEntry<int> ArmyLimit;
+        internal static ConfigEntry<int> StartingHeroes;
         internal static ConfigEntry<bool> AllowDuplicates;
         internal static ConfigEntry<bool> IgnoreUnlocks;
         internal static ConfigEntry<bool> AllowHiddenSurvivors;
@@ -159,7 +160,8 @@ namespace HighCommand
             AllowDuplicates = cfg.Bind("Army", "AllowDuplicates", false, "Allow recruiting several heroes of the same kind.");
             IgnoreUnlocks = cfg.Bind("Army", "IgnoreUnlocks", false, "Offer survivors you have not unlocked yet.");
             AllowHiddenSurvivors = cfg.Bind("Army", "AllowHiddenSurvivors", false, "Offer hidden survivors (for example Heretic). Experimental: they are not meant to be played and may misbehave.");
-            ReviveCostFraction = F("Economy", "ReviveCostFraction", 0.4f, 0f, 3f, "A fallen hero's revival costs this fraction of the price of the next recruit.");
+            ReviveCostFraction = F("Economy", "ReviveCostFraction", 0.4f, 0f, 3f, "A fallen hero's revival costs this fraction of the price of a first recruit (it grows with time and stages, not with the army size).");
+            StartingHeroes = I("Army", "StartingHeroes", 2, 1, 4, "Heroes the army starts with: the survivor chosen in the lobby plus random unlocked survivors (free; recruit prices are not raised by them).");
             AutoRetreat = cfg.Bind("Army", "AutoRetreat", true,
                 "A badly hurt hero (threshold per survivor in profiles\\hero_profiles.json) runs to its friends until it recovers. Explicit move / hold / interact orders are never interrupted.");
             DefeatGraceBroke = F("Run", "DefeatGraceSecondsBroke", 6f, 0f, 120f, "When every hero is dead and the army cannot pay for a revival, the run is lost after this many seconds.");

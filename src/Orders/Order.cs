@@ -59,6 +59,27 @@ namespace HighCommand.Orders
             }
         }
 
+        /// <summary>Where the order leads (zero for orders without a place: stop, hold, cast of equipment).</summary>
+        public Vector3 Destination()
+        {
+            switch (Kind)
+            {
+                case OrderKind.Move:
+                case OrderKind.AttackMove:
+                case OrderKind.Retreat:
+                case OrderKind.Cast:
+                    return Point;
+                case OrderKind.Patrol:
+                    return patrolToSecond ? Point2 : Point;
+                case OrderKind.Attack:
+                case OrderKind.Follow:
+                case OrderKind.Interact:
+                    return Target ? Target.transform.position : Point;
+                default:
+                    return Vector3.zero;
+            }
+        }
+
         public Order Clone()
         {
             return (Order)MemberwiseClone();

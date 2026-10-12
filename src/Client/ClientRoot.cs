@@ -82,12 +82,14 @@ namespace HighCommand.Client
             RegisterHelp();
             Stage.onStageStartGlobal += OnStageStart;
             Economy.OnGoldGained += OnGoldGained;
+            ArmyUpgrades.RankedUp += OnRankedUp;
         }
 
         private void OnDestroy()
         {
             Stage.onStageStartGlobal -= OnStageStart;
             Economy.OnGoldGained -= OnGoldGained;
+            ArmyUpgrades.RankedUp -= OnRankedUp;
             minimap?.Destroy();
             help?.Destroy();
             overlay?.Destroy();
@@ -197,6 +199,13 @@ namespace HighCommand.Client
         private static void OnGoldGained(uint amount, Vector3? at)
         {
             if (at.HasValue) Feedback.Popup("+$" + amount, at.Value, UiKit.Gold);
+        }
+
+        private static void OnRankedUp(Hero hero)
+        {
+            Toast.Show(Loc.Format("HIGHCOMMAND_RANK_UP", hero.DisplayName, hero.Rank));
+            CharacterBody body = hero.Body;
+            if (body) Feedback.Popup(new string('★', hero.Rank), body.corePosition + Vector3.up * 2f, UiKit.Gold);
         }
 
         private IReadOnlyList<Hero> CurrentHeroes()

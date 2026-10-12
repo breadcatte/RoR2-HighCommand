@@ -283,7 +283,7 @@ namespace HighCommand.Mode
 
                 Order order = brain.Current;
                 byte kind = (byte)(order != null ? order.Kind : OrderKind.None);
-                Vector3 point = order != null ? DestinationOf(order) : Vector3.zero;
+                Vector3 point = order != null ? order.Destination() : Vector3.zero;
                 byte queued = (byte)Mathf.Min(255, brain.QueuedCount);
 
                 if (h.NetStance != stance) { h.NetStance = stance; changed = true; }
@@ -306,26 +306,6 @@ namespace HighCommand.Mode
                 }
             }
             return changed;
-        }
-
-        private static Vector3 DestinationOf(Order o)
-        {
-            switch (o.Kind)
-            {
-                case OrderKind.Move:
-                case OrderKind.AttackMove:
-                case OrderKind.Retreat:
-                case OrderKind.Cast:
-                    return o.Point;
-                case OrderKind.Patrol:
-                    return o.patrolToSecond ? o.Point2 : o.Point;
-                case OrderKind.Attack:
-                case OrderKind.Follow:
-                case OrderKind.Interact:
-                    return o.Target ? o.Target.transform.position : o.Point;
-                default:
-                    return Vector3.zero;
-            }
         }
 
         // While a zone charges, idle heroes stand inside it (each at its own spot) and fight from there.

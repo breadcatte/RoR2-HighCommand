@@ -66,6 +66,12 @@ namespace HighCommand.Army
         /// <summary>Seconds left (rounded up, 0 = ready) on the secondary, utility and special skills.</summary>
         public readonly byte[] NetSkillCd = new byte[3];
 
+        /// <summary>Enemies killed by the hero and its minions (host).</summary>
+        public int Kills;
+
+        /// <summary>Veteran rank 0..3 earned by kills (see ArmyUpgrades.RankKills).</summary>
+        public int Rank;
+
         /// <summary>The hero's decision layer (server only; set when the hero is created, null on clients).</summary>
         public HighCommand.Orders.HeroBrain Brain;
 

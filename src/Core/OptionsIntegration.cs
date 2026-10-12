@@ -53,6 +53,7 @@ namespace HighCommand
                 Slider(Settings.PriceMultiplier, 0.1f, 10f);
                 Slider(Settings.ReviveCostFraction, 0f, 3f);
                 IntSlider(Settings.ArmyLimit, 1, 20);
+                IntSlider(Settings.StartingHeroes, 1, 4);
                 Check(Settings.AllowDuplicates);
                 Check(Settings.IgnoreUnlocks);
                 Check(Settings.AllowHiddenSurvivors);

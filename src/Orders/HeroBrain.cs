@@ -61,6 +61,9 @@ namespace HighCommand.Orders
 
         public int QueuedCount => queue.Count;
 
+        /// <summary>The orders waiting after the current one (read-only; the overlay draws the route from it).</summary>
+        public IReadOnlyList<Order> Queue => queue;
+
         // ---- output (read by HeroAIState) --------------------------------------------------------
         public BrainMode Mode { get; private set; } = BrainMode.Idle;
         public Vector3 Goal { get; private set; }

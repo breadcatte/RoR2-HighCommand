@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.10.0 - army upgrades, veteran ranks, fairer economy
+
+New
+* Army upgrades in the barracks (`B`): Weapons (+10% damage), Armor (+8), Field medicine (+0.6 HP/s, grows with the
+  hero's level), Logistics (+8% speed). Every hero gets them, recruits too; prices grow per level and with time/stages.
+* Veteran ranks: 25 / 75 / 175 kills (minions' kills count for their owner) give rank 1-3, each +10% damage and +5 armor.
+  Stars on the roster card, a message on promotion.
+* The army starts with 2 heroes: the lobby's survivor and a random unlocked one (`Army/StartingHeroes`, 1-4; free).
+* The whole order queue (Shift orders) is drawn on the ground, leg after leg.
+
+Balance
+* Hero prices follow time, stages and the difficulty only. Before, every recruit raised the run's difficulty (heroes
+  count as players), which raised the next price on top of the growth per hero.
+* The army counts as fewer extra players: rounded down (+0.25) instead of rounded, so 2 heroes = 1 player, 3 = 2, 4 = 3.
+* A revival costs 40% of a FIRST recruit's price: it no longer grows with the number of heroes bought.
+* Heroes chase enemies up to 60 m from their post (was 95; Railgunner 75, was 110).
+* A ranged hero standing at its post while being hit sidesteps instead of standing still.
+
+Fixes
+* Long survivor descriptions no longer spill below the barracks panel.
+
+Dev
+* `hc_upgrade [0-3]` buys an upgrade and prints the heroes' stats; `hc_veteran <id>` promotes a hero.
+* Single player only (decision of 2026-10-12): new features are not replicated over the network.
+
 ## 0.9.2 - a lone hero no longer loses the run by itself
 
 Fixes

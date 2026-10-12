@@ -99,10 +99,22 @@ namespace HighCommand.UI
                 // the replicated order of the hero: the same on the host and on every client
                 Vector3 from = body.footPosition + Vector3.up * 0.2f;
                 DrawOrderLeg(from, (Orders.OrderKind)hero.NetOrderKind, hero.NetOrderPoint, out Vector3 last);
+
+                // the rest of the queue (Shift orders), dimmer, leg after leg. The queue lives in the server's brain:
+                // the mode is single-player, so the host reads it directly.
+                Orders.HeroBrain brain = hero.Brain;
+                if (brain == null) continue;
+                IReadOnlyList<Orders.Order> queue = brain.Queue;
+                for (int q = 0; q < queue.Count && q < 8; q++)
+                {
+                    Orders.Order o = queue[q];
+                    if (o == null) continue;
+                    DrawOrderLeg(last, o.Kind, o.Destination(), out last, 0.55f);
+                }
             }
         }
 
-        private void DrawOrderLeg(Vector3 from, Orders.OrderKind kind, Vector3 point, out Vector3 end)
+        private void DrawOrderLeg(Vector3 from, Orders.OrderKind kind, Vector3 point, out Vector3 end, float alpha = 1f)
         {
             end = from;
             if (kind == Orders.OrderKind.None) return;
@@ -121,6 +133,7 @@ namespace HighCommand.UI
             }
             if (!destination.HasValue || destination.Value == Vector3.zero) return;
             end = destination.Value;
+            color.a *= alpha;
 
             if (!WorldPicker.Project(from, 0.1f, out Vector2 a, out float _)) return;
             if (!WorldPicker.Project(end, 0.1f, out Vector2 b, out float _)) return;

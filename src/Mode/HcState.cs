@@ -221,18 +221,35 @@ namespace HighCommand.Mode
 
         // ---- prices (same formula on every machine) ---------------------------------------------------
 
-        /// <summary>Price of the next recruit: base * growth^bought * the run's difficulty scaling * the multiplier.</summary>
+        /// <summary>
+        /// The run's difficulty coefficient as if one player played it (the stock formula with a player count of 1).
+        /// Prices follow time, stages and the chosen difficulty only: the stock coefficient also grows with the player
+        /// count, and the army counts as players, so every recruit made the next one dearer twice (growth^bought and
+        /// a higher coefficient).
+        /// </summary>
+        public static float SoloDifficulty()
+        {
+            Run run = Run.instance;
+            if (!run) return 1f;
+            DifficultyDef def = DifficultyCatalog.GetDifficultyDef(run.selectedDifficulty);
+            float scaling = def != null ? def.scalingValue : 2f;
+            float minutes = Mathf.Floor(run.GetEffectiveRunStopwatch() / 60f);
+            return (1f + 0.0506f * scaling * minutes) * Mathf.Pow(1.15f, run.effectiveStageClearCount);
+        }
+
+        internal float PriceScale() => Mathf.Pow(Mathf.Max(1f, SoloDifficulty()), 1.25f) * PriceMultiplier; // the chest price curve
+
+        /// <summary>Price of the next recruit: base * growth^bought * difficulty scaling * the multiplier.</summary>
         public int NextHeroPrice()
         {
-            float coefficient = Run.instance ? Run.instance.difficultyCoefficient : 1f;
-            float scale = Mathf.Pow(Mathf.Max(1f, coefficient), 1.25f); // same curve as chest prices
-            float price = PriceBase * Mathf.Pow(PriceGrowth, Bought) * scale * PriceMultiplier;
+            float price = PriceBase * Mathf.Pow(PriceGrowth, Bought) * PriceScale();
             return Mathf.Max(1, Mathf.RoundToInt(price));
         }
 
+        /// <summary>A revival costs a fraction of a FIRST recruit's price: it does not grow with the number of heroes bought.</summary>
         public int RevivePrice()
         {
-            return Mathf.Max(1, Mathf.RoundToInt(NextHeroPrice() * ReviveFraction));
+            return Mathf.Max(1, Mathf.RoundToInt(PriceBase * PriceScale() * ReviveFraction));
         }
 
         // ---- network ------------------------------------------------------------------------------------
