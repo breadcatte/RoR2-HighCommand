@@ -125,6 +125,30 @@ namespace HighCommand.Mode
             }
         }
 
+        /// <summary>
+        /// The platform activity manager knows only the stock game modes and logs an error for any other one. A
+        /// High Command run reports "any mode" (the stock fallback) quietly.
+        /// </summary>
+        [HarmonyPatch(typeof(Assets.RoR2.Scripts.Platform.ActivityManager), nameof(Assets.RoR2.Scripts.Platform.ActivityManager.CurrentGameMode),
+            MethodType.Getter)]
+        internal static class ActivityGameMode
+        {
+            private static bool Prefix(ref Assets.RoR2.Scripts.Platform.BaseActivity.ActivityGameMode __result)
+            {
+                bool ours = false;
+                Run run = Run.instance;
+                if (run) ours = HighCommandRun.IsModeRun(run);
+                else
+                {
+                    PreGameController pre = PreGameController.instance;
+                    if (pre) ours = HighCommandRun.IsModeRun(GameModeCatalog.GetGameModePrefabComponent(pre.gameModeIndex));
+                }
+                if (!ours) return true;
+                __result = Assets.RoR2.Scripts.Platform.BaseActivity.ActivityGameMode.Any;
+                return false;
+            }
+        }
+
         /// <summary>The combat director picks a player body to spawn monsters around; give it hero bodies.</summary>
         [HarmonyPatch(typeof(CombatDirector), "PickPlayerAsSpawnTarget")]
         internal static class DirectorSpawnTarget

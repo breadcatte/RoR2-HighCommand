@@ -16,6 +16,7 @@ namespace HighCommand.Dev
         private static float windowStart = -1f;
         private static int frames;
         private static float worstFrame;
+        private static int gcStart;
 
         internal static long Begin() => Stopwatch.GetTimestamp();
 
@@ -23,7 +24,11 @@ namespace HighCommand.Dev
 
         internal static void Frame()
         {
-            if (windowStart < 0f) windowStart = Time.unscaledTime;
+            if (windowStart < 0f)
+            {
+                windowStart = Time.unscaledTime;
+                gcStart = System.GC.CollectionCount(0);
+            }
             frames++;
             if (Time.unscaledDeltaTime > worstFrame) worstFrame = Time.unscaledDeltaTime;
         }
@@ -32,12 +37,16 @@ namespace HighCommand.Dev
         {
             float seconds = Mathf.Max(0.001f, Time.unscaledTime - windowStart);
             double toMs = 1000.0 / Stopwatch.Frequency / seconds;
-            string s = $"hc_perf: window {seconds:0.0}s, {frames / seconds:0} fps (worst frame {worstFrame * 1000f:0} ms) | per second: " +
+            int gc = System.GC.CollectionCount(0) - gcStart;
+            long mem = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
+            string s = $"hc_perf: window {seconds:0.0}s, {frames / seconds:0} fps = {1000f * seconds / Mathf.Max(1, frames):0.00} ms/frame " +
+                       $"(worst frame {worstFrame * 1000f:0} ms) | gc0 x{gc}, mono {mem / 1048576f:0.0} MB | per second: " +
                        $"brains {Brain * toMs:0.00} ms, executors {Executor * toMs:0.00} ms, ui {Ui * toMs:0.00} ms, flow {Flow * toMs:0.00} ms";
             Brain = Executor = Ui = Flow = 0;
             frames = 0;
             worstFrame = 0f;
             windowStart = Time.unscaledTime;
+            gcStart = System.GC.CollectionCount(0);
             return s;
         }
     }

@@ -372,7 +372,9 @@ namespace HighCommand.Orders
             if (castPressTime < 0f) castPressTime = Time.time + 0.2f;
             if (Time.time < castPressTime) return;
 
-            if (!skill.IsReady())
+            // The check is for the start only: pressing the button spends the stock at once, so a skill that is
+            // already being cast reports "not ready" while the button is still held.
+            if (castFrames == 0 && !skill.IsReady())
             {
                 // on cooldown / out of stock: nothing to cast, give up
                 if (Settings.VerboseLog.Value)

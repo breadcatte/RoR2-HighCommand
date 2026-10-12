@@ -379,6 +379,36 @@ namespace HighCommand.Dev
             Debug.Log("HighCommand: ability " + index + " -> " + (result == null ? "ok" : result));
         }
 
+        [ConCommand(commandName = "hc_spawn", flags = HostOnly, helpText = "hc_spawn <count> [MasterName]: spawns hostile AI around the army (testing / load tests).")]
+        private static void CcSpawn(ConCommandArgs args)
+        {
+            if (!UnityEngine.Networking.NetworkServer.active || !Run.instance)
+                throw new ConCommandException("Only the host can do this, and a run must be in progress.");
+            int count = args.Count > 0 ? Mathf.Clamp(args.GetArgInt(0), 1, 200) : 10;
+            string name = args.Count > 1 ? args.GetArgString(1) : "LemurianMaster";
+            GameObject prefab = MasterCatalog.FindMasterPrefab(name);
+            if (!prefab) throw new ConCommandException("Unknown master: " + name);
+
+            Vector3 center = Client.ClientRoot.ArmyCenter() ?? Vector3.zero;
+            int made = 0;
+            for (int i = 0; i < count; i++)
+            {
+                Vector2 ring = Random.insideUnitCircle.normalized * Random.Range(18f, 40f);
+                Vector3 at = Orders.Formation.SnapToGround(center + new Vector3(ring.x, 0f, ring.y));
+                var summon = new MasterSummon
+                {
+                    masterPrefab = prefab,
+                    position = at,
+                    rotation = Quaternion.identity,
+                    teamIndexOverride = TeamIndex.Monster,
+                    ignoreTeamMemberLimit = true,
+                    useAmbientLevel = true
+                };
+                if (summon.Perform()) made++;
+            }
+            Debug.Log($"HighCommand: spawned {made}/{count} x {name}.");
+        }
+
         [ConCommand(commandName = "hc_perf", flags = HostOnly, helpText = "Prints the cost of the mod's own work since the last call (ms per second) and the frame rate.")]
         private static void CcPerf(ConCommandArgs args)
         {
@@ -406,8 +436,14 @@ namespace HighCommand.Dev
                 case "allowhidden": Settings.AllowHiddenSurvivors.Value = bool.Parse(value); break;
                 default: throw new ConCommandException("Unknown setting.");
             }
-            Mode.HcState.Instance?.ServerPublishSettings();
+            PublishSettings();
             Debug.Log($"HighCommand: {key} = {value}");
+        }
+
+        private static void PublishSettings()
+        {
+            Mode.HcState state = Mode.HcState.Instance;
+            if (state) state.ServerPublishSettings();
         }
 
         [ConCommand(commandName = "hc_tp_charge", flags = HostOnly, helpText = "Fully charges the teleporter's holdout zone (testing).")]
@@ -441,7 +477,7 @@ namespace HighCommand.Dev
             RuleChoiceDef choice = def.FindChoice(args.GetArgString(1));
             if (choice == null) throw new ConCommandException("Unknown choice.");
             Run.instance.ruleBook.ApplyChoice(choice);
-            Mode.HcState.Instance?.ServerPublishSettings();
+            PublishSettings();
             Debug.Log($"HighCommand: rule {def.globalName} = {choice.localName}");
         }
 
@@ -492,7 +528,7 @@ namespace HighCommand.Dev
             {
                 bool mirror = args.GetArgString(0).ToLowerInvariant() == "mirror";
                 Settings.ItemSharing.Value = mirror ? Army.ItemDistributor.SharingMode.Mirror : Army.ItemDistributor.SharingMode.Split;
-                Mode.HcState.Instance?.ServerPublishSettings();
+                PublishSettings();
             }
             Debug.Log("HighCommand: item sharing is " + Settings.ItemSharing.Value);
         }

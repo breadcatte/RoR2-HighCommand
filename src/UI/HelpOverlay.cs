@@ -28,7 +28,8 @@ namespace HighCommand.UI
 
         internal HelpOverlay(Transform parent)
         {
-            root = UiKit.NewPanel("Help", parent, UiKit.PanelDark);
+            // fully opaque: the sheet lies over the command card and must not let it shine through
+            root = UiKit.NewPanel("Help", parent, new Color(0.04f, 0.05f, 0.07f, 1f));
             UiKit.Place(root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(PanelW, 600f));
 
             title = UiKit.NewText("Title", root, "", 34f, UiKit.Accent, TextAlignmentOptions.Center);
