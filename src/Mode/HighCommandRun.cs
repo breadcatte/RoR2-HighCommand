@@ -153,7 +153,8 @@ namespace HighCommand.Mode
                 if (RecruitHero(survivor, loadout, position, rotation, pod) != null) created++;
             }
             PublishRoster();
-            GetComponent<RunFlow>()?.BeginRelocateRally(); // the rally point follows the hero once it has landed
+            RunFlow flow = GetComponent<RunFlow>();
+            if (flow) flow.BeginRelocateRally(); // the rally point follows the hero once it has landed
             Plugin.Log.LogInfo($"Starting army created: {created} hero(es).");
         }
 

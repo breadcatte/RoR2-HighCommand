@@ -31,7 +31,6 @@ namespace HighCommand.UI
             internal Image barBack;
             internal Image healthFill;
             internal Image shieldFill;
-            internal Image selectedMark;
         }
 
         private readonly RectTransform root;

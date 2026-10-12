@@ -50,6 +50,27 @@ namespace HighCommand.Client
         {
             if (Instance == this) Instance = null;
             if (listenerProxy) Destroy(listenerProxy);
+            ReleaseRigs();
+        }
+
+        // The stock rigs keep a reference to their override camera: give them back to the game before this object goes
+        // away (a destroyed provider would otherwise be called on the next frame).
+        private void ReleaseRigs()
+        {
+            try
+            {
+                var rigs = CameraRigController.readOnlyInstancesList;
+                for (int i = 0; i < rigs.Count; i++)
+                {
+                    CameraRigController rig = rigs[i];
+                    if (rig && rig.IsOverrideCam(this)) rig.SetOverrideCam(null, 0f);
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogWarning("RtsCamera: could not release the camera rig: " + e.Message);
+            }
+            Rig = null;
         }
 
         // ---- public commands ---------------------------------------------------------------------
@@ -235,7 +256,7 @@ namespace HighCommand.Client
             cameraState.fov = Settings.CameraFov.Value;
         }
 
-        private static readonly RaycastHit[] CastBuffer = new RaycastHit[24];
+        private static readonly RaycastHit[] CastBuffer = new RaycastHit[64];
 
         /// <summary>
         /// Distance to the nearest piece of the level between the focus and the camera, or -1. Objects of the game

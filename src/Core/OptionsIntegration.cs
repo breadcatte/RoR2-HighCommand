@@ -84,7 +84,7 @@ namespace HighCommand
 
         private static void Slider(ConfigEntry<float> entry, float min, float max, string format = "{0:0.00}")
         {
-            if (entry != null) ModSettingsManager.AddOption(new SliderOption(entry, new SliderConfig { min = min, max = max, formatString = format }));
+            if (entry != null) ModSettingsManager.AddOption(new SliderOption(entry, new SliderConfig { min = min, max = max, FormatString = format }));
         }
 
         private static void IntSlider(ConfigEntry<int> entry, int min, int max)

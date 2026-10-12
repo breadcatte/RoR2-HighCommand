@@ -40,7 +40,7 @@ namespace HighCommand.Army
         {
             if (subscribed) return;
             subscribed = true;
-            GlobalEventManager.onCharacterDeathGlobal += OnDeath;
+            GlobalEventManager.onCharacterDeathServer += OnDeath;
             GlobalEventManager.onServerDamageDealt += OnDamage;
         }
 
@@ -48,7 +48,7 @@ namespace HighCommand.Army
         {
             if (!subscribed) return;
             subscribed = false;
-            GlobalEventManager.onCharacterDeathGlobal -= OnDeath;
+            GlobalEventManager.onCharacterDeathServer -= OnDeath;
             GlobalEventManager.onServerDamageDealt -= OnDamage;
         }
 

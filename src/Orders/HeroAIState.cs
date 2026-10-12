@@ -255,6 +255,13 @@ namespace HighCommand.Orders
         {
             BrainMode mode = CurrentMode;
 
+            // a cast that was cut short by another order must not leak its timer into the next one
+            if (mode != BrainMode.Cast && (castPressTime >= 0f || castFrames != 0))
+            {
+                castPressTime = -1f;
+                castFrames = 0;
+            }
+
             bodyInputs.pressSkill1 = false;
             bodyInputs.pressSkill2 = false;
             bodyInputs.pressSkill3 = false;
@@ -388,16 +395,6 @@ namespace HighCommand.Orders
                 brain.NotifyCastPressed();
             }
         }
-        private static bool PreviousPress(in BaseAI.BodyInputs p, int slot)
-        {
-            switch (slot)
-            {
-                case 0: return p.pressSkill1;
-                case 1: return p.pressSkill2;
-                case 2: return p.pressSkill3;
-                default: return p.pressSkill4;
-            }
-        }
 
         private void SetPress(int slot, bool value)
         {
@@ -474,7 +471,7 @@ namespace HighCommand.Orders
             Vector3 toward = brain.Goal - footPosition;
             Vector3 aimPoint = footPosition + Vector3.ClampMagnitude(toward, 14f);
             Vector3 safe = Run.instance.FindSafeTeleportPositionSimplified(body.hullClassification, aimPoint);
-            TeleportHelper.TeleportBody(body, safe);
+            TeleportHelper.TeleportBody(body, safe, false);
             ai.broadNavigationAgent.InvalidatePath();
             if (Settings.VerboseLog.Value) Plugin.Log.LogInfo($"{characterMaster.name}: was stuck, teleported to {safe}");
         }

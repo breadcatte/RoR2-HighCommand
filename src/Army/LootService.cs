@@ -135,7 +135,8 @@ namespace HighCommand.Army
             HighCommandRun hc = HighCommandRun.Instance;
             if (hc != null)
             {
-                hc.State?.CallRpcItemFeed((int)pickup.pickupIndex.value, 1);
+                HcState feed = hc.State;
+                if (feed) feed.CallRpcItemFeed((int)pickup.pickupIndex.value, 1);
                 hc.OnPoolChanged();
             }
             return true;

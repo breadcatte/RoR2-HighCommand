@@ -126,7 +126,7 @@ namespace HighCommand.Mode
             NetworkCRC.RegisterBehaviour("HcState", 0);
         }
 
-        protected static void InvokeRpcItemFeed(NetworkBehaviour obj, NetworkReader reader)
+        private static void InvokeRpcItemFeed(NetworkBehaviour obj, NetworkReader reader)
         {
             if (!NetworkClient.active) return;
             int pickup = (int)reader.ReadPackedUInt32() - 1;

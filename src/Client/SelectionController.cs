@@ -166,8 +166,6 @@ namespace HighCommand.Client
                     }
                 }
             }
-
-            if (ClientInput.RawKeyDown(KeyCode.Escape) && selection.Count > 0 && !OrderState.WantsLeftClick) { /* Esc is the pause key: keep the selection */ }
         }
 
         private void CycleSelection(IReadOnlyList<Hero> heroes, int direction)
