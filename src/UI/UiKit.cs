@@ -16,7 +16,7 @@ namespace HighCommand.UI
         // RoR2 look: dark blue-grey panels, light text, orange accents.
         internal static readonly Color PanelColor = new Color(0.07f, 0.09f, 0.12f, 0.82f);
         internal static readonly Color PanelDark = new Color(0.04f, 0.05f, 0.07f, 0.92f);
-        internal static readonly Color Border = new Color(0.55f, 0.62f, 0.72f, 0.55f);
+        internal static readonly Color Border = new Color(0.5f, 0.6f, 0.72f, 0.7f);
         internal static readonly Color Accent = new Color(1f, 0.64f, 0.18f, 1f);
         internal static readonly Color Text = new Color(0.9f, 0.93f, 0.97f, 1f);
         internal static readonly Color TextDim = new Color(0.65f, 0.7f, 0.78f, 1f);
@@ -105,6 +105,137 @@ namespace HighCommand.UI
             float bottom = Mathf.Clamp01((y + 0.9f) * (s * 0.5f));
             return side * top * bottom;
         }));
+
+        // ---- chamfered panel shapes ----------------------------------------------------------------
+
+        /// <summary>The default corner cut of a panel (top left and bottom right are cut, the other two stay square).</summary>
+        internal const float PanelCut = 10f;
+
+        private static readonly Dictionary<int, Sprite> shapes = new Dictionary<int, Sprite>();
+
+        /// <summary>
+        /// A nine-sliced rectangle with its top left and bottom right corners cut off at 45 degrees. Used as the outline and,
+        /// a little smaller (see <see cref="InnerCut"/>), as the fill inside it. Needs Image.Type.Sliced.
+        /// </summary>
+        internal static Sprite Shape(float cut)
+        {
+            int key = Mathf.RoundToInt(cut * 10f);
+            if (shapes.TryGetValue(key, out Sprite cached) && cached) return cached;
+
+            float c = Mathf.Max(0f, cut);
+            int border = Mathf.CeilToInt(c) + 2;
+            int size = border * 2 + 2;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear
+            };
+            var pixels = new Color32[size * size];
+            const float Root2 = 1.41421356f;
+            for (int py = 0; py < size; py++)
+                for (int px = 0; px < size; px++)
+                {
+                    float x = px + 0.5f, y = py + 0.5f;
+                    float dTopLeft = (x + (size - y) - c) / Root2;
+                    float dBottomRight = ((size - x) + y - c) / Root2;
+                    float a = Mathf.Clamp01(Mathf.Min(dTopLeft, dBottomRight) + 0.5f);
+                    pixels[py * size + px] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(a * 255f));
+                }
+            tex.SetPixels32(pixels);
+            tex.Apply(false, true);
+            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f, 0,
+                SpriteMeshType.FullRect, new Vector4(border, border, border, border));
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            shapes[key] = sprite;
+            return sprite;
+        }
+
+        /// <summary>The corner cut of a fill that sits <paramref name="inset"/> pixels inside an outline cut by <paramref name="cut"/>.</summary>
+        internal static float InnerCut(float cut, float inset) => Mathf.Max(0f, cut - (2f - 1.41421356f) * inset);
+
+        /// <summary>Turns a plain Image into a chamfered outline (the colour is the outline's).</summary>
+        internal static void StyleOutline(Image image, float cut)
+        {
+            image.sprite = Shape(cut);
+            image.type = Image.Type.Sliced;
+        }
+
+        /// <summary>A chamfered fill stretched inside its parent by <paramref name="inset"/> pixels.</summary>
+        internal static Image NewFill(string name, Transform parent, Color color, float cut, float inset = 2f)
+        {
+            Image fill = NewImage(name, parent, Shape(InnerCut(cut, inset)), color);
+            fill.type = Image.Type.Sliced;
+            Stretch(fill.rectTransform, inset, inset, inset, inset);
+            return fill;
+        }
+
+        // ---- dots and glyphs --------------------------------------------------------------------
+
+        private static Sprite dot;
+        private static readonly Sprite[] glyphs = new Sprite[(int)Glyph.Count];
+
+        /// <summary>
+        /// A round dot with a dark rim baked in (multiplied by the Image colour it gives a coloured disc with a black
+        /// outline), so a mark stays readable on a busy map without a second image behind it.
+        /// </summary>
+        internal static Sprite Dot
+        {
+            get
+            {
+                if (dot) return dot;
+                const int size = 48;
+                var tex = new Texture2D(size, size, TextureFormat.RGBA32, true)
+                {
+                    hideFlags = HideFlags.HideAndDontSave,
+                    wrapMode = TextureWrapMode.Clamp,
+                    filterMode = FilterMode.Bilinear
+                };
+                var pixels = new Color32[size * size];
+                for (int py = 0; py < size; py++)
+                    for (int px = 0; px < size; px++)
+                    {
+                        float x = (px + 0.5f) / size * 2f - 1f;
+                        float y = (py + 0.5f) / size * 2f - 1f;
+                        float d = Mathf.Sqrt(x * x + y * y);
+                        float a = Mathf.Clamp01((1f - d) * size * 0.5f);
+                        float lum = Mathf.Lerp(1f, 0.06f, Mathf.Clamp01((d - 0.52f) / 0.14f));
+                        byte l = (byte)Mathf.RoundToInt(lum * 255f);
+                        pixels[py * size + px] = new Color32(l, l, l, (byte)Mathf.RoundToInt(a * 255f));
+                    }
+                tex.SetPixels32(pixels);
+                tex.Apply(true, true);
+                dot = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+                dot.hideFlags = HideFlags.HideAndDontSave;
+                return dot;
+            }
+        }
+
+        /// <summary>A white glyph (tinted with the Image colour); drawn once, with mip levels so it stays clean when small.</summary>
+        internal static Sprite GlyphSprite(Glyph glyph)
+        {
+            int index = (int)glyph;
+            if (index < 0 || index >= glyphs.Length) return White;
+            if (glyphs[index]) return glyphs[index];
+
+            const int size = 64;
+            float[] alpha = GlyphArt.Render(glyph, size);
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, true)
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Trilinear
+            };
+            var pixels = new Color32[size * size];
+            for (int i = 0; i < pixels.Length; i++)
+                pixels[i] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(Mathf.Clamp01(alpha[i]) * 255f));
+            tex.SetPixels32(pixels);
+            tex.Apply(true, true);
+            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            glyphs[index] = sprite;
+            return sprite;
+        }
 
         /// <summary>Builds a white sprite whose alpha comes from f(x, y, size) with x,y in -1..1.</summary>
         private static Sprite MakeSprite(int size, Func<float, float, int, float> alpha)
@@ -215,17 +346,27 @@ namespace HighCommand.UI
             rt.sizeDelta = size;
         }
 
-        /// <summary>A bordered dark panel. Returns the inner content rect.</summary>
-        internal static RectTransform NewPanel(string name, Transform parent, Color? fill = null)
+        /// <summary>
+        /// A dark panel with a thin steel outline, two cut corners and a short orange tick on the cut corners' edges.
+        /// Returns the panel's rect; children go straight into it.
+        /// </summary>
+        internal static RectTransform NewPanel(string name, Transform parent, Color? fill = null, bool ticks = true)
         {
             RectTransform outer = NewRect(name, parent);
             var border = outer.gameObject.AddComponent<Image>();
-            border.sprite = White;
+            StyleOutline(border, PanelCut);
             border.color = Border;
             border.raycastTarget = false;
 
-            Image inner = NewImage("Fill", outer, White, fill ?? PanelColor);
-            Stretch(inner.rectTransform, 2, 2, 2, 2);
+            NewFill("Fill", outer, fill ?? PanelColor, PanelCut);
+
+            if (ticks)
+            {
+                Image top = NewImage("TickTop", outer, White, Accent);
+                Place(top.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(PanelCut + 6f, 0f), new Vector2(34f, 2f));
+                Image bottom = NewImage("TickBottom", outer, White, Accent);
+                Place(bottom.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-(PanelCut + 6f), 0f), new Vector2(34f, 2f));
+            }
             return outer;
         }
 

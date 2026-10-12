@@ -1,0 +1,52 @@
+# Interface look: one screenshot per state (ui_*.png). Used for before / after comparisons of the visual style.
+@wait 4
+@log === V1 run start, a few heroes
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 20
+hc_gold 6000
+hc_recruit Commando
+hc_recruit Huntress
+hc_recruit Mage
+@wait 25
+hc_cam army
+hc_cam dist 45
+@wait 2
+@log === V2 nobody selected
+hc_select none
+@wait 1
+hc_screenshot ui_none
+@log === V3 everybody selected
+hc_select all
+@wait 1
+hc_screenshot ui_all
+@log === V4 barracks panel
+hc_key B
+@wait 1
+hc_screenshot ui_barracks
+hc_key B
+@wait 1
+@log === V5 item panel
+hc_key I
+@wait 1
+hc_screenshot ui_items
+hc_key I
+@wait 1
+@log === V6 help sheet
+hc_key F1
+@wait 1
+hc_screenshot ui_help
+hc_key F1
+@wait 1
+@log === V7 teleporter / skills / cooldown (cast a skill, then a screenshot)
+hc_key Alpha1
+@wait 1
+hc_screenshot ui_cast
+@log === END
+disconnect
+@norun
+@wait 4
+@quit

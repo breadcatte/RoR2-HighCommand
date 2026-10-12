@@ -111,7 +111,7 @@ namespace HighCommand.UI
             autoButton = UiKit.NewRect("AutoButton", footer);
             UiKit.Place(autoButton, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0f, 0f), new Vector2(260f, 52f));
             autoBack = autoButton.gameObject.AddComponent<Image>();
-            autoBack.sprite = UiKit.White;
+            UiKit.StyleOutline(autoBack, 8f);
             autoBack.color = new Color(0.16f, 0.2f, 0.27f, 1f);
             autoBack.raycastTarget = false;
             autoLabel = UiKit.NewText("Label", autoButton, "", 21f, UiKit.Text, TextAlignmentOptions.Center);
@@ -137,7 +137,11 @@ namespace HighCommand.UI
         {
             if (!root) return;
             bool show = !root.gameObject.activeSelf;
-            if (show) lastSignature = int.MinValue;
+            if (show)
+            {
+                lastSignature = int.MinValue;
+                root.SetAsLastSibling();
+            }
             root.gameObject.SetActive(show);
             if (!show) CancelDrag();
         }
@@ -256,11 +260,10 @@ namespace HighCommand.UI
             row.root.pivot = new Vector2(0f, 1f);
 
             row.frame = row.root.gameObject.AddComponent<Image>();
-            row.frame.sprite = UiKit.White;
+            UiKit.StyleOutline(row.frame, 9f);
             row.frame.color = UiKit.Border;
             row.frame.raycastTarget = false;
-            Image fill = UiKit.NewImage("Fill", row.root, UiKit.White, new Color(0.07f, 0.09f, 0.13f, 0.96f));
-            UiKit.Stretch(fill.rectTransform, 2, 2, 2, 2);
+            UiKit.NewFill("Fill", row.root, new Color(0.07f, 0.09f, 0.13f, 0.96f), 9f);
 
             row.portrait = UiKit.NewRawImage("Portrait", row.root, null, Color.white);
             UiKit.Place(row.portrait.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(10f, -10f), new Vector2(60f, 60f));

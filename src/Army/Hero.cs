@@ -108,16 +108,28 @@ namespace HighCommand.Army
             {
                 // SurvivorDef.displayNameToken can be an empty string (not null), so fall back to the body's own name.
                 if (Survivor && !string.IsNullOrEmpty(Survivor.displayNameToken))
-                    return Language.GetString(Survivor.displayNameToken);
+                    return Plain(Language.GetString(Survivor.displayNameToken));
                 CharacterBody b = Body;
-                if (b) return b.GetDisplayName();
+                if (b) return Plain(b.GetDisplayName());
                 if (Survivor && Survivor.bodyPrefab)
                 {
                     var prefabBody = Survivor.bodyPrefab.GetComponent<CharacterBody>();
-                    if (prefabBody) return Language.GetString(prefabBody.baseNameToken);
+                    if (prefabBody) return Plain(Language.GetString(prefabBody.baseNameToken));
                 }
                 return "?";
             }
+        }
+
+        /// <summary>
+        /// A name as the interface prints it. The game's own Russian text for the Void Fiend is damaged at the source
+        /// (the file reads "「И??адие Пустоты』": two question marks where "сч" belongs and corner brackets that are not in
+        /// the font), so the brackets are dropped and that one word is put right.
+        /// </summary>
+        internal static string Plain(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return name;
+            return name.Replace("「", "").Replace("」", "").Replace("『", "").Replace("』", "")
+                .Replace("И??адие", "Исчадие").Trim();
         }
 
         public Vector3 Position

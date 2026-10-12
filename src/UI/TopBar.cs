@@ -24,6 +24,7 @@ namespace HighCommand.UI
         private readonly RectTransform teleporterBarBack;
         private readonly UnityEngine.UI.Image teleporterBar;
         private readonly TextMeshProUGUI defeatText;
+        private readonly UnityEngine.UI.Image defeatPlate;
 
         private float shownGold;
 
@@ -43,6 +44,11 @@ namespace HighCommand.UI
             teleporterBar.rectTransform.anchorMax = new Vector2(0f, 1f);
             teleporterBar.rectTransform.offsetMin = teleporterBar.rectTransform.offsetMax = Vector2.zero;
 
+            // a dark plate under the red text, so it reads over any ground
+            defeatPlate = UiKit.NewImage("DefeatPlate", parent, UiKit.White, new Color(0.09f, 0.02f, 0.03f, 0.84f));
+            UiKit.StyleOutline(defeatPlate, 10f);
+            UiKit.Place(defeatPlate.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -144f), new Vector2(900f, 56f));
+            defeatPlate.enabled = false;
             defeatText = UiKit.NewText("Defeat", parent, "", 32f, UiKit.Bad, TextAlignmentOptions.Center);
             UiKit.Place(defeatText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -150f), new Vector2(1500f, 44f));
             defeatText.enabled = false;
@@ -74,7 +80,7 @@ namespace HighCommand.UI
         internal bool GoldPanelContains(Vector2 screenPoint) => UiKit.Contains(goldPanel, screenPoint);
 
         /// <summary>The red "all heroes have fallen" strip: shown only while the defeat countdown runs; a click revives.</summary>
-        internal bool DefeatContains(Vector2 screenPoint) => defeatText.enabled && UiKit.Contains(defeatText.rectTransform, screenPoint);
+        internal bool DefeatContains(Vector2 screenPoint) => defeatPlate.enabled && UiKit.Contains(defeatPlate.rectTransform, screenPoint);
 
         internal bool TeleporterPanelContains(Vector2 screenPoint) => UiKit.Contains(teleporterPanel, screenPoint);
 
@@ -89,6 +95,7 @@ namespace HighCommand.UI
             {
                 if (teleporterPanel.gameObject.activeSelf) teleporterPanel.gameObject.SetActive(false);
                 defeatText.enabled = false;
+                defeatPlate.enabled = false;
             }
         }
 
@@ -219,6 +226,7 @@ namespace HighCommand.UI
         {
             bool show = state.DefeatSeconds >= 0f;
             defeatText.enabled = show;
+            defeatPlate.enabled = show;
             if (!show) return;
 
             int seconds = Mathf.CeilToInt(state.DefeatSeconds);
@@ -234,6 +242,8 @@ namespace HighCommand.UI
                 else
                     text = Loc.Format("HIGHCOMMAND_DEFEAT_BROKE", seconds);
                 UiKit.SetText(defeatText, text);
+                float width = Mathf.Clamp(defeatText.GetPreferredValues(text).x + 70f, 360f, 1500f);
+                defeatPlate.rectTransform.sizeDelta = new Vector2(width, 56f);
             }
             // pulse a little so it cannot be missed
             float pulse = 0.75f + 0.25f * Mathf.Sin(Time.unscaledTime * 6f);
@@ -249,6 +259,7 @@ namespace HighCommand.UI
             if (goldPanel) Object.Destroy(goldPanel.gameObject);
             if (teleporterPanel) Object.Destroy(teleporterPanel.gameObject);
             if (defeatText) Object.Destroy(defeatText.gameObject);
+            if (defeatPlate) Object.Destroy(defeatPlate.gameObject);
         }
     }
 }

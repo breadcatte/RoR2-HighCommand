@@ -96,7 +96,7 @@ namespace HighCommand.UI
             row.root.sizeDelta = new Vector2(380f, RowHeight - 4f);
 
             row.back = row.root.gameObject.AddComponent<Image>();
-            row.back.sprite = UiKit.White;
+            UiKit.StyleOutline(row.back, 6f);
             row.back.color = new Color(0.04f, 0.05f, 0.07f, 0.75f);
             row.back.raycastTarget = false;
 

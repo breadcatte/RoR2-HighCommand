@@ -37,6 +37,15 @@ BepInEx-плагин `kantemiir.HighCommand`: отдельный RTS-режим 
 * Проверка UI/ввода — только «настоящим путём» (клик/клавиша через `hc_click`/`hc_key`/`hc_menu_extra real`),
   а не прямым вызовом метода: так уже пропустили неработающую кнопку меню.
 
+## Оформление интерфейса (0.10.x)
+* Единый стиль живёт в `src\UI\UiKit.cs`: `NewPanel` (скошенные углы + оранжевые метки), `Shape`/`StyleOutline`/`NewFill`
+  (рамка и заливка со скошенными углами), `Dot`, `GlyphSprite`. Новые панели и карточки строить через них, а не
+  через `UiKit.White` с рамкой 2 px.
+* Картинки кнопок приказов рисуются кодом в `src\UI\GlyphArt.cs` (без файлов). Посмотреть без игры:
+  `dotnet run --project tools\glyph-preview -- <файл.png>` (SDK: `%LOCALAPPDATA%\dotnet-sdk`).
+* Вид интерфейса проверять сценарием `uishot` (`qa-run.ps1 uishot`) и скриншотами; «до/после» — `docs\ui-rework\`.
+* Картинка миникарты строится в `MapInfo.BuildTexture` (покрытие + рельеф), рамка камеры и точки — в `UI\Minimap.cs`.
+
 ## Структура `src\`
 * `Plugin.cs` — вход: ContentPack, Harmony-патчи по одному (`TryPatch`), Risk of Options, AutoExec.
 * `Mode\` — режим: `HighCommandRun` (маркер + серверный старт армии), `HcState` (реплицируемое состояние),

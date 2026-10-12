@@ -327,7 +327,7 @@ namespace HighCommand.Client
             Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartOverlay], t);
 
             t = Dev.Perf.Begin();
-            minimap.Tick(Camera, Time.unscaledDeltaTime);
+            minimap.Tick(Camera, Selection, Time.unscaledDeltaTime);
             Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartMinimap], t);
         }
 

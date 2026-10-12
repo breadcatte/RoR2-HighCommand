@@ -21,6 +21,7 @@ namespace HighCommand.UI
         private const float Width = 244f;
         private const float MaxCardHeight = 58f;
         private const float MinCardHeight = 34f;
+        private const float CardCut = 6f;
 
         private sealed class Card
         {
@@ -92,12 +93,11 @@ namespace HighCommand.UI
                 c.root.pivot = new Vector2(0f, 1f);
 
                 c.frame = c.root.gameObject.AddComponent<Image>();
-                c.frame.sprite = UiKit.White;
+                UiKit.StyleOutline(c.frame, CardCut);
                 c.frame.color = UiKit.Border;
                 c.frame.raycastTarget = false;
 
-                c.fill = UiKit.NewImage("Fill", c.root, UiKit.White, new Color(0.05f, 0.06f, 0.08f, 0.9f));
-                UiKit.Stretch(c.fill.rectTransform, 2, 2, 2, 2);
+                c.fill = UiKit.NewFill("Fill", c.root, new Color(0.05f, 0.06f, 0.08f, 0.9f), CardCut);
 
                 c.portrait = UiKit.NewRawImage("Portrait", c.root, null, Color.white);
                 c.name = UiKit.NewText("Name", c.root, "", 16f, UiKit.Text, TextAlignmentOptions.Left);

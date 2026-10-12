@@ -18,7 +18,8 @@ namespace HighCommand.UI
     /// </summary>
     internal sealed class CommandCard
     {
-        private const float BtnW = 74f, BtnH = 50f, Gap = 6f, Pad = 12f;
+        private const float BtnW = 74f, BtnH = 52f, Gap = 6f, Pad = 12f;
+        private const float Head = 32f; // the title strip above the buttons
         private const float CardW = 4 * BtnW + 3 * Gap + 2 * Pad;
         private static readonly Regex Tags = new Regex("<[^>]+>", RegexOptions.Compiled);
 
@@ -70,36 +71,35 @@ namespace HighCommand.UI
         internal CommandCard(Transform parent)
         {
             // --- orders + skills ---
-            float height = 26f + 3 * (BtnH + Gap) + 4f + 74f + Pad + 4f;
+            float height = Head + 3 * (BtnH + Gap) + 4f + 74f + Pad + 4f;
             root = UiKit.NewPanel("CommandCard", parent, UiKit.PanelColor);
             UiKit.Place(root, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-14f, 14f), new Vector2(CardW, height));
-
-            title = UiKit.NewText("Title", root, "", 17f, UiKit.TextDim, TextAlignmentOptions.Left);
-            UiKit.Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Pad, -6f), new Vector2(CardW - 2 * Pad, 22f));
+            title = AddHeader(root);
 
             var inner = UiKit.NewRect("Buttons", root);
             UiKit.Stretch(inner, 0, 0, 0, 0);
 
-            AddOrder(inner, 0, 0, OrderController.Act.AttackMove, "HIGHCOMMAND_CMD_ATTACKMOVE", () => Key(Settings.KeyAttackMove));
-            AddOrder(inner, 1, 0, OrderController.Act.Stop, "HIGHCOMMAND_CMD_STOP", () => Key(Settings.KeyStop));
-            AddOrder(inner, 2, 0, OrderController.Act.Hold, "HIGHCOMMAND_CMD_HOLD", () => Key(Settings.KeyHold));
-            AddOrder(inner, 3, 0, OrderController.Act.Focus, "HIGHCOMMAND_CMD_FOCUS", () => Key(Settings.KeyFocusFire));
+            AddOrder(inner, 0, 0, OrderController.Act.AttackMove, Glyph.AttackMove, "HIGHCOMMAND_CMD_ATTACKMOVE", () => Key(Settings.KeyAttackMove));
+            AddOrder(inner, 1, 0, OrderController.Act.Stop, Glyph.Stop, "HIGHCOMMAND_CMD_STOP", () => Key(Settings.KeyStop));
+            AddOrder(inner, 2, 0, OrderController.Act.Hold, Glyph.Hold, "HIGHCOMMAND_CMD_HOLD", () => Key(Settings.KeyHold));
+            AddOrder(inner, 3, 0, OrderController.Act.Focus, Glyph.Focus, "HIGHCOMMAND_CMD_FOCUS", () => Key(Settings.KeyFocusFire));
 
-            AddOrder(inner, 0, 1, OrderController.Act.Retreat, "HIGHCOMMAND_CMD_RETREAT", () => Key(Settings.KeyRetreat));
-            AddOrder(inner, 1, 1, OrderController.Act.Patrol, "HIGHCOMMAND_CMD_PATROL", () => Key(Settings.KeyPatrol));
-            AddOrder(inner, 2, 1, OrderController.Act.Rally, "HIGHCOMMAND_CMD_RALLY", () => Key(Settings.KeyRally));
-            AddOrder(inner, 3, 1, OrderController.Act.Formation, "HIGHCOMMAND_CMD_FORMATION", () => Key(Settings.KeyFormationCycle));
+            AddOrder(inner, 0, 1, OrderController.Act.Retreat, Glyph.Retreat, "HIGHCOMMAND_CMD_RETREAT", () => Key(Settings.KeyRetreat));
+            AddOrder(inner, 1, 1, OrderController.Act.Patrol, Glyph.Patrol, "HIGHCOMMAND_CMD_PATROL", () => Key(Settings.KeyPatrol));
+            AddOrder(inner, 2, 1, OrderController.Act.Rally, Glyph.Rally, "HIGHCOMMAND_CMD_RALLY", () => Key(Settings.KeyRally));
+            AddOrder(inner, 3, 1, OrderController.Act.Formation, Glyph.Formation, "HIGHCOMMAND_CMD_FORMATION", () => Key(Settings.KeyFormationCycle));
 
-            AddOrder(inner, 0, 2, OrderController.Act.StanceAggressive, "HIGHCOMMAND_CMD_STANCE_AGGRESSIVE", () => Key(Settings.KeyStanceAggressive));
-            AddOrder(inner, 1, 2, OrderController.Act.StanceDefensive, "HIGHCOMMAND_CMD_STANCE_DEFENSIVE", () => Key(Settings.KeyStanceDefensive));
-            AddOrder(inner, 2, 2, OrderController.Act.StancePassive, "HIGHCOMMAND_CMD_STANCE_PASSIVE", () => Key(Settings.KeyStancePassive));
+            AddOrder(inner, 0, 2, OrderController.Act.StanceAggressive, Glyph.Aggressive, "HIGHCOMMAND_CMD_STANCE_AGGRESSIVE", () => Key(Settings.KeyStanceAggressive));
+            AddOrder(inner, 1, 2, OrderController.Act.StanceDefensive, Glyph.Defensive, "HIGHCOMMAND_CMD_STANCE_DEFENSIVE", () => Key(Settings.KeyStanceDefensive));
+            AddOrder(inner, 2, 2, OrderController.Act.StancePassive, Glyph.Passive, "HIGHCOMMAND_CMD_STANCE_PASSIVE", () => Key(Settings.KeyStancePassive));
 
             teleporterButton = new UiButton(inner, "Teleporter", new Vector2(BtnW, BtnH));
-            teleporterButton.SetPosition(Pad + 3 * (BtnW + Gap), 26f + 2 * (BtnH + Gap));
+            teleporterButton.SetPosition(Pad + 3 * (BtnW + Gap), Head + 2 * (BtnH + Gap));
             teleporterButton.Accent = new Color(0.55f, 0.75f, 1f, 0.8f);
-            teleporterButton.Hint.text = Key(Settings.KeyTeleporter);
+            teleporterButton.SetGlyph(Glyph.Teleporter);
+            teleporterButton.SetHint(Key(Settings.KeyTeleporter));
 
-            float skillY = 26f + 3 * (BtnH + Gap) + 4f;
+            float skillY = Head + 3 * (BtnH + Gap) + 4f;
             AddSkill(inner, 0, skillY, 1, OrderController.Act.CastSecondary, () => Key(Settings.KeyCastSecondary));
             AddSkill(inner, 1, skillY, 2, OrderController.Act.CastUtility, () => Key(Settings.KeyCastUtility));
             AddSkill(inner, 2, skillY, 3, OrderController.Act.CastSpecial, () => Key(Settings.KeyCastSpecial));
@@ -107,9 +107,8 @@ namespace HighCommand.UI
 
             // --- commander abilities ---
             commanderRoot = UiKit.NewPanel("Commander", parent, UiKit.PanelColor);
-            UiKit.Place(commanderRoot, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-14f, 14f + height + 8f), new Vector2(CardW, 26f + 62f + Pad));
-            commanderTitle = UiKit.NewText("Title", commanderRoot, "", 17f, UiKit.TextDim, TextAlignmentOptions.Left);
-            UiKit.Place(commanderTitle.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Pad, -6f), new Vector2(CardW - 2 * Pad, 22f));
+            UiKit.Place(commanderRoot, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-14f, 14f + height + 8f), new Vector2(CardW, Head + 66f + Pad));
+            commanderTitle = AddHeader(commanderRoot);
 
             Color[] colors =
             {
@@ -118,14 +117,16 @@ namespace HighCommand.UI
                 new Color(1f, 0.85f, 0.3f, 0.9f),
                 new Color(0.8f, 0.5f, 1f, 0.9f)
             };
+            Glyph[] glyphs = { Glyph.OrbitalStrike, Glyph.Medic, Glyph.WarCry, Glyph.Mark };
             for (int i = 0; i < CommanderAbilities.Count; i++)
             {
-                var b = new UiButton(commanderRoot, "Ability" + i, new Vector2(BtnW, 62f), withIcon: true);
-                b.SetPosition(Pad + i * (BtnW + Gap), 28f);
+                var b = new UiButton(commanderRoot, "Ability" + i, new Vector2(BtnW, 66f), withIcon: true);
+                b.SetPosition(Pad + i * (BtnW + Gap), Head);
                 b.Accent = colors[i];
                 b.Icon.enabled = false;
+                b.SetGlyph(glyphs[Mathf.Min(i, glyphs.Length - 1)], 28f);
                 b.Label.text = Loc.Get(CommanderAbilities.NameToken(i));
-                b.Hint.text = Key(Settings.KeyAbility[i]);
+                b.SetHint(Key(Settings.KeyAbility[i]));
                 abilityButtons.Add(new AbilityButton { button = b, index = i });
             }
 
@@ -141,11 +142,27 @@ namespace HighCommand.UI
             return s;
         }
 
-        private void AddOrder(Transform parent, int col, int row, OrderController.Act act, string nameToken, Func<string> hotkey)
+        /// <summary>The title strip of a card: a small orange bar, the text and a hairline under it.</summary>
+        private static TextMeshProUGUI AddHeader(RectTransform panel)
+        {
+            Image bar = UiKit.NewImage("HeadBar", panel, UiKit.White, UiKit.Accent);
+            UiKit.Place(bar.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Pad, -10f), new Vector2(3f, 15f));
+            TextMeshProUGUI text = UiKit.NewText("Title", panel, "", 17f, UiKit.Text, TextAlignmentOptions.Left);
+            UiKit.Place(text.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Pad + 10f, -7f), new Vector2(CardW - 2 * Pad - 10f, 22f));
+            text.enableAutoSizing = true;
+            text.fontSizeMin = 11f;
+            text.fontSizeMax = 17f;
+            Image line = UiKit.NewImage("HeadLine", panel, UiKit.White, new Color(0.6f, 0.7f, 0.82f, 0.22f));
+            UiKit.Place(line.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Pad, -Head + 3f), new Vector2(CardW - 2 * Pad, 1f));
+            return text;
+        }
+
+        private void AddOrder(Transform parent, int col, int row, OrderController.Act act, Glyph glyph, string nameToken, Func<string> hotkey)
         {
             var b = new UiButton(parent, "Order_" + act, new Vector2(BtnW, BtnH));
-            b.SetPosition(Pad + col * (BtnW + Gap), 26f + row * (BtnH + Gap));
-            b.Hint.text = hotkey();
+            b.SetPosition(Pad + col * (BtnW + Gap), Head + row * (BtnH + Gap));
+            b.SetGlyph(glyph);
+            b.SetHint(hotkey());
             orderButtons.Add(new OrderButton
             {
                 button = b,
@@ -160,11 +177,11 @@ namespace HighCommand.UI
         {
             var b = new UiButton(parent, "Skill_" + slot, new Vector2(BtnW, 74f), withIcon: true);
             b.SetPosition(Pad + col * (BtnW + Gap), y);
-            b.Hint.text = hotkey();
+            b.SetHint(hotkey());
             b.Label.text = "";
 
-            Image dot = UiKit.NewImage("Auto", b.Root, UiKit.Circle, UiKit.Good);
-            UiKit.Place(dot.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(7f, -7f), new Vector2(14f, 14f));
+            Image dot = UiKit.NewImage("Auto", b.Root, UiKit.Dot, UiKit.Good);
+            UiKit.Place(dot.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(4f, -4f), new Vector2(16f, 16f));
             skillButtons.Add(new SkillButton { button = b, autoDot = dot, slot = slot, act = act, hotkey = hotkey });
         }
 

@@ -18,10 +18,25 @@ Interface
   smoothly at a limited speed. The pull-in in front of walls and ramps is smoothed too (quick in, slow out).
   Flying to a hero, an alert or a minimap click still goes straight to the height of the target.
 
+* One look for the whole interface: panels, cards and buttons have two cut corners and a thin steel outline, the big
+  panels carry a short orange tick, the titles of the command card have an orange bar and a hairline.
+* Command card: every order and stance button has a picture (crossed swords, stop, pause, crosshair, U-turn, double arrow,
+  flag, formation dots, chevrons, shield, "no entry", portal) and the commander's abilities have their own (orbital
+  strike, cross, horn, diamond). The hotkey sits on a small key cap, the cooldown is a radial sweep with the seconds in
+  the middle. The pictures are drawn in code.
+* Minimap: a proper frame (cut corners, clipped contents), the picture is now a soft relief of the walkable ground
+  (colour by height, haze, light edge, faint grid) instead of a cloud of dots, the stage name and "N" in the corners,
+  dots have a dark rim, selected heroes get a ring, the camera box is a view finder (tint, hairlines, corner brackets).
+* The red defeat strip and the toast messages sit on a dark plate; toasts are above an open barracks / item panel.
+* Selected-hero cards: the level is a line above the portrait instead of lying over it.
+* The Void Fiend's name is printed properly ("Исчадие Пустоты"): the game's own Russian text for it is damaged.
+
 Dev
 * `hc_cam sweep <dx> <dz> <seconds>` pans along a line through the keyboard pan's code and logs the heights (with what
   the old code would have picked); `hc_drag ... hold` keeps the mouse button down until `hc_input_end`.
-* Scenarios `tools\qa\camera.txt` and `tools\qa\select.txt`.
+* Scenarios `tools\qa\camera.txt`, `tools\qa\select.txt` and `tools\qa\uishot.txt` (a screenshot per interface state).
+* `tools\glyph-preview` renders every command-card picture into one PNG without the game
+  (`dotnet run --project tools\glyph-preview -- <file.png>`).
 
 ## 0.10.0 - army upgrades, veteran ranks, fairer economy
 

@@ -47,7 +47,11 @@ namespace HighCommand.UI
         {
             if (!root) return;
             bool show = !root.gameObject.activeSelf;
-            if (show) Rebuild();
+            if (show)
+            {
+                Rebuild();
+                root.SetAsLastSibling(); // above the roster and the command card, not behind them
+            }
             root.gameObject.SetActive(show);
         }
 

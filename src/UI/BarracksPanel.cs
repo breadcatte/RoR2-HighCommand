@@ -84,11 +84,10 @@ namespace HighCommand.UI
                 var b = new UpgradeButton { root = UiKit.NewRect("Upgrade_" + i, root) };
                 b.root.sizeDelta = new Vector2(buttonW, UpgradeH);
                 b.frame = b.root.gameObject.AddComponent<Image>();
-                b.frame.sprite = UiKit.White;
+                UiKit.StyleOutline(b.frame, 7f);
                 b.frame.color = UiKit.Border;
                 b.frame.raycastTarget = false;
-                Image back = UiKit.NewImage("Back", b.root, UiKit.White, new Color(0.06f, 0.08f, 0.11f, 0.95f));
-                UiKit.Stretch(back.rectTransform, 2, 2, 2, 2);
+                UiKit.NewFill("Back", b.root, new Color(0.06f, 0.08f, 0.11f, 0.95f), 7f);
                 b.text = UiKit.NewText("Text", b.root, "", 18f, UiKit.Text, TextAlignmentOptions.Center);
                 UiKit.Stretch(b.text.rectTransform, 4, 4, 2, 2);
                 b.text.enableAutoSizing = true;
@@ -107,7 +106,11 @@ namespace HighCommand.UI
         {
             if (!root) return;
             bool show = !root.gameObject.activeSelf;
-            if (show) Build();
+            if (show)
+            {
+                Build();
+                root.SetAsLastSibling();
+            }
             root.gameObject.SetActive(show);
         }
 
@@ -136,12 +139,11 @@ namespace HighCommand.UI
                 UiKit.Place(c.root, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(col * (CardW + Gap), -row * (CardH + Gap)), new Vector2(CardW, CardH));
 
                 c.frame = c.root.gameObject.AddComponent<Image>();
-                c.frame.sprite = UiKit.White;
+                UiKit.StyleOutline(c.frame, 9f);
                 c.frame.color = UiKit.Border;
                 c.frame.raycastTarget = false;
 
-                c.back = UiKit.NewImage("Back", c.root, UiKit.White, new Color(0.06f, 0.08f, 0.11f, 0.95f));
-                UiKit.Stretch(c.back.rectTransform, 2, 2, 2, 2);
+                c.back = UiKit.NewFill("Back", c.root, new Color(0.06f, 0.08f, 0.11f, 0.95f), 9f);
 
                 c.portrait = UiKit.NewRawImage("Portrait", c.root, null, Color.white);
                 UiKit.Place(c.portrait.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(84f, 84f));
@@ -229,7 +231,7 @@ namespace HighCommand.UI
                 CharacterBody b = def.bodyPrefab ? def.bodyPrefab.GetComponent<CharacterBody>() : null;
                 token = b ? b.baseNameToken : "";
             }
-            return string.IsNullOrEmpty(token) ? def.cachedName : Language.GetString(token);
+            return string.IsNullOrEmpty(token) ? def.cachedName : Hero.Plain(Language.GetString(token));
         }
 
         private static readonly Regex Tags = new Regex("<[^>]+>", RegexOptions.Compiled);

@@ -107,15 +107,14 @@ namespace HighCommand.UI
                 c.root.sizeDelta = new Vector2(CardWidth - 6f, CardHeight);
 
                 c.frame = c.root.gameObject.AddComponent<Image>();
-                c.frame.sprite = UiKit.White;
+                UiKit.StyleOutline(c.frame, 7f);
                 c.frame.color = new Color(0.4f, 1f, 0.5f, 0.9f);
                 c.frame.raycastTarget = false;
 
-                Image back = UiKit.NewImage("Back", c.root, UiKit.White, new Color(0.05f, 0.06f, 0.08f, 0.95f));
-                UiKit.Stretch(back.rectTransform, 2, 2, 2, 2);
+                UiKit.NewFill("Back", c.root, new Color(0.05f, 0.06f, 0.08f, 0.95f), 7f);
 
                 c.portrait = UiKit.NewRawImage("Portrait", c.root, null, Color.white);
-                UiKit.Place(c.portrait.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(64f, 64f));
+                UiKit.Place(c.portrait.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -19f), new Vector2(56f, 56f));
 
                 c.name = UiKit.NewText("Name", c.root, "", 15f, UiKit.Text, TextAlignmentOptions.Center);
                 UiKit.Place(c.name.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 22f), new Vector2(CardWidth - 8f, 20f));
@@ -123,8 +122,8 @@ namespace HighCommand.UI
                 c.name.fontSizeMin = 10f;
                 c.name.fontSizeMax = 15f;
 
-                c.level = UiKit.NewText("Level", c.root, "", 16f, UiKit.Gold, TextAlignmentOptions.TopRight);
-                UiKit.Place(c.level.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-4f, -3f), new Vector2(60f, 20f));
+                c.level = UiKit.NewText("Level", c.root, "", 14f, UiKit.Gold, TextAlignmentOptions.TopLeft);
+                UiKit.Place(c.level.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(9f, -4f), new Vector2(CardWidth - 20f, 16f));
 
                 Image barBack = UiKit.NewImage("BarBack", c.root, UiKit.White, new Color(0.15f, 0.15f, 0.17f, 1f));
                 UiKit.Place(barBack.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 8f), new Vector2(CardWidth - 18f, 9f));
