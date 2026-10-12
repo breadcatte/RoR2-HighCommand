@@ -16,3 +16,4 @@ First complete version of the mode.
 * Hero AI profiles per survivor (data file), automatic retreat of badly hurt heroes, per-skill usage rules.
 * Command card, roster strip, inventory panel, tooltips, ru / en localisation, settings in Mod Options.
 * Client -> server command channel for co-op.
+* Lobby rules category (starting gold, hero prices, army limit, difficulty per hero, item sharing, drop rate).

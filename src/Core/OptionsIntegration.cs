@@ -16,8 +16,6 @@ namespace HighCommand
     {
         internal const string RiskOfOptionsGuid = "com.rune580.riskofoptions";
 
-        internal static bool Available => BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey(RiskOfOptionsGuid);
-
         [MethodImpl(MethodImplOptions.NoInlining)]
         internal static void Register()
         {

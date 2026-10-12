@@ -68,7 +68,7 @@ namespace HighCommand
 
             try
             {
-                if (OptionsIntegration.Available) OptionsIntegration.Register();
+                if (BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey(OptionsIntegration.RiskOfOptionsGuid)) OptionsIntegration.Register();
             }
             catch (Exception e) { Log.LogWarning("Mod Options not registered: " + e.Message); }
 

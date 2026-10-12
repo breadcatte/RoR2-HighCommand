@@ -1,92 +1,115 @@
 # HighCommand — режим «Верховное командование» для Risk of Rain 2
 
 Рабочее название режима: **High Command / «Верховное командование»** (внутреннее имя Run-префаба: `HighCommandRun`).
-Идея: отдельный стратегический режим поверх нетронутого RoR2. Я (игрок) — безтелесный командир с RTS-камерой.
+Идея: отдельный стратегический режим поверх нетронутого RoR2. Игрок — бестелесный командир с RTS-камерой.
 Армия — настоящие выжившие игры под ИИ; стартовый герой выбирается в лобби, остальных покупаем за золото.
 
-Этот файл — рабочая архитектура. Всё, что здесь названо «проверено», сверено с декомпилированным `RoR2.dll`
-(игра Unity 2021.3.45, BepInEx 5.4.21, DLC1–DLC4 присутствуют в каталоге Addressables). Справочная декомпиляция
-лежит в `_ref/` (в `.gitignore`, в мод не копируется).
+Этот файл — архитектура **как она реализована**. Всё, что здесь названо «проверено», сверено с декомпилированным `RoR2.dll`
+(игра Unity 2021.3.45, BepInEx 5.4.21; справочная декомпиляция в `_ref/`, она в `.gitignore` и в мод не копируется).
+Состояние этапов и список ограничений — в `STATUS.md`.
 
-## 1. Окружение (проверено)
+## 1. Окружение
 
 | Что | Значение |
 |---|---|
-| Игра | `C:\Program Files (x86)\Steam\steamapps\common\Risk of Rain 2`, AppID 632360, Unity 2021.3.45 |
-| Загрузчик | BepInEx 5.4.21 + RoR2BepInExPack 1.43 + HookGenPatcher/MMHOOK + RiskOfOptions |
-| R2API | **не установлен и не нужен** до сетевого этапа (свой ContentPack + Harmony, как в EngiDrone) |
-| Сборка | .NET SDK 8 (`%LOCALAPPDATA%\dotnet-sdk`), target `netstandard2.1`, ссылки на `Managed\*.dll` |
+| Игра | `C:\Program Files (x86)\Steam\steamapps\common\Risk of Rain 2`, AppID 632360 |
+| Загрузчик | BepInEx 5.4.21 + RoR2BepInExPack; RiskOfOptions — мягкая зависимость (окно настроек) |
+| R2API | не нужен: свой ContentPack + Harmony + свои UNET-сообщения |
+| Сборка | .NET SDK 8, target `netstandard2.1`, ссылки на `Managed\*.dll`; `tools\build.ps1`, `tools\package.ps1` |
 | Инструменты | `_tools\ilspycmd.exe` (декомпилятор), `_tools\mingit` (git) |
 
-## 2. Ключевые решения
+## 2. Архитектура
 
-### 2.1 Режим — отдельный `Run`
-* `HighCommandRun : Run` (наследник `Run`, как `EclipseRun`/`InfiniteTowerRun`). Префаб = клон
-  `RoR2/Base/ClassicRun/ClassicRun.prefab` (Addressables), компонент `Run` заменён на наш, поля скопированы.
-  Префабу даётся новый `NetworkIdentity.assetId` (иначе затрёт запись ClassicRun в `ClientScene.prefabs`).
-* Регистрация: `ContentPack.gameModePrefabs` → `GameModeCatalog` сам подхватывает по имени.
-* В лобби: `HostGamePanelController` показывает все `userPickable` режимы сам; `MultiplayerMenuController` и
-  `LocalMultiplayerMenuController` фильтруют по токенам из префаба меню → Harmony-префикс добавляет наш токен.
-  Плюс отдельная кнопка в главном меню и консольная команда `hc_start` (`gamemode HighCommandRun; host 0`).
-* Правила лобби (стартовое золото, множители): `RuleCatalog.Init` приватный → Harmony-постфикс добавляет
-  категорию и `RuleDef`-ы рефлексией, затем пере-индексирует выбор. Этап M10/M12; до этого — только конфиг BepInEx.
+### 2.1 Режим
+* Префаб = клон `RoR2/Base/ClassicRun/ClassicRun.prefab` (Addressables) с нашими компонентами `HighCommandRun` (маркер +
+  серверная логика) и `HcState` (реплицируемое состояние). Заменить сам `Run` нельзя (`Run` и `RunArtifactManager` требуют
+  друг друга). Новый `NetworkIdentity.assetId` (MD5 имени). Регистрация: `ContentPack.gameModePrefabs`.
+* Лобби: Harmony-префиксы добавляют токен режима в списки меню; кнопка в «Дополнительных режимах»; консоль `hc_start`.
+* **Правила лобби** (`Mode/LobbyRules.cs`): транспилер на `RuleCatalog.Init` вставляет вызов после последнего штатного
+  `AddRule`; категория «Верховное командование» (стартовое золото, цена героев, предел армии, сложность за героя, раздача
+  предметов, частота дропа). Первый выбор каждого правила — «из настроек» (значение `.cfg`).
 
-### 2.2 Командир и армия
-* **Командир** = обычный мастер игрока (`PlayerCharacterMasterController` + `NetworkUser`) **без тела**.
-  Его тело не создаётся: `Stage.RespawnCharacter` для него пропускается (Harmony). Так работают лобби, лоадаут,
-  камера, RunReport, сохранение, а его инвентарь служит **общим пулом предметов** армии.
-* **Герои** = отдельные AI-мастера (`BaseAI`), по одному на выжившего. Мастер-префаб берётся из
-  `MasterCatalog.FindAiMasterIndexForBody` (в игре есть `…MonsterMaster` для всех ванильных выживших, включая DLC),
-  для неизвестного модового выжившего — универсальный мастер с запасным профилем.
-  Тело = `SurvivorDef.bodyPrefab`, лоадаут/скин копируется из лобби (`master.SetLoadoutServer`).
-* Мастера героев получают `SetDontDestroyOnLoad` → ванильный `Stage.RespawnAllNPCs` сам возрождает их у точки
-  старта на каждой следующей стадии. На первой стадии стартовый герой создаётся в `Stage.onServerStageBegin`
-  (с капсулой через `Run.HandlePlayerFirstEntryAnimation`).
-* Поражение: свой таймер в `HighCommandRun` (ванильная проверка `Stage.Update` отключается тем, что командир не
-  «спавнил игрока»). Победа/финал — ванильные `GameEndingDef`.
+### 2.2 Командир, армия, ход забега
+* **Командир** = обычный мастер игрока без тела (`Stage.RespawnCharacter` для него пропускается). Его инвентарь — общий пул
+  предметов армии; лобби, лоадаут, камера, отчёт о забеге работают штатно.
+* **Герои** = AI-мастера (`MasterSummon` из `…MonsterMaster` выжившего; запасной вариант — мастер Коммандо + подмена тела),
+  `SetDontDestroyOnLoad` → ванильный `Stage.RespawnAllNPCs` возрождает их (в том числе павших) на каждой стадии.
+* **`RunFlow`** (сервер): поражение (никто не жив и золота на воскрешение нет / таймер на воскрешение вышел →
+  `Run.BeginGameOver(StandardLoss)`; ванильная проверка не срабатывает без «заспавненного игрока»), состояние телепорта и
+  зоны зарядки, сбор армии у новой точки сбора, копирование приказов/стоек/перезарядок героев в реплицируемый ростер.
+* **Телепорт**: `HoldoutZoneController` считает только `isPlayerControlled` — патчим подсчёт на живых героев; кнопка
+  «Телепорт» (`H`) = ближайший герой активирует / армия собирается в зоне / уход на следующую стадию.
+* **Воскрешение** за золото (`CharacterMaster.Respawn(..., wasRevivedMidStage: true)`), бесплатное — при смене стадии.
+* Сложность: `Run.participatingPlayerCount` (getter-патч) = 1 + (героев−1)·`ThreatPerExtraHero`;
+  `GetPlayersWithBodiesCount` = живые герои (масштабирует HP врагов, деньги и т. п.).
 
 ### 2.3 ИИ героев
-* Строим на `BaseAI`: навигация (`BroadNavigationSystem`, `LocalNavigator`), сглаживание прицела, поиск целей, учёт
-  тела — всё ванильное. Решения принимает наш `HeroBrain`, исполняет наш `EntityState` (`HeroAIState : BaseAIState`),
-  который пишет в `InputBankTest` ровно как игрок: кнопки навыков 1–4, спринт, прыжок, оборудование.
-* Профиль героя (роль, дистанции, правила по слотам навыков) — JSON в `profiles\`, редактируется без перекомпиляции.
-  Универсальный профиль разбирает `SkillDef` (кулдаун, заряды, `isCombatSkill`, `mustKeyPress`, `interruptPriority`).
-* Приказы (Move/Attack-Move/Attack/Focus/Stop/Hold/Follow/Retreat/Patrol, очередь, стойки) — слой над `HeroBrain`.
+* `HeroBrain` (сервер, MonoBehaviour на мастере) — решения раз в 0.12 с: очередь приказов, стойка, поиск цели
+  (`Perception`), автоотступление раненого, удержание зоны телепорта. `HeroAIState : BaseAIState` — исполнитель на уровне
+  тела: пишет в `InputBankTest` как игрок; какой навык нажать, решают штатные `AISkillDriver` выжившего, поверх них —
+  правила профиля (`auto / never / escape / engage / burst`) и переключатели автоприменения.
+* **Профили** (`Orders/HeroProfile.cs`): `profiles\hero_profiles.json` рядом с DLL; дальности, пороги отступления,
+  правила по слотам; `"*"` — запасной профиль для любых выживших (в том числе модовых). Свой `MiniJson`
+  (Unity `JsonUtility` не знает типов модовой сборки).
+* Приказы: Move / AttackMove / Attack (Focus) / Stop / Hold / Follow / Retreat / Patrol / Interact / Cast, очередь, стойки,
+  построения (`Formation`), точка сбора.
 
 ### 2.4 Экономика и лут
-* Золото: ванильный `DeathRewards` считает сумму; перехватываем начисление и кладём в общий кошелёк армии
-  (сервер хранит, клиенты получают синхронизацией).
-* Предметы: из убитых врагов, шанс по типу врага/стадии/сложности/удаче, без капсул — сразу в пул командира.
-  Сундуки и «ящичные» интерактивы не спавнятся (белый список в конфиге).
+* Золото: перехват `TeamManager.GiveTeamMoney` / `CharacterMaster.GiveMoney` → общий кошелёк (`Economy`, `HcState.Gold`).
+* Предметы: `DeathRewards.OnKilledServer` постфикс → шанс по золоту за врага, сложности, элите/боссу; предмет сразу в пул
+  командира; перехват `PickupDropletController.CreatePickupDroplet` / `GenericPickupController.CreatePickup` направляет
+  все прочие дропы (боссы, шрайны) туда же. Платные интерактивы не ставятся (`DirectorCore.TrySpawnObject`).
+* `ItemDistributor`: каждая новая единица — герою с лучшим счётом (роль × теги предмета − число уже имеющихся);
+  Split / Mirror; новичок забирает долю; ручные переносы и «раздать заново»; снаряжение через `HeroEquipment`.
 
-### 2.5 Масштаб врагов
-Ванильные директор/сложность считают игроков по `PlayerCharacterMasterController`. Патчим точечно:
-`GetPlayersWithBodiesCount` / `Run.participatingPlayerCount` → «эквивалент числа игроков» от живых героев
-(коэффициенты в конфиге), `CombatDirector.PickPlayerAsSpawnTarget` → цели из тел героев.
+### 2.5 Камера и UI
+* RTS-камера — `ICameraStateProvider` через `CameraRigController.SetOverrideCam` (ванильные постобработка/туман остаются),
+  ванильный HUD скрыт (`IsHudAllowed=false`), аудио-слушатель переносится на землю под фокус.
+* UI — uGUI/TMP, строится кодом на одном overlay-канвасе, спрайты процедурные, шрифты игры (`HGTextMeshProUGUI`); свой
+  hit-testing (`ClientInput`), поддержка синтетического ввода для тестов (`hc_click`, `hc_drag`, `hc_key`).
+* Панели: `TopBar` (золото, армия, телепорт, баннер поражения), `RosterPanel`, `CommandCard` (приказы, стойки, умения героя,
+  способности командира), `SelectionPanel`, `BarracksPanel`, `InventoryPanel`, `LootFeed`, `Minimap`, `HelpOverlay`,
+  `Tooltip`, `Toast`; ru/en через токены `Language` (`Core/Strings.cs`).
 
-### 2.6 Камера и UI
-* RTS-камера — `ICameraStateProvider`, подключаемый через `CameraRigController.SetOverrideCam`: остаются ванильные
-  постобработка, туман, UI-камера. Ванильный HUD скрывается (`IsHudAllowed=false`).
-* UI — uGUI/TMP, строится кодом, шрифты и спрайты берутся из игры; локализация через токены `Language`.
-* Курсор: `CursorOpener`/`MPEventSystem` как у ванильных меню; ввод — `UnityEngine.Input` (раскладка в конфиге).
+### 2.6 Сеть
+* Реплицируется `HcState` (ручная `OnSerialize`/`OnDeserialize` и ручной ClientRpc ленты лута): золото, цены, режим раздачи,
+  ростер (+приказы, стойки, автоприменение, перезарядки), запасное снаряжение, телепорт, таймер поражения, перезарядки
+  способностей командира.
+* Команды клиент → сервер: `Net/CommandChannel` (два UNET-сообщения 0x4843 / 0x4844: команда и ответ-тост). Сервер проверяет
+  отправителя, id героев, предметы, размеры. Хост применяет команды напрямую (`ForceRelay` отправляет их и хосту — так
+  проверяется транспорт без второго компьютера).
 
-### 2.7 Сеть
-Игровая логика (золото, покупки, приказы, ИИ) только на сервере. Команды клиента → сервера идут через слой
-`Net` (`IOrderSink`), в одиночной игре — прямой вызов. Для кооп-режима позже: R2API.Networking (или
-`NetworkServer.RegisterHandler`), синхронизация кошелька/выделения, камеры на клиенте. Реалистично, но это
-отдельный этап после стабильного соло.
+### 2.7 Статистика
+* `RunStats`: убийства, урон, получено золота, предметы, смерти — пишутся в `PlayerStatsComponent` командира перед
+  `Run.BeginGameOver` (экран конца забега показывает результаты армии).
 
-## 3. Риски
+## 3. Модули
 
-| Риск | Что делаем |
+```
+src/Plugin.cs                  точка входа, патчи, Mod Options
+src/Mode/                      HighCommandRun, HcState, RunFlow, RunPatches, LobbyRules, RunPrefabBuilder, меню/лобби
+src/Army/                      ArmyManager, Hero, ArmyService, Economy, LootService, ItemDistributor, HeroEquipment,
+                               HeroRoles, CommanderAbilities, RunStats
+src/Orders/                    HeroBrain, HeroAIState, HeroProfile, Perception, Formation, Order, OrderService
+src/Client/                    ClientRoot, RtsCamera, ClientInput, Selection*, OrderController, WorldPicker, MapInfo
+src/UI/                        панели и общие виджеты (UiKit, UiButton, Tooltip, PickupIcons ...)
+src/Net/CommandChannel.cs      команды клиент → сервер
+src/Core/                      Settings, Strings/Loc, MiniJson, OptionsIntegration
+src/Dev/                       консольные команды hc_*, AutoExec (сценарии), Perf
+```
+
+## 4. Риски (и что с ними сделано)
+
+| Риск | Что сделано |
 |---|---|
-| Ванильные системы ждут тело у игрока (телепортер, зоны, спавн директора) | аудит 84 мест `PlayerCharacterMasterController.instances`, точечные патчи по мере этапов |
-| `Run`-префаб клонируется без Unity Editor | поля копируются рефлексией; проверяется логом `hc_dump_run` |
-| Производительность (десятки ИИ) | редкие тики (0.1–0.25 с), бюджет поиска целей на кадр, кэш |
-| Модовые выжившие | универсальный профиль, любые ошибки профиля логируются и не роняют игру |
+| Ванильные системы ждут тело у игрока | зона телепорта, поражение, подсчёт игроков, цели директора, золото — патчи под героев (аудит 157 мест `isPlayerControlled` / `PlayerCharacterMasterController.instances`: исправлены существенные для цикла) |
+| Клонирование `Run`-префаба без Unity Editor | клон + маркер; проверено в игре, `hc_dump_run` |
+| Производительность | редкие тики (0.12 с), поиск целей с ограничением LOS-проверок, счётчики `hc_perf`: 10 героев ≈ 1 мс/с ИИ + ~40 мс/с UI |
+| Модовые выжившие | запасной профиль `"*"`, ошибки профиля логируются и не роняют игру |
+| Кооператив | свой канал команд; проверен только loopback на хосте |
+| Финальные стадии | герои умеют использовать объекты, но сценарии финалов не проверялись |
 
-## 4. План (этапы M0–M13)
-M0 каркас/лог/команды · M1 режим в лобби · M2 стартовый герой под ИИ · M3 камера+мини-карта · M4 выделение ·
-M5 приказы · M6 боевой ИИ · M7 золото/вербовка · M8 лут · M9 инвентарь · M10 UI/способности командира ·
-M11 ход забега · M12 баланс/производительность · M13 полировка/упаковка.
-Подробный статус и проверки — в `STATUS.md`.
+## 5. Этапы
+M0 каркас · M1 режим · M2 стартовый герой · M3 камера+мини-карта · M4 выделение · M5 приказы · M6 боевой ИИ ·
+M7 золото/найм · M8 лут · M9 инвентарь · M10 UI/способности командира/правила лобби · M11 ход забега ·
+M12 баланс/производительность · M13 полировка/упаковка. Подробности — `STATUS.md`.
