@@ -82,6 +82,82 @@ namespace HighCommand.Dev
             if (id) sb.AppendLine($"{indent}NetworkIdentity: assetId={id.assetId} netId={id.netId}");
         }
 
+        [ConCommand(commandName = "hc_dump_ui", flags = HostOnly, helpText = "hc_dump_ui <name part> [depth]: prints the hierarchy of objects whose name contains the text.")]
+        private static void CcDumpUi(ConCommandArgs args)
+        {
+            if (args.Count < 1) throw new ConCommandException("Usage: hc_dump_ui <name part> [depth]");
+            string part = args.GetArgString(0);
+            int depth = args.Count > 1 ? args.GetArgInt(1) : 4;
+
+            var sb = new StringBuilder();
+            int found = 0;
+            foreach (GameObject go in Resources.FindObjectsOfTypeAll<GameObject>())
+            {
+                if (!go.scene.IsValid() || go.name.IndexOf(part, System.StringComparison.OrdinalIgnoreCase) < 0) continue;
+                // only the top-most match, children are printed by the walk
+                Transform p = go.transform.parent;
+                bool parentMatches = false;
+                while (p) { if (p.name.IndexOf(part, System.StringComparison.OrdinalIgnoreCase) >= 0) { parentMatches = true; break; } p = p.parent; }
+                if (parentMatches) continue;
+
+                found++;
+                sb.AppendLine($"== scene '{go.scene.name}' path '{PathOf(go.transform)}'");
+                Walk(sb, go.transform, 0, depth);
+                if (found >= 6) break;
+            }
+            if (found == 0) sb.AppendLine("(nothing found)");
+            Debug.Log(sb.ToString());
+        }
+
+        private static string PathOf(Transform t)
+        {
+            string path = t.name;
+            while (t.parent) { t = t.parent; path = t.name + "/" + path; }
+            return path;
+        }
+
+        private static void Walk(StringBuilder sb, Transform t, int level, int maxDepth)
+        {
+            var comps = new StringBuilder();
+            foreach (Component c in t.GetComponents<Component>())
+            {
+                if (!c || c is Transform) continue;
+                string n = c.GetType().Name;
+                if (comps.Length > 0) comps.Append(',');
+                comps.Append(n);
+            }
+            sb.AppendLine($"{new string(' ', level * 2)}{t.name} [{(t.gameObject.activeSelf ? "on" : "off")}] {comps}");
+            if (level >= maxDepth) return;
+            for (int i = 0; i < t.childCount; i++) Walk(sb, t.GetChild(i), level + 1, maxDepth);
+        }
+
+        [ConCommand(commandName = "hc_menu_extra", flags = HostOnly, helpText = "Presses the title menu's Extra Game Mode button (and, with an argument 'click', the High Command button).")]
+        private static void CcMenuExtra(ConCommandArgs args)
+        {
+            bool click = args.Count > 0 && args.GetArgString(0) == "click";
+            if (!click)
+            {
+                RoR2.UI.MainMenu.TitleMenuController title = null;
+                foreach (var t in Resources.FindObjectsOfTypeAll<RoR2.UI.MainMenu.TitleMenuController>())
+                    if (t.gameObject.scene.IsValid()) { title = t; break; }
+                if (!title) throw new ConCommandException("Title menu not found (not in the title scene?).");
+                title.OnExtraGameModeButtonPressed();
+            }
+            else
+            {
+                foreach (var button in Resources.FindObjectsOfTypeAll<RoR2.UI.HGButton>())
+                {
+                    if (button.name.Contains("HighCommand"))
+                    {
+                        Debug.Log("HighCommand: clicking " + button.name);
+                        button.onClick.Invoke();
+                        return;
+                    }
+                }
+                throw new ConCommandException("High Command button not found.");
+            }
+        }
+
         [ConCommand(commandName = "hc_dump_gamemodes", flags = HostOnly, helpText = "Lists the registered game modes.")]
         private static void CcDumpGameModes(ConCommandArgs args)
         {

@@ -47,6 +47,7 @@ namespace HighCommand
             TryPatch(typeof(Mode.LobbyPatches.MultiplayerMenu), "game mode in the multiplayer menu");
             TryPatch(typeof(Mode.LobbyPatches.LocalMultiplayerMenu), "game mode in the local multiplayer menu");
             TryPatch(typeof(Mode.RunRulePatch), "forced rule choices");
+            TryPatch(typeof(Mode.MenuButton), "Extra Game Mode menu button");
 
             try { Dev.AutoExec.Install(); }
             catch (Exception e) { Log.LogWarning("AutoExec not installed: " + e.Message); }
