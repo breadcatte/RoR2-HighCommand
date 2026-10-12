@@ -354,7 +354,12 @@ namespace HighCommand.Orders
             }
 
             GenericSkill skill = GetSkill(slot);
-            if (!skill) { brain.NotifyCastPressed(); return; }
+            if (!skill)
+            {
+                if (Settings.VerboseLog.Value) Plugin.Log.LogInfo($"{characterMaster.name}: cast slot {slot}: no such skill");
+                brain.NotifyCastPressed();
+                return;
+            }
 
             // wait a moment so the aim has swung round, then hold the button for a few frames
             if (castPressTime < 0f) castPressTime = Time.time + 0.2f;
@@ -363,11 +368,16 @@ namespace HighCommand.Orders
             if (!skill.IsReady())
             {
                 // on cooldown / out of stock: nothing to cast, give up
+                if (Settings.VerboseLog.Value)
+                    Plugin.Log.LogInfo($"{characterMaster.name}: cast slot {slot}: not ready (stock {skill.stock}, cooldown {skill.cooldownRemaining:0.0}, " +
+                                       $"def {skill.skillDef.GetType().Name}/{skill.skillDef.skillName}, requiredStock {skill.skillDef.requiredStock}, canExecute {skill.CanExecute()})");
                 castPressTime = -1f;
                 castFrames = 0;
                 brain.NotifyCastPressed();
                 return;
             }
+            if (castFrames == 0 && Settings.VerboseLog.Value)
+                Plugin.Log.LogInfo($"{characterMaster.name}: casting slot {slot} ({skill.skillDef.skillName}) at {aimPoint:0}");
 
             SetPress(slot, true);
             castFrames++;

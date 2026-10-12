@@ -157,7 +157,8 @@ namespace HighCommand.Dev
                 if (brain != null)
                     ai += $" | brain: mode={brain.Mode} {brain.DebugState} order={(brain.Current != null ? brain.Current.ToString() : "-")} queued={brain.QueuedCount} stance={brain.Stance} stuck={brain.Stuck} anchor={brain.Anchor:0} goal={brain.Goal:0}";
                 string hp = body && body.healthComponent ? $"{body.healthComponent.health:0}/{body.healthComponent.fullHealth:0}" : "-";
-                sb.AppendLine($"  {hero} '{hero.DisplayName}' alive={hero.IsAlive} hp={hp} lvl={(body ? body.level : 0):0} pos={hero.Position:0} {ai}");
+                sb.AppendLine($"  {hero} '{hero.DisplayName}' alive={hero.IsAlive} hp={hp} lvl={(body ? body.level : 0):0} pos={hero.Position:0} " +
+                              $"cd=[{hero.NetSkillCd[0]},{hero.NetSkillCd[1]},{hero.NetSkillCd[2]}] auto={hero.NetAutoMask:X2} {ai}");
             }
             Debug.Log(sb.ToString());
         }
@@ -394,6 +395,7 @@ namespace HighCommand.Dev
                 case "startinggold": Settings.StartingGold.Value = int.Parse(value); break;
                 case "herobaseprice": Settings.HeroBasePrice.Value = int.Parse(value); break;
                 case "autoretreat": Settings.AutoRetreat.Value = bool.Parse(value); break;
+                case "verbose": Settings.VerboseLog.Value = bool.Parse(value); break;
                 default: throw new ConCommandException("Unknown setting.");
             }
             Mode.HcState.Instance?.ServerPublishSettings();

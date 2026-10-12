@@ -219,6 +219,7 @@ namespace HighCommand.Mode
 
                 // skill cooldowns: only the server's bodies simulate them, so they travel with the roster
                 CharacterBody body = h.Body;
+                if (body) RunStats.NoteLevel((int)body.level);
                 SkillLocator locator = body ? body.skillLocator : null;
                 for (int s = 0; s < 3; s++)
                 {

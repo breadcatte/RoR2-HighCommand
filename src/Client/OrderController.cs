@@ -112,7 +112,9 @@ namespace HighCommand.Client
 
         private void HandleHotkeys(IReadOnlyList<Hero> heroes)
         {
-            bool toggleAuto = ClientInput.Key(Settings.KeyToggleAuto.Value);
+            // the configured key (LeftAlt by default); the synthetic modifier of the test commands counts as well
+            bool toggleAuto = ClientInput.Key(Settings.KeyToggleAuto.Value)
+                              || (ClientInput.Alt && (Settings.KeyToggleAuto.Value == KeyCode.LeftAlt || Settings.KeyToggleAuto.Value == KeyCode.RightAlt));
 
             for (int a = 0; a < CommanderAbilities.Count; a++)
             {

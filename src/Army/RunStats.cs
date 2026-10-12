@@ -20,12 +20,20 @@ namespace HighCommand.Army
         private static ulong goldEarned;
         private static ulong items;
         private static float highestHit;
+        private static int highestLevel = 1;
         private static bool subscribed;
 
         internal static void Reset()
         {
             kills = damageDealt = damageTaken = deaths = goldEarned = items = 0;
             highestHit = 0f;
+            highestLevel = 1;
+        }
+
+        /// <summary>Remembers the best hero level seen so far (dead heroes have no body to ask at the end).</summary>
+        internal static void NoteLevel(int level)
+        {
+            if (level > highestLevel) highestLevel = level;
         }
 
         internal static void Subscribe()
@@ -97,7 +105,7 @@ namespace HighCommand.Army
             HighCommandRun hc = HighCommandRun.Instance;
             if (hc != null)
             {
-                int level = 1;
+                int level = highestLevel;
                 foreach (Hero h in hc.Army.Heroes)
                     if (h.Body) level = Mathf.Max(level, (int)h.Body.level);
                 sheet.PushStatValue(StatDef.highestLevel, (ulong)level);
