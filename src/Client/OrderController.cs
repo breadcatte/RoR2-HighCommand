@@ -222,7 +222,10 @@ namespace HighCommand.Client
                 case Hover.Follow: info.Glyph = Glyph.Follow; info.Color = FollowColor; break;
                 case Hover.Interact: info.Glyph = Glyph.Interact; info.Color = InteractColor; break;
             }
-            info.Preview = kind != Hover.Select && info.HasPoint;
+            // the line shows only when the pointer is on something (an enemy, a friend, an object) or the player is
+            // planning a queue with Shift; over bare ground the badge alone is enough
+            bool onSomething = kind == Hover.Attack || kind == Hover.Follow || kind == Hover.Interact;
+            info.Preview = info.HasPoint && (onSomething || (kind == Hover.Move && info.Queued));
             Cursor = info;
         }
 

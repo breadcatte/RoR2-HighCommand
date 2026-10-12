@@ -170,6 +170,79 @@ namespace HighCommand.UI
             return fill;
         }
 
+        // ---- soft lines ---------------------------------------------------------------------------
+
+        private static Sprite softLine;
+        private static Texture2D flowTexture;
+
+        // alpha across a line: a solid core and edges that fade out, so a thin rotated line has no stair steps
+        private static float LineProfile(float across01)
+        {
+            float d = Mathf.Abs(across01 * 2f - 1f);
+            return Mathf.Clamp01((1f - d) / 0.55f);
+        }
+
+        /// <summary>A white strip, soft towards its two long edges. Stretched and rotated into a smooth line.</summary>
+        internal static Sprite SoftLine
+        {
+            get
+            {
+                if (softLine) return softLine;
+                const int w = 4, h = 16;
+                var tex = new Texture2D(w, h, TextureFormat.RGBA32, false)
+                {
+                    hideFlags = HideFlags.HideAndDontSave,
+                    wrapMode = TextureWrapMode.Clamp,
+                    filterMode = FilterMode.Bilinear
+                };
+                var pixels = new Color32[w * h];
+                for (int y = 0; y < h; y++)
+                {
+                    byte a = (byte)Mathf.RoundToInt(LineProfile((y + 0.5f) / h) * 255f);
+                    for (int x = 0; x < w; x++) pixels[y * w + x] = new Color32(255, 255, 255, a);
+                }
+                tex.SetPixels32(pixels);
+                tex.Apply(false, true);
+                softLine = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f);
+                softLine.hideFlags = HideFlags.HideAndDontSave;
+                return softLine;
+            }
+        }
+
+        /// <summary>Texels of one dash + gap in <see cref="FlowTexture"/>.</summary>
+        internal const int FlowPeriod = 32;
+
+        /// <summary>A repeating row of soft dashes (for a RawImage whose uvRect scrolls: a line that flows towards its end).</summary>
+        internal static Texture2D FlowTexture
+        {
+            get
+            {
+                if (flowTexture) return flowTexture;
+                const int w = FlowPeriod, h = 16;
+                var tex = new Texture2D(w, h, TextureFormat.RGBA32, false)
+                {
+                    hideFlags = HideFlags.HideAndDontSave,
+                    wrapMode = TextureWrapMode.Repeat,
+                    filterMode = FilterMode.Bilinear
+                };
+                var pixels = new Color32[w * h];
+                for (int x = 0; x < w; x++)
+                {
+                    // a dash 20 texels long with rounded ends, then a gap
+                    float along = Mathf.Clamp01(Mathf.Min(x + 0.5f - 1f, 21f - (x + 0.5f)) / 3.5f);
+                    for (int y = 0; y < h; y++)
+                    {
+                        float a = along * LineProfile((y + 0.5f) / h);
+                        pixels[y * w + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(Mathf.Clamp01(a) * 255f));
+                    }
+                }
+                tex.SetPixels32(pixels);
+                tex.Apply(false, true);
+                flowTexture = tex;
+                return flowTexture;
+            }
+        }
+
         // ---- dots and glyphs --------------------------------------------------------------------
 
         private static Sprite dot;

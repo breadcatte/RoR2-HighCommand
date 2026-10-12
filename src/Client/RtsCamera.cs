@@ -86,6 +86,11 @@ namespace HighCommand.Client
                 {
                     CameraRigController rig = rigs[i];
                     if (rig && rig.IsOverrideCam(this)) rig.SetOverrideCam(null, 0f);
+                    if (rig)
+                    {
+                        var spectate = rig.GetComponent<CameraRigControllerSpectateControls>();
+                        if (spectate) spectate.enabled = true; // the game's own controls come back with the game's camera
+                    }
                 }
             }
             catch (Exception e)
@@ -295,6 +300,7 @@ namespace HighCommand.Client
                 CameraRigController rig = rigs[i];
                 if (!rig || !rig.sceneCam || rig.localUserViewer == null) continue;
                 if (!rig.IsOverrideCam(this)) rig.SetOverrideCam(this, 0f);
+                SilenceSpectateControls(rig);
                 if (Rig != rig)
                 {
                     Rig = rig;
@@ -304,6 +310,19 @@ namespace HighCommand.Client
             if (Rig && !Rig.isActiveAndEnabled) Rig = null;
 
             UpdateListener();
+        }
+
+        // The game's spectator controls listen to the player's buttons while there is no body: one of them opens the
+        // "remote operation" drone picker (a big dark panel in the middle of the screen) on a key press the commander
+        // never meant. The commander is not a spectator, so the component is switched off while the mode runs.
+        private void SilenceSpectateControls(CameraRigController rig)
+        {
+            var spectate = rig.GetComponent<CameraRigControllerSpectateControls>();
+            if (!spectate || !spectate.enabled) return;
+            spectate.enabled = false;
+            var panels = FindObjectsOfType<RoR2.UI.RemoteOperationDronePickerPanel>();
+            for (int i = 0; i < panels.Length; i++)
+                if (panels[i]) Destroy(panels[i].gameObject);
         }
 
         private void OnRigChanged()

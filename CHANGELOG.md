@@ -27,8 +27,12 @@ Interface
   the cooldown is a radial sweep with the seconds in the middle. The pictures are drawn in code.
 * The pointer shows what a right click would do: a small badge with a picture and a word next to it - Move, Attack,
   Follow, Use, Select ("(queued)" with Shift). While a targeting mode waits for a click it shows that mode.
-* A thin line runs from every selected hero (the first six) to the point under the pointer, from the end of the queue
-  when Shift is held.
+* A line runs from every selected hero (the first six) to what is under the pointer: dashes that flow towards the
+  target on a soft glow, an arrowhead and a breathing ring, in the colour of the action. It shows only over an enemy,
+  a friend or an object, or over bare ground while Shift is held (planning a queue); over plain ground the badge alone
+  is shown. Slanted lines are drawn with soft edges now, so they no longer break into stair steps.
+* The game's own "remote operation" drone picker (a big dark panel that a stray key of the spectator controls opened in
+  the middle of the screen) can no longer appear while the mode runs.
 * Camera tilt: the middle mouse button already turned the view sideways, now dragging it up / down tilts it (up = flatter,
   down = more from above; 25-85 degrees), also PageUp / PageDown (`Keys/TiltUp`, `Keys/TiltDown`), speed
   `Camera/TiltSpeed`, direction `Camera/InvertTilt`. `Camera/Pitch` is the starting tilt. The minimap's view box and the

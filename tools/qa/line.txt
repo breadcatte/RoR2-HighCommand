@@ -1,0 +1,44 @@
+# The preview line of an order: an enemy under the pointer, an ally, and a Shift-queued point on bare ground.
+# Over bare ground without Shift there must be no line (screenshots line_*.png).
+@wait 4
+@log === L0 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 20
+hc_gold 3000
+hc_recruit Commando
+hc_recruit Mage
+@wait 20
+hc_cam army
+hc_cam dist 42
+@wait 2
+hc_select all
+@log === L1 bare ground, no Shift: no line
+hc_mouse 1100 420
+@wait 0.7
+hc_cursor
+hc_screenshot line_ground
+@log === L2 bare ground with Shift: the line appears
+hc_mouse 1100 420 shift
+@wait 0.7
+hc_cursor
+hc_screenshot line_queue
+@log === L3 an enemy under the pointer: attack line
+hc_spawn 2
+@wait 2
+hc_mouse_enemy
+@wait 0.7
+hc_cursor
+hc_screenshot line_enemy
+@log === L4 the line keeps flowing (a second shot a moment later)
+@wait 0.3
+hc_screenshot line_enemy2
+@log === END
+hc_input_end
+disconnect
+@norun
+@wait 4
+@quit

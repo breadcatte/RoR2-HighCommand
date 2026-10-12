@@ -94,6 +94,8 @@ namespace HighCommand.UI
             arcsUsed = 0;
             markersUsed = 0;
             linesUsed = 0;
+            flowsUsed = 0;
+            arrowsUsed = 0;
             pingsUsed = 0;
 
             if (camera && camera.SceneCam)
@@ -166,24 +168,82 @@ namespace HighCommand.UI
                 if (cursor.Preview && cursor.HasPoint && previews < PreviewLimit)
                 {
                     previews++;
-                    Color c = cursor.Color;
-                    c.a = 0.4f;
-                    DrawPreview(cursor.Queued ? last : from, cursor.Point, c);
+                    DrawPreview(cursor.Queued ? last : from, cursor.Point, cursor.Color);
                 }
             }
         }
+
+        // the preview of an order: a soft glow, dashes that flow from the hero to the target, an arrowhead, a ring
+        private readonly List<RawImage> flows = new List<RawImage>(8);
+        private readonly List<Image> arrows = new List<Image>(8);
+        private int flowsUsed, arrowsUsed;
+
+        private const float FlowSpeed = 46f;   // layer units per second
+        private const float FlowPeriodUnits = 24f;
 
         private void DrawPreview(Vector3 from, Vector3 to, Color color)
         {
             if (!WorldPicker.Project(from, 0.1f, out Vector2 a, out float _)) return;
             if (!WorldPicker.Project(to, 0.1f, out Vector2 b, out float _)) return;
-            DrawLine(a, b, color, 2f);
 
+            float scale = Mathf.Max(0.0001f, layer.lossyScale.x);
+            Vector2 d = b - a;
+            float length = d.magnitude;
+            if (length < 8f * scale) return;
+            Vector2 dir = d / length;
+            float angle = Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg;
+
+            // the line stops short of the arrowhead
+            float head = 10f * scale;
+            Vector2 end = b - dir * head;
+            float lineLength = Mathf.Max(0f, (end - a).magnitude);
+
+            Color glow = color;
+            glow.a = 0.22f;
+            DrawLine(a, end, glow, 7f);
+
+            if (flowsUsed >= flows.Count)
+            {
+                RawImage raw = UiKit.NewRawImage("Flow", layer, UiKit.FlowTexture, Color.white);
+                raw.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                flows.Add(raw);
+            }
+            RawImage flow = flows[flowsUsed++];
+            if (!flow.enabled) flow.enabled = true;
+            Color line = color;
+            line.a = 0.9f;
+            flow.color = line;
+            float units = lineLength / scale;
+            flow.rectTransform.sizeDelta = new Vector2(units, 7f);
+            flow.rectTransform.position = new Vector3((a.x + end.x) * 0.5f, (a.y + end.y) * 0.5f, 0f);
+            flow.rectTransform.localRotation = Quaternion.Euler(0f, 0f, angle);
+            // the dashes slide towards the target; the pattern is anchored at the target so it never jitters at the end
+            float phase = -Time.unscaledTime * FlowSpeed / FlowPeriodUnits;
+            flow.uvRect = new Rect(phase - units / FlowPeriodUnits, 0f, units / FlowPeriodUnits, 1f);
+
+            // arrowhead: the marker sprite points down, so it is turned by the direction + 90 degrees
+            if (arrowsUsed >= arrows.Count)
+            {
+                Image arrow = UiKit.NewImage("Arrow", layer, UiKit.Marker, Color.white);
+                arrow.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                arrows.Add(arrow);
+            }
+            Image head2 = arrows[arrowsUsed++];
+            if (!head2.enabled) head2.enabled = true;
+            Color headColor = color;
+            headColor.a = 1f;
+            head2.color = headColor;
+            head2.rectTransform.sizeDelta = new Vector2(17f, 13f);
+            head2.rectTransform.position = new Vector3(b.x - dir.x * head * 0.5f, b.y - dir.y * head * 0.5f, 0f);
+            head2.rectTransform.localRotation = Quaternion.Euler(0f, 0f, angle + 90f);
+
+            // the ring on the ground, breathing a little
             Image marker = AcquireRing();
             Color m = color;
-            m.a = 0.6f;
+            m.a = 0.85f;
             marker.color = m;
-            marker.rectTransform.sizeDelta = new Vector2(18f, 10f);
+            float pulse = 1f + 0.12f * Mathf.Sin(Time.unscaledTime * 5f);
+            marker.rectTransform.sizeDelta = new Vector2(26f * pulse, 14f * pulse);
             marker.rectTransform.position = new Vector3(b.x, b.y, 0f);
         }
 
@@ -224,7 +284,7 @@ namespace HighCommand.UI
         {
             if (linesUsed >= lines.Count)
             {
-                Image img = UiKit.NewImage("Line", layer, UiKit.White, Color.white);
+                Image img = UiKit.NewImage("Line", layer, UiKit.SoftLine, Color.white);
                 img.rectTransform.pivot = new Vector2(0.5f, 0.5f);
                 lines.Add(img);
             }
@@ -234,7 +294,8 @@ namespace HighCommand.UI
             Vector2 d = b - a;
             float length = d.magnitude;
             line.color = color;
-            line.rectTransform.sizeDelta = new Vector2(length / scale, thickness);
+            // the soft sprite fades towards its edges: a thin slanted line has no stair steps
+            line.rectTransform.sizeDelta = new Vector2(length / scale, thickness + 2.5f);
             line.rectTransform.position = new Vector3((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f, 0f);
             line.rectTransform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
         }
@@ -629,6 +690,10 @@ namespace HighCommand.UI
                 if (markers[i].enabled) markers[i].enabled = false;
             for (int i = linesUsed; i < lines.Count; i++)
                 if (lines[i].enabled) lines[i].enabled = false;
+            for (int i = flowsUsed; i < flows.Count; i++)
+                if (flows[i].enabled) flows[i].enabled = false;
+            for (int i = arrowsUsed; i < arrows.Count; i++)
+                if (arrows[i].enabled) arrows[i].enabled = false;
             for (int i = pingsUsed; i < pings.Count; i++)
                 if (pings[i].enabled) pings[i].enabled = false;
         }
