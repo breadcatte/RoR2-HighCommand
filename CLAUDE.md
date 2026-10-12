@@ -1,0 +1,80 @@
+# CLAUDE.md — High Command (RTS-режим для Risk of Rain 2)
+
+Рабочая памятка для сессий Claude. Обновлять по ходу работы. Отвечать пользователю по-русски, коротко.
+
+## Что это
+BepInEx-плагин `kantemiir.HighCommand`: отдельный RTS-режим поверх нетронутой игры. Бестелесный командир с камерой
+сверху, армия = ванильные выжившие под ИИ, покупка героев за золото, приказы группам, предметы с врагов сразу в общий пул.
+Пока **только одиночная игра**. Сеть не трогать и не «чинить», но и не закрывать ей дорогу (см. «Правила»).
+
+## Пути и инструменты
+| Что | Где |
+|---|---|
+| Репозиторий | `C:\Users\user\Documents\RoR2Strategy` (ветка `master`) |
+| Git (не в PATH) | `_tools\mingit\cmd\git.exe` |
+| Игра | `C:\Program Files (x86)\Steam\steamapps\common\Risk of Rain 2` (RoR2 1.5.0, Unity 2021.3.45) |
+| Установленный мод | `<игра>\BepInEx\plugins\local-HighCommand\` (DLL + `profiles\hero_profiles.json`) |
+| Лог BepInEx | `<игра>\BepInEx\LogOutput.log` (без временных меток, пишется лениво — читать после закрытия игры) |
+| Лог Unity | `%USERPROFILE%\AppData\LocalLow\Hopoo Games, LLC\Risk of Rain 2\Player.log` (+ `Player-prev.log`) |
+| Конфиг мода | `<игра>\BepInEx\config\kantemiir.HighCommand.cfg` (пользовательские клавиши! не стирать без бэкапа) |
+| Декомпиляция игры | `_ref\` (gitignored), декомпилятор `_tools\ilspycmd.exe` |
+| .NET SDK | `%LOCALAPPDATA%\dotnet-sdk\dotnet.exe` (target `netstandard2.1`) |
+
+## Команды
+```powershell
+.\tools\build.ps1              # сборка + установка DLL (игра должна быть закрыта)
+.\tools\build.ps1 -NoInstall   # только сборка
+.\tools\package.ps1            # zip в dist\ (Plugin.Version == package\manifest.json version_number)
+.\tools\qa-run.ps1 <smoke|full|menu|ui|alerts|perf> [-NoBuild]   # сценарий в игре без человека
+```
+* Сценарии: `tools\qa\*.txt` (консольные команды + `@wait n`, `@scene x`, `@run`, `@norun`, `@log`, `@quit`).
+  Исполняются через `BepInEx\config\HighCommand.autoexec.txt` (если файл остался — выполнится при следующем запуске!).
+* `qa-run.ps1` **удаляет cfg пользователя** перед прогоном — сохранять и возвращать его (см. CHANGELOG/задачи).
+* Консоль в игре: `Ctrl+Alt+~`; `hc_status`, `hc_flow`, `hc_perf`, `hc_cfg verbose true` и др. (`src\Dev\DevCommands.cs`).
+* Проверка UI/ввода — только «настоящим путём» (клик/клавиша через `hc_click`/`hc_key`/`hc_menu_extra real`),
+  а не прямым вызовом метода: так уже пропустили неработающую кнопку меню.
+
+## Структура `src\`
+* `Plugin.cs` — вход: ContentPack, Harmony-патчи по одному (`TryPatch`), Risk of Options, AutoExec.
+* `Mode\` — режим: `HighCommandRun` (маркер + серверный старт армии), `HcState` (реплицируемое состояние),
+  `RunFlow` (тик 0.25 с: поражение, телепорт, ростер), `RunPatches` (патчи под бестелесного командира),
+  `RunPrefabBuilder` (клон ClassicRun), `LobbyRules`/`LobbyPatches`/`MenuButton`.
+* `Army\` — сервер: `ArmyManager` (найм через MasterSummon, подмена ИИ), `ArmyService` (найм/воскрешение/предметы/телепорт),
+  `Economy`, `LootService`, `ItemDistributor`, `CommanderAbilities`, `RunStats`.
+* `Orders\` — логика приказов и ИИ без знания UI: `HeroBrain` (решения, тик 0.12 с), `HeroAIState` (ввод тела, 0.1 с),
+  `Perception`, `Formation`, `HeroProfile` (+ `package\profiles\hero_profiles.json`), `Order`/`OrderService`.
+* `Client\` — камера (`RtsCamera`), единый шлюз ввода (`ClientInput`), выделение, приказы с ввода, оповещения.
+* `UI\` — панели uGUI, строятся кодом. `Net\CommandChannel` — клиент→сервер (заморожено, не проверено).
+* `Core\` — настройки, локализация (ru/en без R2API), MiniJson. `Dev\` — консольные команды, AutoExec, Perf.
+
+## Ключевые решения (не менять без причины)
+* Run-префаб = клон `ClassicRun` + `HighCommandRun` + `HcState` (Run/RunArtifactManager нельзя заменить).
+* Герои = ИИ-мастера ванильных выживших; ИИ-состояние подменено на `HeroAIState`, решения в `HeroBrain`.
+* Все патчи проверяют `HighCommandRun.IsActive` → обычные забеги не затронуты. Ванильную игру не ломать.
+* Логика приказов/армии/экономики не знает про UI; UI читает только `HcState`/`Hero.Net*`; ввод — только `ClientInput`.
+  Это дверь для мультиплеера: новые действия игрока делать как сериализуемую команду (`OrderCommand` / `ArmyService.Try*`
+  → `Exec*`), а не прямой вызов серверного кода из UI.
+
+## Правила работы
+* Сначала план и оценка, крупные изменения — только после подтверждения пользователя. Мелкие очевидные баги — сразу.
+* Одна проблема за раз: правка → сборка → проверка в игре (сценарий или скриншот). Не говорить «работает» без проверки.
+* Перед прогонами сохранять `kantemiir.HighCommand.cfg` и возвращать после; после тестов проверить, что
+  `HighCommand.autoexec.txt` не остался в `config`.
+* Вести `CHANGELOG.md`; коммит на каждую законченную правку с трейлером `Co-Authored-By`.
+* Пользователь не программист: сам запускает игру и оценивает; ответы короткие, по-русски.
+
+## Распределение работы Opus / Sonnet (действует всегда)
+Opus дороже. По каждой задаче заранее решать исполнителя:
+* **Opus (себе):** корневые причины сложных багов, архитектура, изменения на стыке систем (камера, ввод, ИИ героев,
+  экономика, UI), дизайн механик, всё дорогое в ошибке или трудно откатываемое. Сомневаешься — бери себе и поясни.
+* **Sonnet 5.5:** простое и чётко очерченное: константы/значения, переименования, косметика UI, тексты и подсказки,
+  однотипные правки по шаблону, логи, мелкий рефакторинг без смены поведения, документация, правки скриптов `tools\`.
+* Для каждой задачи Sonnet — самодостаточный промт: что сделать, в каких файлах, как проверить, чего не трогать.
+* В конце каждого ответа с работой — блок «Для Sonnet» (или «нет»).
+* Результат Sonnet проверять критично (diff + сборка + прогон), прежде чем закрывать задачу.
+
+## Известное состояние (обновлять)
+* 0.9.1. Этап 1 (изучение) пройден 2026-10-12, отчёт в чате; HANDOFF.md писал Sonnet — местами неточен (см. отчёт).
+* Воспроизведено: одинокий стартовый ИИ-герой сам погибает за ~2 мин без приказов, через 45 с — поражение.
+* Шум в логе, который НЕ наш: «connection already set as ready», «GenericPool ReleasePools», «Unable to set gate state»,
+  «Failed to confine the cursor» (окно без фокуса при автопрогоне), AkGameObjManager Scene Camera, «multiple NetworkIdentity».
