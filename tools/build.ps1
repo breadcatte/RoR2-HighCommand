@@ -14,8 +14,11 @@ if (-not (Test-Path $dotnet)) { $dotnet = (Get-Command dotnet -ErrorAction Stop)
 
 Push-Location $root
 try {
-    & $dotnet build "$root\HighCommand.csproj" -c $Configuration --nologo -v minimal
-    if ($LASTEXITCODE -ne 0) { throw "Build failed." }
+    $out = & $dotnet build "$root\HighCommand.csproj" -c $Configuration --nologo -v minimal 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        $out | Where-Object { $_ -match "error|warning CS" } | Select-Object -Unique | ForEach-Object { Write-Host $_ }
+        throw "Build failed."
+    }
 } finally { Pop-Location }
 
 $dll = Join-Path $root "bin\$Configuration\netstandard2.1\HighCommand.dll"

@@ -43,6 +43,45 @@ namespace HighCommand.Dev
             Debug.Log(sb.ToString());
         }
 
+        [ConCommand(commandName = "hc_start", flags = HostOnly, helpText = "Starts a High Command run (single player, host).")]
+        private static void CcStart(ConCommandArgs args)
+        {
+            RoR2.Console.instance.SubmitCmd(null, "transition_command \"gamemode " + Mode.HighCommandRun.PrefabName + "; host 0;\"");
+        }
+
+        [ConCommand(commandName = "hc_dump_run", flags = HostOnly, helpText = "Dumps the High Command run prefab (components, key fields) and the live run if any.")]
+        private static void CcDumpRun(ConCommandArgs args)
+        {
+            var sb = new StringBuilder("HighCommand run prefab:\n");
+            GameObject prefab = Mode.RunPrefabBuilder.Prefab;
+            if (!prefab) sb.AppendLine("  (not built)");
+            else DescribeRun(sb, prefab, "  ");
+
+            if (Run.instance)
+            {
+                sb.AppendLine("Live run:");
+                DescribeRun(sb, Run.instance.gameObject, "  ");
+            }
+            Debug.Log(sb.ToString());
+        }
+
+        private static void DescribeRun(StringBuilder sb, GameObject go, string indent)
+        {
+            sb.AppendLine($"{indent}object '{go.name}' activeSelf={go.activeSelf} activeInHierarchy={go.activeInHierarchy}");
+            foreach (Component c in go.GetComponents<Component>())
+                sb.AppendLine($"{indent}  component {(c ? c.GetType().FullName : "<missing>")}");
+
+            var run = go.GetComponent<Run>();
+            if (run)
+            {
+                sb.AppendLine($"{indent}Run: type={run.GetType().Name} nameToken={run.nameToken} userPickable={run.userPickable} " +
+                              $"gameModeIndex={run.gameModeIndex} startingSceneGroup={(run.startingSceneGroup ? run.startingSceneGroup.name : "null")} " +
+                              $"gameOverPrefab={(run.gameOverPrefab ? run.gameOverPrefab.name : "null")} uiPrefab={(run.uiPrefab ? run.uiPrefab.name : "null")}");
+            }
+            var id = go.GetComponent<UnityEngine.Networking.NetworkIdentity>();
+            if (id) sb.AppendLine($"{indent}NetworkIdentity: assetId={id.assetId} netId={id.netId}");
+        }
+
         [ConCommand(commandName = "hc_dump_gamemodes", flags = HostOnly, helpText = "Lists the registered game modes.")]
         private static void CcDumpGameModes(ConCommandArgs args)
         {

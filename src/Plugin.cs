@@ -42,6 +42,12 @@ namespace HighCommand
             ContentManager.collectContentPackProviders += add => add(new Provider());
             harmony = new Harmony(Guid);
 
+            Strings.Register();
+            TryPatch(typeof(LanguagePatches), "language tokens");
+            TryPatch(typeof(Mode.LobbyPatches.MultiplayerMenu), "game mode in the multiplayer menu");
+            TryPatch(typeof(Mode.LobbyPatches.LocalMultiplayerMenu), "game mode in the local multiplayer menu");
+            TryPatch(typeof(Mode.RunRulePatch), "forced rule choices");
+
             try { Dev.AutoExec.Install(); }
             catch (Exception e) { Log.LogWarning("AutoExec not installed: " + e.Message); }
 
@@ -73,8 +79,8 @@ namespace HighCommand
 
             public IEnumerator LoadStaticContentAsync(LoadStaticContentAsyncArgs args)
             {
+                yield return Mode.RunPrefabBuilder.Build(Pack);
                 args.ReportProgress(1f);
-                yield break;
             }
 
             public IEnumerator GenerateContentPackAsync(GetContentPackAsyncArgs args)
