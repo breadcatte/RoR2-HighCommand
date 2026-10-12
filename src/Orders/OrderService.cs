@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using HighCommand.Army;
 using HighCommand.Mode;
+using HighCommand.Net;
+using HighCommand.UI;
 using RoR2;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -16,8 +18,10 @@ namespace HighCommand.Orders
         internal static void Submit(OrderCommand command)
         {
             if (command == null) return;
-            if (NetworkServer.active) Execute(command);
-            else Plugin.Log.LogWarning("Order submitted on a client without a server link: co-op transport is not available yet.");
+            if (!CommandChannel.ShouldRelay) { Execute(command); return; }
+
+            string result = CommandChannel.SendOrder(command);
+            if (result != CommandChannel.Relayed) Toast.Show(result);
         }
 
         /// <summary>Server side: applies a command to the army.</summary>

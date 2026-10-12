@@ -70,8 +70,13 @@ namespace HighCommand.Mode
                 Stage.onServerStageBegin += OnServerStageBegin;
                 subscribed = true;
                 Economy.ResetForNewRun();
+                Net.CommandChannel.RegisterServer();
             }
-            if (NetworkClient.active) CreateClientSide();
+            if (NetworkClient.active)
+            {
+                Net.CommandChannel.RegisterClient();
+                CreateClientSide();
+            }
         }
 
         private void OnDisable()

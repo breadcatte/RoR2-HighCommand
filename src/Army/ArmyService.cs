@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using HighCommand.Mode;
+using HighCommand.Net;
 using RoR2;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -69,6 +70,14 @@ namespace HighCommand.Army
         /// </summary>
         internal static string TryRecruit(SurvivorDef def, Loadout loadout)
         {
+            // a client (or the host in relay-test mode) asks the server; the answer arrives as a toast
+            if (CommandChannel.ShouldRelay) return CommandChannel.SendRecruit(def);
+            return ExecRecruit(def, loadout);
+        }
+
+        /// <summary>Server: the recruiting itself (called directly on the host and by the command channel).</summary>
+        internal static string ExecRecruit(SurvivorDef def, Loadout loadout)
+        {
             HighCommandRun run = HighCommandRun.Instance;
             if (!NetworkServer.active || run == null) return Loc.Get("HIGHCOMMAND_ERR_NORUN");
 
@@ -95,10 +104,19 @@ namespace HighCommand.Army
         }
 
         // ---- item actions ----------------------------------------------------------------------------------
-        // Server side only for now (single player / host). A co-op client would send these as commands.
+        // Try*: the UI entry points (relay to the server when this machine is not the server).
+        // Exec*: the server-side work (also called by the command channel). Both return null on success, else a text.
+        // A relayed request returns CommandChannel.Relayed: the server answers with a toast of its own.
 
-        /// <summary>Moves units of an item between two heroes. Returns null on success, else a message.</summary>
+        /// <summary>Moves units of an item between two heroes.</summary>
         internal static string TryMoveItem(Hero from, Hero to, ItemIndex item, int count)
+        {
+            if (from == null || to == null) return Loc.Get("HIGHCOMMAND_ERR_FAILED");
+            if (CommandChannel.ShouldRelay) return CommandChannel.SendMoveItem(from.Id, to.Id, item, count);
+            return ExecMoveItem(from, to, item, count);
+        }
+
+        internal static string ExecMoveItem(Hero from, Hero to, ItemIndex item, int count)
         {
             HighCommandRun run = HighCommandRun.Instance;
             if (!NetworkServer.active || run == null) return Loc.Get("HIGHCOMMAND_ERR_NORUN");
@@ -106,14 +124,28 @@ namespace HighCommand.Army
             return moved > 0 ? null : Loc.Get("HIGHCOMMAND_ERR_FAILED");
         }
 
-        internal static string TryMoveEquipment(Hero from, Hero to)
+        internal static string TryMoveEquipment(Hero from, int fromSlot, Hero to)
+        {
+            if (from == null || to == null) return Loc.Get("HIGHCOMMAND_ERR_FAILED");
+            if (CommandChannel.ShouldRelay) return CommandChannel.SendMoveEquipment(from.Id, fromSlot, to.Id);
+            return ExecMoveEquipment(from, fromSlot, to);
+        }
+
+        internal static string ExecMoveEquipment(Hero from, int fromSlot, Hero to)
         {
             HighCommandRun run = HighCommandRun.Instance;
             if (!NetworkServer.active || run == null) return Loc.Get("HIGHCOMMAND_ERR_NORUN");
-            return run.Items.MoveEquipment(from, to) ? null : Loc.Get("HIGHCOMMAND_ERR_FAILED");
+            return run.Items.MoveEquipment(from, fromSlot, to) ? null : Loc.Get("HIGHCOMMAND_ERR_FAILED");
         }
 
         internal static string TryEquipFromPool(int poolIndex, Hero to)
+        {
+            if (to == null) return Loc.Get("HIGHCOMMAND_ERR_FAILED");
+            if (CommandChannel.ShouldRelay) return CommandChannel.SendEquipFromPool(poolIndex, to.Id);
+            return ExecEquipFromPool(poolIndex, to);
+        }
+
+        internal static string ExecEquipFromPool(int poolIndex, Hero to)
         {
             HighCommandRun run = HighCommandRun.Instance;
             if (!NetworkServer.active || run == null) return Loc.Get("HIGHCOMMAND_ERR_NORUN");
@@ -123,6 +155,12 @@ namespace HighCommand.Army
         }
 
         internal static string RedistributeItems()
+        {
+            if (CommandChannel.ShouldRelay) return CommandChannel.SendRedistribute();
+            return ExecRedistribute();
+        }
+
+        internal static string ExecRedistribute()
         {
             HighCommandRun run = HighCommandRun.Instance;
             if (!NetworkServer.active || run == null) return Loc.Get("HIGHCOMMAND_ERR_NORUN");
@@ -144,9 +182,14 @@ namespace HighCommand.Army
         }
 
         /// <summary>The loadout (skills, skin) the player has saved for a survivor.</summary>
-        internal static Loadout LoadoutFor(SurvivorDef def)
+        internal static Loadout LoadoutFor(SurvivorDef def, NetworkUser owner = null)
         {
             var result = new Loadout();
+            if (owner != null)
+            {
+                owner.networkLoadout.CopyLoadout(result);
+                return result;
+            }
             foreach (NetworkUser user in NetworkUser.readOnlyLocalPlayersList)
             {
                 if (user == null) continue;

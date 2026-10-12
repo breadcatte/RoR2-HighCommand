@@ -217,7 +217,8 @@ namespace HighCommand.Dev
             SurvivorDef def = SurvivorCatalog.FindSurvivorDef(args.GetArgString(0));
             if (!def) throw new ConCommandException("Unknown survivor: " + args.GetArgString(0));
             string error = Army.ArmyService.TryRecruit(def, Army.ArmyService.LoadoutFor(def));
-            Debug.Log(error == null ? $"HighCommand: recruited {def.cachedName}." : "HighCommand: recruit failed: " + error);
+            if (error == Net.CommandChannel.Relayed) Debug.Log($"HighCommand: recruit request for {def.cachedName} sent to the server.");
+            else Debug.Log(error == null ? $"HighCommand: recruited {def.cachedName}." : "HighCommand: recruit failed: " + error);
         }
 
         [ConCommand(commandName = "hc_pool", flags = HostOnly, helpText = "Prints the army's item pool (commander inventory) and equipment pool.")]
@@ -245,11 +246,112 @@ namespace HighCommand.Dev
         {
             if (!UnityEngine.Networking.NetworkServer.active || !Mode.HighCommandRun.IsActive)
                 throw new ConCommandException("Only the host can do this during a High Command run.");
-            ItemIndex idx = ItemCatalog.FindItemIndex(args.GetArgString(0));
-            if (idx == ItemIndex.None) throw new ConCommandException("Unknown item: " + args.GetArgString(0));
-            PickupIndex pickup = PickupCatalog.FindPickupIndex(idx);
+            string name = args.GetArgString(0);
+            PickupIndex pickup = PickupIndex.none;
+            ItemIndex idx = ItemCatalog.FindItemIndex(name);
+            if (idx != ItemIndex.None) pickup = PickupCatalog.FindPickupIndex(idx);
+            else
+            {
+                EquipmentIndex eq = EquipmentCatalog.FindEquipmentIndex(name);
+                if (eq != EquipmentIndex.None) pickup = PickupCatalog.FindPickupIndex(eq);
+            }
+            if (!pickup.isValid) throw new ConCommandException("Unknown item or equipment: " + name);
             bool ok = Army.LootService.Grant(new UniquePickup(pickup), null);
             Debug.Log("HighCommand: drop " + (ok ? "granted" : "failed"));
+        }
+
+        [ConCommand(commandName = "hc_inv_drag", flags = HostOnly,
+            helpText = "hc_inv_drag item <fromHeroId> <ItemName> <toHeroId> [shift] | equip <fromHeroId> <slot> <toHeroId> | spare <index> <toHeroId> | hover item <heroId> <ItemName> | hover equip <heroId> <slot> | hover spare <index>: drives the open item panel with synthetic input.")]
+        private static void CcInvDrag(ConCommandArgs args)
+        {
+            var root = Client.ClientRoot.Instance;
+            var run = Mode.HighCommandRun.Instance;
+            if (!root || run == null || root.Inventory == null) throw new ConCommandException("Not in a High Command run.");
+
+            Army.Hero Find(int id)
+            {
+                foreach (var h in run.Army.Heroes) if (h.Id == id) return h;
+                throw new ConCommandException("No hero with id " + id);
+            }
+
+            string mode = args.GetArgString(0).ToLowerInvariant();
+            bool hover = mode == "hover";
+            int a = hover ? 1 : 0; // argument offset
+            string kind = args.GetArgString(a).ToLowerInvariant();
+            Vector2 from, to = Vector2.zero;
+            bool shift = HasFlag(args, 1, "shift");
+
+            if (kind == "item")
+            {
+                Army.Hero owner = Find(args.GetArgInt(a + 1));
+                ItemIndex idx = ItemCatalog.FindItemIndex(args.GetArgString(a + 2));
+                if (!root.Inventory.TryFindCell(owner, idx, false, -1, out from)) throw new ConCommandException("Item cell not found (is the panel open and ticked?).");
+                if (!hover && !root.Inventory.TryFindRow(Find(args.GetArgInt(a + 3)), out to)) throw new ConCommandException("Target row not found.");
+            }
+            else if (kind == "equip")
+            {
+                Army.Hero owner = Find(args.GetArgInt(a + 1));
+                int slot = args.GetArgInt(a + 2);
+                if (!root.Inventory.TryFindCell(owner, ItemIndex.None, true, -1, out from, slot)) throw new ConCommandException("Equipment cell not found.");
+                if (!hover && !root.Inventory.TryFindRow(Find(args.GetArgInt(a + 3)), out to)) throw new ConCommandException("Target row not found.");
+            }
+            else if (kind == "spare")
+            {
+                if (!root.Inventory.TryFindCell(null, ItemIndex.None, false, args.GetArgInt(a + 1), out from)) throw new ConCommandException("Spare cell not found.");
+                if (!hover && !root.Inventory.TryFindRow(Find(args.GetArgInt(a + 2)), out to)) throw new ConCommandException("Target row not found.");
+            }
+            else throw new ConCommandException("Unknown form.");
+
+            if (hover) Client.ClientInput.InjectClick(from, 0);
+            else Client.ClientInput.InjectDrag(from, to, 0, shift);
+            Debug.Log($"HighCommand: {(hover ? "hover" : "drag")} {kind} from ({from.x:0},{from.y:0}) to ({to.x:0},{to.y:0})");
+        }
+
+        [ConCommand(commandName = "hc_drop_random", flags = HostOnly, helpText = "hc_drop_random <count>: adds that many random white/green/red items to the pool (layout and balance tests).")]
+        private static void CcDropRandom(ConCommandArgs args)
+        {
+            if (!UnityEngine.Networking.NetworkServer.active || !Mode.HighCommandRun.IsActive || !Run.instance)
+                throw new ConCommandException("Only the host can do this during a High Command run.");
+            int count = Mathf.Clamp(args.GetArgInt(0), 1, 500);
+            var lists = new[] { Run.instance.availableTier1DropList, Run.instance.availableTier2DropList, Run.instance.availableTier3DropList };
+            var weights = new[] { 0.6f, 0.3f, 0.1f };
+            int given = 0;
+            for (int i = 0; i < count; i++)
+            {
+                float roll = Random.value;
+                int pick = roll < weights[0] ? 0 : roll < weights[0] + weights[1] ? 1 : 2;
+                var list = lists[pick];
+                if (list == null || list.Count == 0) continue;
+                PickupIndex p = list[Random.Range(0, list.Count)];
+                if (Army.LootService.Grant(new UniquePickup(p), null)) given++;
+            }
+            Debug.Log($"HighCommand: dropped {given} random items.");
+        }
+
+        [ConCommand(commandName = "hc_rebalance", flags = HostOnly, helpText = "hc_rebalance on|off: a new recruit takes a share of the army's items (changes the config value).")]
+        private static void CcRebalance(ConCommandArgs args)
+        {
+            if (args.Count > 0) Settings.RebalanceOnRecruit.Value = args.GetArgString(0).ToLowerInvariant() != "off";
+            Debug.Log("HighCommand: rebalance on recruit is " + Settings.RebalanceOnRecruit.Value);
+        }
+
+        [ConCommand(commandName = "hc_sharing", flags = HostOnly, helpText = "hc_sharing split|mirror: how the pool's items are shared between heroes (changes the config value).")]
+        private static void CcSharing(ConCommandArgs args)
+        {
+            if (args.Count > 0)
+            {
+                bool mirror = args.GetArgString(0).ToLowerInvariant() == "mirror";
+                Settings.ItemSharing.Value = mirror ? Army.ItemDistributor.SharingMode.Mirror : Army.ItemDistributor.SharingMode.Split;
+                Mode.HcState.Instance?.ServerPublishSettings();
+            }
+            Debug.Log("HighCommand: item sharing is " + Settings.ItemSharing.Value);
+        }
+
+        [ConCommand(commandName = "hc_netcmds", flags = HostOnly, helpText = "hc_netcmds [on|off]: send orders / recruiting / item moves through the network command channel even on the host (transport test).")]
+        private static void CcNetCmds(ConCommandArgs args)
+        {
+            if (args.Count > 0) Net.CommandChannel.ForceRelay = args.GetArgString(0).ToLowerInvariant() == "on";
+            Debug.Log("HighCommand: command relay is " + (Net.CommandChannel.ForceRelay ? "ON" : "off") + ".");
         }
 
         [ConCommand(commandName = "hc_inventory", flags = HostOnly, helpText = "Prints what every hero carries (items and equipment).")]
@@ -272,7 +374,14 @@ namespace HighCommand.Dev
                         total += n;
                         sb.Append($" {def.name}x{n}");
                     }
-                    sb.Append($" | total={total} equipment={inv.currentEquipmentIndex}");
+                    var eq = new StringBuilder();
+                    int slots = Army.HeroEquipment.SlotCount(inv);
+                    for (int s = 0; s < slots; s++)
+                    {
+                        EquipmentIndex e = Army.HeroEquipment.InSlot(inv, s);
+                        eq.Append(s > 0 ? "," : "").Append(e == EquipmentIndex.None ? "None" : EquipmentCatalog.GetEquipmentDef(e).name);
+                    }
+                    sb.Append($" | total={total} equipment=[{eq}] active={inv.activeEquipmentSlot}");
                 }
                 Debug.Log(sb.ToString());
             }
@@ -293,14 +402,16 @@ namespace HighCommand.Dev
             if (from == null || to == null || idx == ItemIndex.None) throw new ConCommandException("Unknown hero or item.");
             int count = args.Count > 3 ? Mathf.Max(1, args.GetArgInt(3)) : 1;
             string error = Army.ArmyService.TryMoveItem(from, to, idx, count);
-            Debug.Log(error == null ? $"HighCommand: moved {count} x {args.GetArgString(2)} {from} -> {to}." : "HighCommand: move failed: " + error);
+            if (error == Net.CommandChannel.Relayed) Debug.Log("HighCommand: move request sent to the server.");
+            else Debug.Log(error == null ? $"HighCommand: moved {count} x {args.GetArgString(2)} {from} -> {to}." : "HighCommand: move failed: " + error);
         }
 
         [ConCommand(commandName = "hc_items_auto", flags = HostOnly, helpText = "Takes all pooled items back and deals them out again by role.")]
         private static void CcItemsAuto(ConCommandArgs args)
         {
             string error = Army.ArmyService.RedistributeItems();
-            Debug.Log(error == null ? "HighCommand: items redistributed." : "HighCommand: " + error);
+            if (error == Net.CommandChannel.Relayed) Debug.Log("HighCommand: redistribute request sent to the server.");
+            else Debug.Log(error == null ? "HighCommand: items redistributed." : "HighCommand: " + error);
         }
 
         [ConCommand(commandName = "hc_interactables", flags = HostOnly, helpText = "Counts interactables on the map by name.")]

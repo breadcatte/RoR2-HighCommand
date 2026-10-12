@@ -88,6 +88,7 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_RECRUITED", "Recruited: {0}", "Нанят: {0}");
             Loc.Add("HIGHCOMMAND_ERR_NORUN", "No run in progress", "Забег не идёт");
             Loc.Add("HIGHCOMMAND_ERR_FAILED", "Could not recruit (gold refunded)", "Не удалось нанять (золото возвращено)");
+            Loc.Add("HIGHCOMMAND_ERR_NOLINK", "No connection to the host", "Нет связи с хостом");
             Loc.Add("HIGHCOMMAND_ROLE_RANGED", "Ranged damage", "Дальний урон");
             Loc.Add("HIGHCOMMAND_ROLE_ASSASSIN", "Assassin", "Убийца");
             Loc.Add("HIGHCOMMAND_ROLE_TANK", "Tank", "Танк");

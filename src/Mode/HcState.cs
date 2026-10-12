@@ -26,6 +26,9 @@ namespace HighCommand.Mode
         public float PriceMultiplier { get; private set; } = 1f;
         public float ReviveFraction { get; private set; } = 0.4f;
 
+        /// <summary>The host's item sharing mode: true = every hero owns a copy of every item (nothing to hand over).</summary>
+        public bool ItemMirror { get; private set; }
+
         private struct RosterEntry
         {
             internal int id;
@@ -135,6 +138,7 @@ namespace HighCommand.Mode
             PriceGrowth = Settings.HeroPriceGrowth.Value;
             PriceMultiplier = Settings.PriceMultiplier.Value;
             ReviveFraction = Settings.ReviveCostFraction.Value;
+            ItemMirror = Settings.ItemSharing.Value == ItemDistributor.SharingMode.Mirror;
             SetDirtyBit(DirtyAll);
         }
 
@@ -187,6 +191,7 @@ namespace HighCommand.Mode
             writer.Write(PriceGrowth);
             writer.Write(PriceMultiplier);
             writer.Write(ReviveFraction);
+            writer.Write(ItemMirror);
 
             writer.WritePackedUInt32((uint)roster.Count);
             foreach (RosterEntry e in roster)
@@ -211,6 +216,7 @@ namespace HighCommand.Mode
             PriceGrowth = reader.ReadSingle();
             PriceMultiplier = reader.ReadSingle();
             ReviveFraction = reader.ReadSingle();
+            ItemMirror = reader.ReadBoolean();
 
             int count = (int)reader.ReadPackedUInt32();
             roster.Clear();

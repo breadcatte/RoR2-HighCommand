@@ -23,6 +23,8 @@ namespace HighCommand.Client
 
         internal Selection Selection { get; private set; }
 
+        internal InventoryPanel Inventory => inventory;
+
         private Canvas canvas;
         private Minimap minimap;
         private HelpOverlay help;
@@ -60,11 +62,11 @@ namespace HighCommand.Client
             minimap = new Minimap(canvas.transform);
             selectionPanel = new SelectionPanel(canvas.transform);
             topBar = new TopBar(canvas.transform);
+            lootFeed = new LootFeed(canvas.transform);       // below the big panels
             barracks = new BarracksPanel(canvas.transform);
             inventory = new InventoryPanel(canvas.transform);
             help = new HelpOverlay(canvas.transform);
             toast = new ToastView(canvas.transform);
-            lootFeed = new LootFeed(canvas.transform);
             tooltip = new TooltipView(canvas.transform);
             selectionController = new SelectionController(Selection, overlay);
             orders = new OrderController(Selection, minimap, overlay);

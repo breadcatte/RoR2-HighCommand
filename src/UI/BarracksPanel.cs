@@ -207,9 +207,9 @@ namespace HighCommand.UI
 
         private static void Request(SurvivorDef def)
         {
-            // Single player / host: the server runs in this process. A co-op client would send a command instead.
-            if (!UnityEngine.Networking.NetworkServer.active) return;
+            // Host: recruited right here. Client: the request goes to the server, which answers with a toast.
             string error = ArmyService.TryRecruit(def, ArmyService.LoadoutFor(def));
+            if (error == Net.CommandChannel.Relayed) return;
             if (error != null) Toast.Show(error);
             else
             {

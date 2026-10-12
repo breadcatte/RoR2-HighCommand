@@ -30,11 +30,13 @@ namespace HighCommand.UI
         {
             internal RectTransform root;
             internal Image frame;
+            internal Image fill;
             internal RawImage icon;
             internal TextMeshProUGUI count;
             internal ItemIndex item = ItemIndex.None;
             internal EquipmentIndex equipment = EquipmentIndex.None;
             internal int spareIndex = -1;
+            internal int slot;
             internal Hero owner;
         }
 
@@ -49,7 +51,7 @@ namespace HighCommand.UI
             internal TextMeshProUGUI info;
             internal TextMeshProUGUI more;
             internal TextMeshProUGUI empty;
-            internal Cell equipCell;
+            internal readonly List<Cell> equipCells = new List<Cell>();
             internal readonly List<Cell> cells = new List<Cell>();
             internal readonly List<KeyValuePair<ItemIndex, int>> items = new List<KeyValuePair<ItemIndex, int>>();
             internal float height;
@@ -76,6 +78,7 @@ namespace HighCommand.UI
         private bool dragging;
         private ItemIndex dragItem = ItemIndex.None;
         private EquipmentIndex dragEquipment = EquipmentIndex.None;
+        private int dragSlot;
         private int dragSpareIndex = -1;
         private Hero dragFrom;
         private int dragCount;
@@ -100,7 +103,7 @@ namespace HighCommand.UI
             UiKit.Place(footer, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(Margin, 10f), new Vector2(PanelW - 2f * Margin, FooterH - 14f));
 
             spareLabel = UiKit.NewText("SpareLabel", footer, "", 18f, UiKit.TextDim, TextAlignmentOptions.Left);
-            UiKit.Place(spareLabel.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(760f, 26f));
+            UiKit.Place(spareLabel.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -6f), new Vector2(760f, 26f));
 
             autoButton = UiKit.NewRect("AutoButton", footer);
             UiKit.Place(autoButton, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0f, 0f), new Vector2(260f, 52f));
@@ -150,6 +153,12 @@ namespace HighCommand.UI
         }
 
         // ---- data helpers ---------------------------------------------------------------------------------
+
+        /// <summary>The host's sharing mode (replicated), not this machine's own config value.</summary>
+        private static bool IsMirror(HcState state)
+        {
+            return state != null ? state.ItemMirror : Settings.ItemSharing.Value == ItemDistributor.SharingMode.Mirror;
+        }
 
         private static PickupDef PickupOf(ItemIndex item)
         {
@@ -202,7 +211,8 @@ namespace HighCommand.UI
                     CharacterMaster m = hero.Master;
                     Inventory inv = m ? m.inventory : null;
                     if (!inv) continue;
-                    h = h * 31 + (int)inv.currentEquipmentIndex;
+                    int slots = HeroEquipment.SlotCount(inv);
+                    for (int s = 0; s < slots; s++) h = h * 31 + (int)HeroEquipment.InSlot(inv, s);
                     foreach (ItemIndex idx in inv.itemAcquisitionOrder)
                         h = h * 31 + ((int)idx * 7 + inv.GetItemCountPermanent(idx));
                 }
@@ -223,8 +233,8 @@ namespace HighCommand.UI
             c.frame.sprite = UiKit.White;
             c.frame.color = UiKit.Border;
             c.frame.raycastTarget = false;
-            Image fill = UiKit.NewImage("Fill", c.root, UiKit.White, new Color(0.03f, 0.04f, 0.06f, 1f));
-            UiKit.Stretch(fill.rectTransform, 2, 2, 2, 2);
+            c.fill = UiKit.NewImage("Fill", c.root, UiKit.White, new Color(0.03f, 0.04f, 0.06f, 1f));
+            UiKit.Stretch(c.fill.rectTransform, 2, 2, 2, 2);
             c.icon = UiKit.NewRawImage("Icon", c.root, null, Color.white);
             UiKit.Stretch(c.icon.rectTransform, 3, 3, 3, 3);
             c.count = UiKit.NewText("Count", c.root, "", 16f, UiKit.Text, TextAlignmentOptions.BottomRight);
@@ -270,8 +280,6 @@ namespace HighCommand.UI
             row.info = UiKit.NewText("Info", row.root, "", 16f, UiKit.Gold, TextAlignmentOptions.Left);
             UiKit.Place(row.info.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(78f, -58f), new Vector2(LeftBlockW - 84f, 22f));
 
-            row.equipCell = NewCell(row.root, "Equipment");
-            row.equipCell.owner = hero;
             row.empty = UiKit.NewText("Empty", row.root, Loc.Get("HIGHCOMMAND_INV_EMPTY"), 18f, UiKit.TextDim, TextAlignmentOptions.Left);
             row.more = UiKit.NewText("More", row.root, "", 18f, UiKit.Accent, TextAlignmentOptions.Right);
             return row;
@@ -302,8 +310,17 @@ namespace HighCommand.UI
             SyncRows(heroes);
             foreach (Row r in rows) CollectItems(r.hero, r.items);
 
+            // equipment places per hero (MUL-T has two): the item grid starts after the widest of them
+            const float EquipSize = 50f, EquipPitch = 54f;
+            int maxSlots = 1;
+            foreach (Row r in rows)
+            {
+                CharacterMaster mm = r.hero.Master;
+                maxSlots = Mathf.Max(maxSlots, HeroEquipment.SlotCount(mm ? mm.inventory : null));
+            }
+
             // pick the biggest icon size at which everything fits
-            float gridX = LeftBlockW + 56f;
+            float gridX = LeftBlockW + maxSlots * EquipPitch + 2f;
             float gridW = PanelW - 2f * Margin - gridX - 12f;
             float avail = MaxPanelH - HeaderH - FooterH;
             float size = CellSizes[CellSizes.Length - 1];
@@ -341,17 +358,30 @@ namespace HighCommand.UI
                 r.root.sizeDelta = new Vector2(PanelW - 2f * Margin, r.height);
                 y += r.height + RowGap;
 
-                // equipment cell
-                float eq = Mathf.Min(54f, r.height - 16f);
-                r.equipCell.root.anchoredPosition = new Vector2(LeftBlockW, -8f);
-                r.equipCell.root.sizeDelta = new Vector2(eq, eq);
+                // equipment cells, one per place
                 CharacterMaster m = r.hero.Master;
-                EquipmentIndex held = m && m.inventory ? m.inventory.currentEquipmentIndex : EquipmentIndex.None;
-                r.equipCell.equipment = held;
-                r.equipCell.item = ItemIndex.None;
-                PickupDef eqDef = held != EquipmentIndex.None ? PickupOf(held) : null;
-                r.equipCell.icon.color = PickupIcons.Apply(r.equipCell.icon, eqDef) ? Color.white : new Color(1f, 1f, 1f, 0f);
-                r.equipCell.count.text = "";
+                Inventory heroInv = m ? m.inventory : null;
+                int slots = HeroEquipment.SlotCount(heroInv);
+                while (r.equipCells.Count < slots) r.equipCells.Add(NewCell(r.root, "Equipment"));
+                for (int s = 0; s < r.equipCells.Count; s++)
+                {
+                    Cell ec = r.equipCells[s];
+                    if (s >= slots) { ec.root.gameObject.SetActive(false); continue; }
+                    ec.root.gameObject.SetActive(true);
+                    ec.owner = r.hero;
+                    ec.slot = s;
+                    ec.item = ItemIndex.None;
+                    ec.equipment = heroInv ? HeroEquipment.InSlot(heroInv, s) : EquipmentIndex.None;
+                    ec.root.anchoredPosition = new Vector2(LeftBlockW + s * EquipPitch, -8f);
+                    ec.root.sizeDelta = new Vector2(EquipSize, EquipSize);
+
+                    PickupDef eqDef = ec.equipment != EquipmentIndex.None ? PickupOf(ec.equipment) : null;
+                    ec.icon.color = PickupIcons.Apply(ec.icon, eqDef) ? Color.white : new Color(1f, 1f, 1f, 0f);
+                    // an empty place is a dim outline, not a black square
+                    ec.frame.color = eqDef != null ? eqDef.baseColor : new Color(0.55f, 0.62f, 0.72f, 0.3f);
+                    ec.fill.color = eqDef != null ? new Color(0.03f, 0.04f, 0.06f, 1f) : new Color(0.03f, 0.04f, 0.06f, 0.55f);
+                    ec.count.text = "";
+                }
 
                 // item cells
                 while (r.cells.Count < capacity) r.cells.Add(NewCell(r.root, "Item"));
@@ -394,7 +424,7 @@ namespace HighCommand.UI
                 c.item = ItemIndex.None;
                 c.equipment = spare[i];
                 c.spareIndex = i;
-                c.root.anchoredPosition = new Vector2(i * 50f, -30f);
+                c.root.anchoredPosition = new Vector2(i * 50f, -36f);
                 c.root.sizeDelta = new Vector2(46f, 46f);
                 PickupDef def = PickupOf(spare[i]);
                 c.icon.color = PickupIcons.Apply(c.icon, def) ? Color.white : Color.gray;
@@ -408,7 +438,7 @@ namespace HighCommand.UI
             UiKit.Place(rowsHost, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Margin, -HeaderH), new Vector2(PanelW - 2f * Margin, Mathf.Max(0f, y)));
 
             title.text = Loc.Format("HIGHCOMMAND_INV_TITLE", totalItems);
-            bool mirror = Settings.ItemSharing.Value == ItemDistributor.SharingMode.Mirror;
+            bool mirror = IsMirror(state);
             hint.text = Loc.Get(mirror ? "HIGHCOMMAND_INV_HINT_MIRROR" : "HIGHCOMMAND_INV_HINT_SPLIT");
             autoLabel.text = Loc.Get("HIGHCOMMAND_INV_AUTO");
             autoButton.gameObject.SetActive(!mirror);
@@ -424,7 +454,7 @@ namespace HighCommand.UI
             IReadOnlyList<Hero> heroes = state != null ? state.Heroes : new List<Hero>();
             IReadOnlyList<EquipmentIndex> spare = state != null ? state.SpareEquipment : new List<EquipmentIndex>();
 
-            int signature = Signature(heroes, spare);
+            int signature = Signature(heroes, spare) * 31 + (IsMirror(state) ? 1 : 0);
             if (signature != lastSignature)
             {
                 lastSignature = signature;
@@ -465,17 +495,72 @@ namespace HighCommand.UI
                 if (over && !dragging && ClientInput.MouseDown(0))
                 {
                     string error = ArmyService.RedistributeItems();
-                    Toast.Show(error ?? Loc.Get("HIGHCOMMAND_INV_AUTO_DONE"));
+                    if (error != Net.CommandChannel.Relayed) Toast.Show(error ?? Loc.Get("HIGHCOMMAND_INV_AUTO_DONE"));
                     lastSignature = int.MinValue;
                 }
             }
+        }
+
+        // ---- test hooks (used by the hc_inv_* console commands) -----------------------------------------------
+
+        private static Vector2 CenterOf(RectTransform rt)
+        {
+            Vector3 w = rt.TransformPoint(rt.rect.center); // overlay canvas: world units are screen pixels
+            return new Vector2(w.x, w.y);
+        }
+
+        /// <summary>Screen position of an item cell (<paramref name="item"/>), a hero's equipment slot or a spare piece.</summary>
+        internal bool TryFindCell(Hero owner, ItemIndex item, bool equipment, int spareIndex, out Vector2 center, int equipSlot = 0)
+        {
+            center = Vector2.zero;
+            if (!Visible) return false;
+
+            if (spareIndex >= 0)
+            {
+                if (spareIndex >= spareCells.Count || !spareCells[spareIndex].root.gameObject.activeSelf) return false;
+                center = CenterOf(spareCells[spareIndex].root);
+                return true;
+            }
+            foreach (Row r in rows)
+            {
+                if (r.hero != owner) continue;
+                if (equipment)
+                {
+                    if (equipSlot < 0 || equipSlot >= r.equipCells.Count || !r.equipCells[equipSlot].root.gameObject.activeSelf) return false;
+                    center = CenterOf(r.equipCells[equipSlot].root);
+                    return true;
+                }
+                foreach (Cell c in r.cells)
+                {
+                    if (!c.root.gameObject.activeSelf || c.item != item) continue;
+                    center = CenterOf(c.root);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        internal bool TryFindRow(Hero hero, out Vector2 center)
+        {
+            center = Vector2.zero;
+            if (!Visible) return false;
+            foreach (Row r in rows)
+            {
+                if (r.hero != hero) continue;
+                // the free part of the row, away from the item cells
+                Vector2 c = CenterOf(r.root);
+                center = new Vector2(c.x + 300f, c.y);
+                return true;
+            }
+            return false;
         }
 
         private Cell HoveredCell(Vector2 mouse)
         {
             foreach (Row r in rows)
             {
-                if (r.equipCell.equipment != EquipmentIndex.None && UiKit.Contains(r.equipCell.root, mouse)) return r.equipCell;
+                foreach (Cell ec in r.equipCells)
+                    if (ec.root.gameObject.activeSelf && UiKit.Contains(ec.root, mouse)) return ec;
                 foreach (Cell c in r.cells)
                     if (c.root.gameObject.activeSelf && UiKit.Contains(c.root, mouse)) return c;
             }
@@ -486,6 +571,12 @@ namespace HighCommand.UI
 
         private void ShowCellTooltip(Cell c)
         {
+            if (c.item == ItemIndex.None && c.equipment == EquipmentIndex.None)
+            {
+                Tooltip.Show(Loc.Get("HIGHCOMMAND_INV_EQUIPMENT"), Loc.Get("HIGHCOMMAND_INV_NOEQUIP"));
+                return;
+            }
+
             PickupDef def = c.item != ItemIndex.None ? PickupOf(c.item) : PickupOf(c.equipment);
             if (def == null) return;
 
@@ -500,12 +591,14 @@ namespace HighCommand.UI
 
         private void BeginDrag(Cell c)
         {
-            if (Settings.ItemSharing.Value == ItemDistributor.SharingMode.Mirror && c.item != ItemIndex.None) return;
+            if (c.item == ItemIndex.None && c.equipment == EquipmentIndex.None) return; // empty equipment slot
+            if (IsMirror(HcState.Instance) && c.item != ItemIndex.None) return;
 
             dragging = true;
             dragItem = c.item;
             dragEquipment = c.item == ItemIndex.None ? c.equipment : EquipmentIndex.None;
             dragSpareIndex = c.spareIndex;
+            dragSlot = c.slot;
             dragFrom = c.owner;
 
             dragCount = 1;
@@ -552,13 +645,14 @@ namespace HighCommand.UI
                 }
                 else if (dragEquipment != EquipmentIndex.None)
                 {
-                    if (dragFrom != null) error = ArmyService.TryMoveEquipment(dragFrom, target);
+                    if (dragFrom != null) error = ArmyService.TryMoveEquipment(dragFrom, dragSlot, target);
                     else error = ArmyService.TryEquipFromPool(dragSpareIndex, target);
                     PickupDef def = PickupOf(dragEquipment);
                     what = def != null ? Language.GetString(def.nameToken) : "?";
                 }
 
-                if (error != null) Toast.Show(error);
+                if (error == Net.CommandChannel.Relayed) lastSignature = int.MinValue; // the server answers with a toast
+                else if (error != null) Toast.Show(error);
                 else if (what != null)
                 {
                     string from = dragFrom != null ? dragFrom.DisplayName : Loc.Get("HIGHCOMMAND_INV_EQUIPMENT");

@@ -108,6 +108,7 @@ namespace HighCommand.Orders
         {
             var c = new OrderCommand();
             int n = (int)r.ReadPackedUInt32();
+            if (n < 0 || n > 256) return null; // not a real selection: reject instead of allocating
             c.HeroIds = new int[n];
             for (int i = 0; i < n; i++) c.HeroIds[i] = (int)r.ReadPackedUInt32();
             c.Kind = (OrderKind)r.ReadByte();

@@ -96,7 +96,8 @@ namespace HighCommand.Army
                 if (any) affinity = sum / count;
 
                 int owned = CountItems(h.Master.inventory);
-                float score = affinity - 0.10f * owned + Random.value * 0.05f;
+                // 0.16 per item already owned: a role preference can lead by about three items, not more
+                float score = affinity - 0.16f * owned + Random.value * 0.05f;
                 if (!h.IsAlive) score -= 0.15f; // fallen heroes are the last choice
                 if (score > bestScore) { bestScore = score; best = h; }
             }
@@ -121,10 +122,11 @@ namespace HighCommand.Army
             {
                 if (army.EquipmentPool.Count == 0) break;
                 Inventory inv = h.Master.inventory;
-                if (inv.currentEquipmentIndex != EquipmentIndex.None) continue;
+                // only an EMPTY place is used: a hero that carries equipment keeps it (MUL-T has two places)
+                EquipmentLocation where = HeroEquipment.TargetFor(inv, out bool empty);
+                if (!empty) continue;
                 EquipmentIndex eq = army.EquipmentPool[0];
                 army.EquipmentPool.RemoveAt(0);
-                EquipmentLocation where = EquipmentLocation.zero;
                 inv.SetEquipmentIndex(eq, in where);
             }
         }
@@ -145,19 +147,25 @@ namespace HighCommand.Army
             return n;
         }
 
-        /// <summary>Swaps the equipment of two heroes (an empty slot simply receives the other's piece).</summary>
-        internal bool MoveEquipment(Hero from, Hero to)
+        /// <summary>
+        /// Hands the piece in <paramref name="fromSlot"/> of one hero to another: into an empty place when the receiver
+        /// has one, otherwise it swaps with the receiver's active piece.
+        /// </summary>
+        internal bool MoveEquipment(Hero from, int fromSlot, Hero to)
         {
             if (!NetworkServer.active || from == null || to == null || from == to) return false;
             if (!from.Master || !to.Master || !from.Master.inventory || !to.Master.inventory) return false;
 
             Inventory a = from.Master.inventory, b = to.Master.inventory;
-            EquipmentIndex ea = a.currentEquipmentIndex, eb = b.currentEquipmentIndex;
-            if (ea == EquipmentIndex.None) return false;
+            EquipmentIndex piece = HeroEquipment.InSlot(a, fromSlot);
+            if (piece == EquipmentIndex.None) return false;
 
-            EquipmentLocation where = EquipmentLocation.zero;
-            a.SetEquipmentIndex(eb, in where);
-            b.SetEquipmentIndex(ea, in where);
+            EquipmentLocation source = HeroEquipment.LocationOfSlot(a, fromSlot);
+            EquipmentLocation target = HeroEquipment.TargetFor(b, out bool _);
+            EquipmentIndex displaced = b.GetEquipmentIndex(in target);
+
+            a.SetEquipmentIndex(displaced, in source);
+            b.SetEquipmentIndex(piece, in target);
             return true;
         }
 
@@ -168,12 +176,13 @@ namespace HighCommand.Army
             if (poolIndex < 0 || poolIndex >= army.EquipmentPool.Count) return false;
 
             Inventory inv = to.Master.inventory;
-            EquipmentIndex old = inv.currentEquipmentIndex;
+            // the same place a picked-up piece would go to; whatever stood there goes back to the pool
+            EquipmentLocation where = HeroEquipment.TargetFor(inv, out bool _);
+            EquipmentIndex old = inv.GetEquipmentIndex(in where);
             EquipmentIndex next = army.EquipmentPool[poolIndex];
             army.EquipmentPool.RemoveAt(poolIndex);
             if (old != EquipmentIndex.None) army.EquipmentPool.Add(old);
 
-            EquipmentLocation where = EquipmentLocation.zero;
             inv.SetEquipmentIndex(next, in where);
             return true;
         }
