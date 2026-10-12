@@ -35,7 +35,7 @@ $dest = Join-Path $game "BepInEx\plugins\local-HighCommand"
 New-Item -ItemType Directory -Force $dest | Out-Null
 Copy-Item $dll (Join-Path $dest "HighCommand.dll") -Force
 
-$profiles = Join-Path $root "profiles"
+$profiles = Join-Path $root "package\profiles"
 if (Test-Path $profiles) {
     $pdest = Join-Path $dest "profiles"
     New-Item -ItemType Directory -Force $pdest | Out-Null

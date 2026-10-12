@@ -15,16 +15,40 @@ if (Get-Process | Where-Object { $_.ProcessName -like "Risk of Rain*" }) { throw
 
 if (-not $NoBuild) { & (Join-Path $root "tools\build.ps1") | Out-Null }
 
-# hc_cfg tests are saved into the .cfg on exit: always start from the defaults
+# hc_cfg tests are saved into the .cfg on exit: the run must start from the defaults. The user's own config (their keys)
+# is set aside first and put back afterwards, whatever happens to the run.
 $cfg = Join-Path $game "BepInEx\config\kantemiir.HighCommand.cfg"
-if (Test-Path $cfg) { [System.IO.File]::Delete($cfg) }
-
+$cfgBackup = $cfg + ".qa-backup"
 $dst = Join-Path $game "BepInEx\config\HighCommand.autoexec.txt"
-Copy-Item $src $dst -Force
-Clear-Content (Join-Path $game "BepInEx\LogOutput.log") -ErrorAction SilentlyContinue
+if (Test-Path $cfgBackup) {
+    throw "A backup of the real config is left over from an interrupted run: $cfgBackup. Copy it over $cfg, delete it, then run again."
+}
+$hadCfg = Test-Path $cfg
+if ($hadCfg) { [System.IO.File]::Copy($cfg, $cfgBackup) }
 
-& (Join-Path $root "tools\run-game.ps1") -TimeoutMin $TimeoutMin -Pattern "AutoExec: (quit|script finished)" -Max 2 | Out-Null
-Move-Item $dst (Join-Path $game "BepInEx\config\HighCommand.autoexec.last.txt") -Force
+try {
+    if ($hadCfg) { [System.IO.File]::Delete($cfg) }
+
+    Copy-Item $src $dst -Force
+    Clear-Content (Join-Path $game "BepInEx\LogOutput.log") -ErrorAction SilentlyContinue
+
+    & (Join-Path $root "tools\run-game.ps1") -TimeoutMin $TimeoutMin -Pattern "AutoExec: (quit|script finished)" -Max 2 | Out-Null
+    Move-Item $dst (Join-Path $game "BepInEx\config\HighCommand.autoexec.last.txt") -Force
+} finally {
+    # an interrupted run can leave the game open: it would rewrite the .cfg when it quits
+    $left = @(Get-Process | Where-Object { $_.ProcessName -like "Risk of Rain*" })
+    if ($left.Count -gt 0) { $left | Stop-Process -Force; Start-Sleep -Seconds 2 }
+
+    # a scenario left in the config folder would run (and quit the game) at the next start
+    if (Test-Path $dst) { [System.IO.File]::Delete($dst) }
+
+    if ($hadCfg) {
+        [System.IO.File]::Copy($cfgBackup, $cfg, $true)
+        [System.IO.File]::Delete($cfgBackup)
+    } elseif (Test-Path $cfg) {
+        [System.IO.File]::Delete($cfg)
+    }
+}
 
 $lines = Get-Content (Join-Path $game "BepInEx\LogOutput.log") -Encoding UTF8
 $start = ($lines | Select-String "AutoExec: running" | Select-Object -First 1).LineNumber

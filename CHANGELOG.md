@@ -25,6 +25,11 @@ Fixes
 
 Dev
 * `hc_next_stage <scene>` goes to a named scene; `hc_dump_scenes` lists the scenes without allied AI entry.
+* `tools\build.ps1` installs the hero profiles from `package\profiles` (it looked in a `profiles` folder that does not
+  exist, so edits to `hero_profiles.json` never reached the game).
+* `tools\qa-run.ps1` no longer destroys the user's `kantemiir.HighCommand.cfg`: it is copied aside before the test and
+  put back afterwards, also when the run fails; the scenario file is never left in the config folder.
+* `package\profiles\hero_profiles.json` lists `fleeSlot` and `standoff` for every survivor, equal to the built-in values.
 
 ## 0.9.1 - QA pass (single player)
 
