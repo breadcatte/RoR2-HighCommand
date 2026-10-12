@@ -190,11 +190,18 @@ namespace HighCommand.Dev
                     cam.SetDistance(args.GetArgFloat(1));
                     break;
                 case "follow":
-                    cam.FollowTarget = Client.ClientRoot.ArmyCenter;
+                    cam.FollowTarget = () => Client.ClientRoot.ArmyCenter();
                     break;
                 case "at":
                     cam.FocusOn(new Vector3(args.GetArgFloat(1), cam.Focus.y, args.GetArgFloat(2)));
                     break;
+                case "info":
+                {
+                    Vector3? army = Client.ClientRoot.ArmyCenter();
+                    Debug.Log($"HighCommand camera: focus={cam.Focus:0} distance={cam.Distance:0.0} yaw={cam.Yaw:0} " +
+                              $"scene camera at {(cam.SceneCam ? cam.SceneCam.transform.position : Vector3.zero):0} army={(army.HasValue ? army.Value : Vector3.zero):0}");
+                    break;
+                }
                 default:
                     throw new ConCommandException("Unknown option.");
             }

@@ -225,13 +225,36 @@ namespace HighCommand.Client
             float length = toCamera.magnitude;
             if (length > 0.01f)
             {
-                if (Physics.SphereCast(lookAt, 0.4f, toCamera / length, out RaycastHit hit, length, LayerIndex.world.mask, QueryTriggerInteraction.Ignore))
-                    position = lookAt + (toCamera / length) * Mathf.Max(1.5f, hit.distance - 0.2f);
+                float blocked = NearestStaticHit(lookAt, toCamera / length, length);
+                if (blocked >= 0f)
+                    position = lookAt + (toCamera / length) * Mathf.Max(1.5f, blocked - 0.2f);
             }
 
             cameraState.position = position;
             cameraState.rotation = rotation;
             cameraState.fov = Settings.CameraFov.Value;
+        }
+
+        private static readonly RaycastHit[] CastBuffer = new RaycastHit[24];
+
+        /// <summary>
+        /// Distance to the nearest piece of the level between the focus and the camera, or -1. Objects of the game
+        /// (drop pods, interactables, bodies: anything with a network identity) never block the camera: the first hero
+        /// stands inside its pod and the camera must not be dragged into it.
+        /// </summary>
+        private static float NearestStaticHit(Vector3 from, Vector3 direction, float length)
+        {
+            int count = Physics.SphereCastNonAlloc(from, 0.4f, direction, CastBuffer, length, LayerIndex.world.mask, QueryTriggerInteraction.Ignore);
+            float best = -1f;
+            for (int i = 0; i < count; i++)
+            {
+                RaycastHit hit = CastBuffer[i];
+                if (!hit.collider) continue;
+                if (hit.collider.GetComponentInParent<UnityEngine.Networking.NetworkIdentity>()) continue;
+                if (hit.collider.GetComponentInParent<RoR2.CharacterBody>()) continue;
+                if (best < 0f || hit.distance < best) best = hit.distance;
+            }
+            return best;
         }
 
         public bool IsUserLookAllowed(CameraRigController cameraRigController) => false;

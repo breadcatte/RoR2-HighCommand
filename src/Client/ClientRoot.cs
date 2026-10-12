@@ -242,12 +242,30 @@ namespace HighCommand.Client
         /// <summary>Looks at the army when a stage begins (first friendly body appears).</summary>
         private void TryInitialFocus()
         {
-            Vector3? where = ArmyCenter();
-            if (!where.HasValue) return;
+            // The first hero arrives in a drop pod from high above the map: wait for the landing and, meanwhile, look at
+            // the ground below the pod (a camera at the pod would show only sky).
+            Vector3? where = ArmyCenter(requireOnFoot: true);
+            if (!where.HasValue)
+            {
+                Vector3? falling = ArmyCenter();
+                if (falling.HasValue)
+                {
+                    Camera.FocusOn(HighCommand.Orders.Formation.SnapToGround(falling.Value), snap: true);
+                    Camera.SetDistance(Mathf.Lerp(Settings.CameraMinDistance.Value, Settings.CameraMaxDistance.Value, 0.28f));
+                }
+                return;
+            }
             Camera.FocusOn(where.Value, snap: true);
             Camera.SetDistance(Mathf.Lerp(Settings.CameraMinDistance.Value, Settings.CameraMaxDistance.Value, 0.28f));
             focusedThisStage = true;
             orders.RallyPoint = where.Value;
+
+            // the army is ready for orders: nobody has to click on the first hero before commanding
+            if (Selection.Count == 0)
+            {
+                IReadOnlyList<Hero> heroes = CurrentHeroes();
+                if (heroes.Count > 0) Selection.Set(heroes);
+            }
         }
 
         private void HandleMinimapMouse()
@@ -270,7 +288,7 @@ namespace HighCommand.Client
         }
 
         /// <summary>Average position of living friendly bodies (hero bodies first when the roster is known).</summary>
-        internal static Vector3? ArmyCenter()
+        internal static Vector3? ArmyCenter(bool requireOnFoot = false)
         {
             Vector3 sum = Vector3.zero;
             int count = 0;
@@ -282,6 +300,7 @@ namespace HighCommand.Client
                     CharacterBody b = bodies[i];
                     if (!b || !b.healthComponent || !b.healthComponent.alive || !b.teamComponent) continue;
                     if (b.teamComponent.teamIndex != TeamIndex.Player) continue;
+                    if (requireOnFoot && (b.currentVehicle || (b.characterMotor && !b.characterMotor.isGrounded))) continue;
                     if (pass == 0 && HeroMarker.Of(b) == null) continue; // server knows the heroes; clients fall through
                     sum += b.corePosition;
                     count++;
