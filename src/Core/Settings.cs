@@ -135,15 +135,15 @@ namespace HighCommand
             KeyHelp = cfg.Bind("Keys", "Help", KeyCode.F1, "Show / hide the hotkey cheat sheet.");
             KeyFastCamera = cfg.Bind("Keys", "FastCamera", KeyCode.LeftShift, "Hold to pan the camera faster.");
 
-            StartingGold = I("Economy", "StartingGold", 0, 0, 100000, "Gold the army starts the run with.");
+            StartingGold = I("Economy", "StartingGold", 100, 0, 100000, "Gold the army starts the run with.");
             GoldMultiplier = F("Economy", "GoldMultiplier", 1.0f, 0.1f, 10f, "Multiplier on all gold the army receives.");
-            HeroBasePrice = I("Economy", "HeroBasePrice", 300, 10, 100000, "Price of the first recruit at the start of the run (scales with the run's difficulty).");
+            HeroBasePrice = I("Economy", "HeroBasePrice", 250, 10, 100000, "Price of the first recruit at the start of the run (scales with the run's difficulty).");
             HeroPriceGrowth = F("Economy", "HeroPriceGrowth", 1.4f, 1f, 4f, "Every hero bought makes the next one this many times more expensive.");
             PriceMultiplier = F("Economy", "PriceMultiplier", 1.0f, 0.1f, 10f, "Multiplier on all hero prices (recruiting and reviving).");
             ArmyLimit = I("Army", "ArmyLimit", 6, 1, 20, "Largest army size (including the starting hero).");
             AllowDuplicates = cfg.Bind("Army", "AllowDuplicates", false, "Allow recruiting several heroes of the same kind.");
             IgnoreUnlocks = cfg.Bind("Army", "IgnoreUnlocks", false, "Offer survivors you have not unlocked yet.");
-            AllowHiddenSurvivors = cfg.Bind("Army", "AllowHiddenSurvivors", false, "Offer hidden survivors (for example Heretic).");
+            AllowHiddenSurvivors = cfg.Bind("Army", "AllowHiddenSurvivors", false, "Offer hidden survivors (for example Heretic). Experimental: they are not meant to be played and may misbehave.");
             ReviveCostFraction = F("Economy", "ReviveCostFraction", 0.4f, 0f, 3f, "A fallen hero's revival costs this fraction of the price of the next recruit.");
             AutoRetreat = cfg.Bind("Army", "AutoRetreat", true,
                 "A badly hurt hero (threshold per survivor in profiles\\hero_profiles.json) runs to its friends until it recovers. Explicit move / hold / interact orders are never interrupted.");

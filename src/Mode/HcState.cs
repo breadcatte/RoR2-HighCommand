@@ -21,7 +21,7 @@ namespace HighCommand.Mode
         public uint Gold { get; private set; }
         public int Bought { get; private set; }
         public int ArmyLimit { get; private set; } = 6;
-        public float PriceBase { get; private set; } = 300f;
+        public float PriceBase { get; private set; } = 250f;
         public float PriceGrowth { get; private set; } = 1.4f;
         public float PriceMultiplier { get; private set; } = 1f;
         public float ReviveFraction { get; private set; } = 0.4f;

@@ -403,6 +403,7 @@ namespace HighCommand.Dev
                 case "herobaseprice": Settings.HeroBasePrice.Value = int.Parse(value); break;
                 case "autoretreat": Settings.AutoRetreat.Value = bool.Parse(value); break;
                 case "verbose": Settings.VerboseLog.Value = bool.Parse(value); break;
+                case "allowhidden": Settings.AllowHiddenSurvivors.Value = bool.Parse(value); break;
                 default: throw new ConCommandException("Unknown setting.");
             }
             Mode.HcState.Instance?.ServerPublishSettings();
@@ -463,6 +464,18 @@ namespace HighCommand.Dev
                 if (Army.LootService.Grant(new UniquePickup(p), null)) given++;
             }
             Debug.Log($"HighCommand: dropped {given} random items.");
+        }
+
+        [ConCommand(commandName = "hc_name", flags = HostOnly, helpText = "hc_name <SurvivorName>: prints the survivor's display name as code points (font / localisation checks).")]
+        private static void CcName(ConCommandArgs args)
+        {
+            SurvivorDef def = SurvivorCatalog.FindSurvivorDef(args.GetArgString(0));
+            if (!def) throw new ConCommandException("Unknown survivor.");
+            string token = def.displayNameToken;
+            string text = Language.GetString(token);
+            var sb = new StringBuilder();
+            foreach (char c in text) sb.Append("U+").Append(((int)c).ToString("X4")).Append(' ');
+            Debug.Log($"HighCommand name: token={token} length={text.Length} -> {sb}");
         }
 
         [ConCommand(commandName = "hc_rebalance", flags = HostOnly, helpText = "hc_rebalance on|off: a new recruit takes a share of the army's items (changes the config value).")]
