@@ -1,0 +1,27 @@
+# Defeat strip: all heroes fall while a revival is affordable; a click on the red strip must revive one at once
+# (well before the automatic revival, which comes 4 s after the last fall).
+@wait 4
+@log === D1 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 20
+hc_gold 2000
+hc_status
+@log === D2 every hero falls; one second later (the strip is up) click on it (screen y = 1080 - 172)
+hc_kill_heroes
+@wait 1
+hc_click 960 908
+@wait 0.6
+hc_status
+@log === D3 the same click again must not break anything
+@wait 4
+hc_status
+hc_screenshot defeat_clicked
+@log === END
+disconnect
+@norun
+@wait 4
+@quit

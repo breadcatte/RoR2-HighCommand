@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+Interface
+* The red "all heroes have fallen" strip is clickable: a click revives the first fallen hero (the text says so).
+* The teleporter strip no longer claims "Teleporter ready" while the teleporter has not been started: "Teleporter found:
+  click or press [key] to start".
+* Roster cards show the health of a living hero as numbers (current/max) above the bar; hidden for a fallen hero and on
+  the compact cards (15+ heroes).
+
 ## 0.10.0 - army upgrades, veteran ranks, fairer economy
 
 New

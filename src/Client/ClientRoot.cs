@@ -257,6 +257,7 @@ namespace HighCommand.Client
                 if (ClientInput.KeyDown(Settings.KeyBarracks.Value)) barracks.Toggle();
                 if (ClientInput.MouseDown(0) && topBar.GoldPanelContains(ClientInput.Mouse)) barracks.Toggle();
                 if (ClientInput.MouseDown(0) && topBar.TeleporterPanelContains(ClientInput.Mouse)) orders.TeleporterAction();
+                if (ClientInput.MouseDown(0) && topBar.DefeatContains(ClientInput.Mouse)) orders.Revive(null);
 
                 if (ClientInput.KeyDown(Settings.KeyInventory.Value)) { inventory.Toggle(); barracks.Hide(); }
                 if (barracks.Visible) inventory.Hide();

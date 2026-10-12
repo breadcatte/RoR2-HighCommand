@@ -68,9 +68,13 @@ namespace HighCommand.UI
         }
 
         internal bool Contains(Vector2 screenPoint) =>
-            UiKit.Contains(infoPanel, screenPoint) || UiKit.Contains(goldPanel, screenPoint) || UiKit.Contains(teleporterPanel, screenPoint);
+            UiKit.Contains(infoPanel, screenPoint) || UiKit.Contains(goldPanel, screenPoint) || UiKit.Contains(teleporterPanel, screenPoint)
+            || DefeatContains(screenPoint);
 
         internal bool GoldPanelContains(Vector2 screenPoint) => UiKit.Contains(goldPanel, screenPoint);
+
+        /// <summary>The red "all heroes have fallen" strip: shown only while the defeat countdown runs; a click revives.</summary>
+        internal bool DefeatContains(Vector2 screenPoint) => defeatText.enabled && UiKit.Contains(defeatText.rectTransform, screenPoint);
 
         internal bool TeleporterPanelContains(Vector2 screenPoint) => UiKit.Contains(teleporterPanel, screenPoint);
 

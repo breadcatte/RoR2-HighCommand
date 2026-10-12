@@ -30,6 +30,7 @@ namespace HighCommand.UI
             internal RawImage portrait;
             internal TextMeshProUGUI name;
             internal TextMeshProUGUI info;
+            internal TextMeshProUGUI hp;
             internal Image barBack;
             internal Image healthFill;
             internal Image shieldFill;
@@ -41,6 +42,7 @@ namespace HighCommand.UI
             internal bool compact;
             internal float health = -1f, shield = -1f;
             internal int level = -1;
+            internal int hpCurrent = -1, hpMax = -1;
             internal byte order = 255;
             internal bool alive;
             internal bool stateKnown;
@@ -106,6 +108,8 @@ namespace HighCommand.UI
                 c.info.enableAutoSizing = true;
                 c.info.fontSizeMin = 8f;
                 c.info.fontSizeMax = 13f;
+                c.hp = UiKit.NewText("Hp", c.root, "", 12f, UiKit.TextDim, TextAlignmentOptions.Right);
+                c.hp.enabled = false;
 
                 c.barBack = UiKit.NewImage("BarBack", c.root, UiKit.White, new Color(0.15f, 0.15f, 0.17f, 1f));
                 c.healthFill = UiKit.NewImage("Health", c.barBack.rectTransform, UiKit.White, UiKit.Good);
@@ -167,6 +171,7 @@ namespace HighCommand.UI
                     c.infoKey = null;
                     c.revivePrice = -1;
                     c.health = c.shield = -1f;
+                    c.hpCurrent = c.hpMax = -1;
                 }
 
                 CharacterBody body = hero.Body;
@@ -195,6 +200,7 @@ namespace HighCommand.UI
 
                 // health and shield
                 float h = 0f, s = 0f;
+                int hpNow = -1, hpFull = -1;
                 if (alive && body)
                 {
                     HealthComponent hc = body.healthComponent;
@@ -203,7 +209,20 @@ namespace HighCommand.UI
                         float total = Mathf.Max(1f, hc.fullHealth + hc.fullShield);
                         h = Mathf.Clamp01(hc.health / total);
                         s = Mathf.Clamp01(hc.shield / total);
+                        hpNow = Mathf.CeilToInt(hc.health + hc.shield);
+                        hpFull = Mathf.RoundToInt(total);
                     }
+                }
+
+                // "current/max" above the bar: rewritten only when one of the two whole numbers changes; hidden for a
+                // fallen hero and on the compact cards (no room next to the name line)
+                bool showHp = hpNow >= 0 && !compact;
+                if (c.hp.enabled != showHp) c.hp.enabled = showHp;
+                if (showHp && (hpNow != c.hpCurrent || hpFull != c.hpMax))
+                {
+                    c.hpCurrent = hpNow;
+                    c.hpMax = hpFull;
+                    UiKit.SetText(c.hp, hpNow + "/" + hpFull);
                 }
                 if (Mathf.Abs(c.health - h) > 0.002f || Mathf.Abs(c.shield - s) > 0.002f)
                 {
@@ -276,7 +295,10 @@ namespace HighCommand.UI
             float textX = portrait + 11f;
             float textW = Width - textX - 6f;
             UiKit.Place(c.name.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(textX, -3f), new Vector2(textW, 20f));
-            UiKit.Place(c.info.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(textX, compact ? -3f : -22f), new Vector2(textW, 16f));
+            // the right end of the info line belongs to the health numbers (full cards only)
+            UiKit.Place(c.info.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(textX, compact ? -3f : -22f),
+                new Vector2(compact ? textW : textW - 48f, 16f));
+            UiKit.Place(c.hp.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(textX, 11f), new Vector2(textW, 14f));
             c.info.alignment = compact ? TextAlignmentOptions.Right : TextAlignmentOptions.Left;
             UiKit.Place(c.barBack.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(textX, 5f), new Vector2(textW, 7f));
         }

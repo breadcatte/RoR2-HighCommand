@@ -224,15 +224,15 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_TP_TITLE", "Teleporter", "Телепорт");
             Loc.Add("HIGHCOMMAND_TP_DESC", "One button for the whole teleporter routine: the nearest hero activates it, the army gathers inside the zone while it charges, and once it is charged and the boss is dead the same button takes the army to the next stage.",
                 "Одна кнопка на весь телепорт: ближайший герой запускает его, армия собирается в зоне, пока он заряжается, а когда он заряжен и босс убит, та же кнопка уводит армию на следующую стадию.");
-            Loc.Add("HIGHCOMMAND_TP_STATE_IDLE", "Teleporter ready: click or press [{0}]", "Телепорт готов: нажмите или [{0}]");
+            Loc.Add("HIGHCOMMAND_TP_STATE_IDLE", "Teleporter found: click or press [{0}] to start", "Телепорт найден: нажмите или [{0}], чтобы запустить");
             Loc.Add("HIGHCOMMAND_TP_STATE_CHARGING", "Teleporter charging: {0}%", "Телепорт заряжается: {0}%");
             Loc.Add("HIGHCOMMAND_TP_STATE_BOSS", "Zone full - kill the boss!", "Зона заряжена - убейте босса!");
             Loc.Add("HIGHCOMMAND_TP_STATE_CHARGED", "Charged! Click or press [{0}] to leave", "Заряжен! Нажмите или [{0}], чтобы уйти");
             Loc.Add("HIGHCOMMAND_TP_STATE_LEAVING", "Leaving the stage...", "Уходим со стадии...");
-            Loc.Add("HIGHCOMMAND_DEFEAT_CAN_REVIVE", "ALL HEROES HAVE FALLEN! Revive one within {0} s [{1}] or the run is lost",
-                "ВСЕ ГЕРОИ ПАЛИ! Воскресите одного за {0} с [{1}], иначе забег проигран");
-            Loc.Add("HIGHCOMMAND_DEFEAT_AUTO_REVIVE", "ALL HEROES HAVE FALLEN! Automatic revival in {0} s (${1}), or press [{2}] now",
-                "ВСЕ ГЕРОИ ПАЛИ! Автовоскрешение через {0} с (${1}) или [{2}] сразу");
+            Loc.Add("HIGHCOMMAND_DEFEAT_CAN_REVIVE", "ALL HEROES HAVE FALLEN! Revive one within {0} s [{1}] or the run is lost (or click here)",
+                "ВСЕ ГЕРОИ ПАЛИ! Воскресите одного за {0} с [{1}], иначе забег проигран (или нажмите сюда)");
+            Loc.Add("HIGHCOMMAND_DEFEAT_AUTO_REVIVE", "ALL HEROES HAVE FALLEN! Automatic revival in {0} s (${1}), or press [{2}] now (or click here)",
+                "ВСЕ ГЕРОИ ПАЛИ! Автовоскрешение через {0} с (${1}) или [{2}] сразу (или нажмите сюда)");
             Loc.Add("HIGHCOMMAND_DEFEAT_BROKE", "ALL HEROES HAVE FALLEN and there is no gold to revive: the run ends in {0} s",
                 "ВСЕ ГЕРОИ ПАЛИ, а золота на воскрешение нет: забег закончится через {0} с");
 
