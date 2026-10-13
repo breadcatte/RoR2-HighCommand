@@ -233,6 +233,8 @@ namespace HighCommand
             // the top strip
             Loc.Add("HIGHCOMMAND_TOP_ARMYLIMIT", "limit {0}", "лимит {0}");
             Loc.Add("HIGHCOMMAND_TOP_NEXTHERO", "Next hero", "Следующий герой");
+            Loc.Add("HIGHCOMMAND_TOP_ITEMS", "Items", "Предметы");
+            Loc.Add("HIGHCOMMAND_TOP_ITEMS_COUNT", "the army has {0}", "у армии: {0}");
             Loc.Add("HIGHCOMMAND_TOP_INCOME", "+{0}/min", "+{0}/мин");
             Loc.Add("HIGHCOMMAND_TOP_BARRACKS_TIP", "Open the barracks: recruit heroes and buy army upgrades.", "Открыть казарму: нанять героев и купить улучшения армии.");
 

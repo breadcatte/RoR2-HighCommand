@@ -299,7 +299,8 @@ namespace HighCommand.Client
                 if (ClientInput.MouseDown(0) && topBar.TeleporterPanelContains(ClientInput.Mouse)) orders.TeleporterAction();
                 if (ClientInput.MouseDown(0) && topBar.DefeatContains(ClientInput.Mouse)) orders.Revive(null);
 
-                if (ClientInput.KeyDown(Settings.KeyInventory.Value)) { inventory.Toggle(); barracks.Hide(); }
+                if (ClientInput.KeyDown(Settings.KeyInventory.Value)
+                    || (ClientInput.MouseDown(0) && topBar.ItemsPanelContains(ClientInput.Mouse))) { inventory.Toggle(); barracks.Hide(); }
                 if (barracks.Visible) inventory.Hide();
             }
             else
@@ -346,7 +347,7 @@ namespace HighCommand.Client
             Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartPick], t);
 
             t = Dev.Perf.Begin();
-            topBar.Tick(Time.unscaledDeltaTime);
+            topBar.Tick(Time.unscaledDeltaTime, inventory.Visible);
             Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartTopBar], t);
 
             t = Dev.Perf.Begin();

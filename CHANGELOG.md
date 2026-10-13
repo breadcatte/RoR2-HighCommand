@@ -56,6 +56,8 @@ Dev
   out from under a fixed pixel).
 
 Interface
+* An "Items" button in the top strip, left of the purse: how many items the army has; a click opens the item panel
+  (the same as I), and it is framed while the panel is open.
 * The strip of selected-hero cards at the bottom centre is gone (the roster on the left already marks the selected
   heroes, and the command card's title names them); the commander's abilities moved into its place, so the bottom
   right holds only the orders card.

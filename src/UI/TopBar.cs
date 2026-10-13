@@ -9,15 +9,16 @@ using UnityEngine.UI;
 namespace HighCommand.UI
 {
     /// <summary>
-    /// The top strip, three panels of one height: the stage (name, time, difficulty) on the left; in the middle the
-    /// purse, the army and the price of the next hero (a click opens the barracks); on the right the teleporter with
-    /// its progress (a click starts / gathers / leaves). The red defeat line comes below them.
+    /// The top strip, panels of one height: the stage (name, time, difficulty) on the left; in the middle the army's
+    /// items (a click opens the item panel), the purse, the army and the price of the next hero (a click opens the
+    /// barracks); on the right the teleporter with its progress (a click starts / gathers / leaves). The red defeat
+    /// line comes below them.
     /// </summary>
     internal sealed class TopBar
     {
         private const float Height = 60f;
         private const float Top = 14f;
-        private const float StageW = 400f, EconomyW = 580f, TeleW = 340f;
+        private const float StageW = 400f, EconomyW = 580f, TeleW = 340f, ItemsW = 190f;
 
         private readonly RectTransform stagePanel;
         private readonly TextMeshProUGUI stageText;
@@ -37,6 +38,12 @@ namespace HighCommand.UI
         private readonly TextMeshProUGUI teleporterText;
         private readonly RectTransform teleporterBarBack;
         private readonly Image teleporterBar;
+
+        private readonly RectTransform itemsPanel;
+        private readonly Image itemsFrame;
+        private readonly TextMeshProUGUI itemsText;
+        private readonly TextMeshProUGUI itemsSubText;
+        private readonly TextMeshProUGUI itemsKey;
 
         private readonly TextMeshProUGUI defeatText;
         private readonly Image defeatPlate;
@@ -112,6 +119,28 @@ namespace HighCommand.UI
             teleporterBar.rectTransform.anchorMax = new Vector2(0f, 1f);
             teleporterBar.rectTransform.offsetMin = teleporterBar.rectTransform.offsetMax = Vector2.zero;
 
+            // --- the army's items: left of the purse, a click opens the item panel (same as its key) ---
+            itemsPanel = UiKit.NewPanel("ItemsPanel", parent, UiKit.PanelColor);
+            UiKit.Place(itemsPanel, new Vector2(0.5f, 1f), new Vector2(1f, 1f), new Vector2(-EconomyW * 0.5f - 8f, -Top), new Vector2(ItemsW, Height));
+            itemsFrame = UiKit.NewImage("Open", itemsPanel, UiKit.White, UiKit.Good);
+            UiKit.StyleOutline(itemsFrame, 7f);
+            UiKit.Stretch(itemsFrame.rectTransform, 0, 0, 0, 0);
+            itemsFrame.raycastTarget = false;
+            itemsFrame.enabled = false;
+            Image chest = UiKit.NewImage("Chest", itemsPanel, UiKit.GlyphSprite(Glyph.Chest), UiKit.Gold);
+            UiKit.Place(chest.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(14f, 0f), new Vector2(26f, 26f));
+            itemsText = UiKit.NewText("Items", itemsPanel, "", 19f, UiKit.Text, TextAlignmentOptions.Left);
+            UiKit.Place(itemsText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(50f, -7f), new Vector2(ItemsW - 94f, 26f));
+            itemsText.enableAutoSizing = true;
+            itemsText.fontSizeMin = 12f;
+            itemsText.fontSizeMax = 19f;
+            itemsSubText = UiKit.NewText("ItemsSub", itemsPanel, "", 14f, UiKit.TextDim, TextAlignmentOptions.Left);
+            UiKit.Place(itemsSubText.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(50f, 5f), new Vector2(ItemsW - 94f, 18f));
+            Image itemsCap = UiKit.NewImage("KeyCap", itemsPanel, UiKit.White, new Color(0.02f, 0.03f, 0.05f, 0.85f));
+            UiKit.Place(itemsCap.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-14f, 0f), new Vector2(26f, 24f));
+            itemsKey = UiKit.NewText("Key", itemsCap.rectTransform, "", 15f, UiKit.TextDim, TextAlignmentOptions.Center);
+            UiKit.Stretch(itemsKey.rectTransform, 0, 0, 0, 0);
+
             // --- defeat line: a dark plate under the red text, so it reads over any ground ---
             defeatPlate = UiKit.NewImage("DefeatPlate", parent, UiKit.White, new Color(0.09f, 0.02f, 0.03f, 0.84f));
             UiKit.StyleOutline(defeatPlate, 10f);
@@ -132,7 +161,10 @@ namespace HighCommand.UI
 
         internal bool Contains(Vector2 screenPoint) =>
             UiKit.Contains(stagePanel, screenPoint) || UiKit.Contains(economyPanel, screenPoint) || UiKit.Contains(teleporterPanel, screenPoint)
-            || DefeatContains(screenPoint);
+            || ItemsPanelContains(screenPoint) || DefeatContains(screenPoint);
+
+        /// <summary>The army's items: a click opens the item panel.</summary>
+        internal bool ItemsPanelContains(Vector2 screenPoint) => itemsPanel.gameObject.activeSelf && UiKit.Contains(itemsPanel, screenPoint);
 
         /// <summary>The purse / army panel: a click opens the barracks.</summary>
         internal bool GoldPanelContains(Vector2 screenPoint) => UiKit.Contains(economyPanel, screenPoint);
@@ -149,6 +181,7 @@ namespace HighCommand.UI
             visibleFlag = visible;
             if (stagePanel.gameObject.activeSelf != visible) stagePanel.gameObject.SetActive(visible);
             if (economyPanel.gameObject.activeSelf != visible) economyPanel.gameObject.SetActive(visible);
+            if (itemsPanel.gameObject.activeSelf != visible) itemsPanel.gameObject.SetActive(visible);
             if (!visible)
             {
                 if (teleporterPanel.gameObject.activeSelf) teleporterPanel.gameObject.SetActive(false);
@@ -157,7 +190,8 @@ namespace HighCommand.UI
             }
         }
 
-        internal void Tick(float dt)
+        /// <param name="itemsOpen">The item panel is open (its button in the strip is framed).</param>
+        internal void Tick(float dt, bool itemsOpen)
         {
             Run run = Run.instance;
             if (!run || !visibleFlag) return;
@@ -249,6 +283,34 @@ namespace HighCommand.UI
 
             TickTeleporter(state);
             TickDefeat(state);
+            TickItems(itemsOpen);
+        }
+
+        private int itemsCount = -1;
+        private string itemsTipTitle, itemsTipBody;
+
+        private void TickItems(bool open)
+        {
+            if (itemsFrame.enabled != open) itemsFrame.enabled = open;
+
+            // every item the army owns, whoever carries it (the pool is the army's inventory)
+            int count = 0;
+            Inventory pool = LootService.Pool;
+            if (pool)
+            {
+                var order = pool.itemAcquisitionOrder;
+                for (int i = 0; i < order.Count; i++) count += pool.GetItemCountPermanent(order[i]);
+            }
+            if (count != itemsCount || itemsText.text.Length == 0)
+            {
+                itemsCount = count;
+                UiKit.SetText(itemsText, Loc.Get("HIGHCOMMAND_TOP_ITEMS"));
+                UiKit.SetText(itemsSubText, Loc.Format("HIGHCOMMAND_TOP_ITEMS_COUNT", count));
+                UiKit.SetText(itemsKey, Settings.KeyInventory.Value.ToString());
+                itemsTipTitle = Loc.Get("HIGHCOMMAND_TOP_ITEMS");
+                itemsTipBody = Loc.Get("HIGHCOMMAND_HELP_INVENTORY") + "\n\n[" + Settings.KeyInventory.Value + "]";
+            }
+            if (ItemsPanelContains(ClientInput.Mouse) && !ClientInput.MouseBlocked) Tooltip.Show(itemsTipTitle, itemsTipBody);
         }
 
         // what the texts show now
@@ -351,6 +413,7 @@ namespace HighCommand.UI
             ClientInput.UnregisterUiHitTest(Contains);
             if (stagePanel) Object.Destroy(stagePanel.gameObject);
             if (economyPanel) Object.Destroy(economyPanel.gameObject);
+            if (itemsPanel) Object.Destroy(itemsPanel.gameObject);
             if (teleporterPanel) Object.Destroy(teleporterPanel.gameObject);
             if (defeatText) Object.Destroy(defeatText.gameObject);
             if (defeatPlate) Object.Destroy(defeatPlate.gameObject);
