@@ -1,0 +1,35 @@
+# Camera height, by eye: pans to the spots where the old camera climbed highest (found by camheight.txt), stops there
+# and takes a picture. Expect the ground the heroes walk on, not the sky above a rock.
+@wait 4
+@log === S1 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 15
+@log === S2 golemplains: old worst +134 m at (15,-302)
+hc_next_stage golemplains
+@wait 25
+hc_cam army
+@wait 3
+hc_cam info
+hc_cam sweep_to 15 -302 6
+@wait 10
+hc_cam info
+hc_screenshot camspot_golem
+@log === S3 dampcavesimple: old worst +181 m at (35,-410)
+hc_next_stage dampcavesimple
+@wait 25
+hc_cam army
+@wait 3
+hc_cam info
+hc_cam sweep_to 35 -410 8
+@wait 12
+hc_cam info
+hc_screenshot camspot_cave
+@log === END
+disconnect
+@norun
+@wait 4
+@quit

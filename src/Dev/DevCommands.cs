@@ -205,6 +205,16 @@ namespace HighCommand.Dev
                     cam.Sweep(from, from + new Vector3(args.GetArgFloat(1), 0f, args.GetArgFloat(2)), args.GetArgFloat(3));
                     break;
                 }
+                case "sweep_to":
+                {
+                    // hc_cam sweep_to <x> <z> <seconds>: the same, to a point of the map
+                    Vector3 from = cam.Focus;
+                    cam.Sweep(from, new Vector3(args.GetArgFloat(1), from.y, args.GetArgFloat(2)), args.GetArgFloat(3));
+                    break;
+                }
+                case "audit":
+                    Debug.Log("HighCommand camera audit: " + cam.AuditHeights());
+                    break;
                 case "info":
                 {
                     Vector3? army = Client.ClientRoot.ArmyCenter();

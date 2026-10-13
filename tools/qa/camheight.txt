@@ -1,0 +1,57 @@
+# Camera height audit: on every stage hc_cam audit pans along 32 lines across the whole map through the real height
+# code, once the old way (any surface) and once the new way (only ground a hero can stand on), and counts the places
+# where the focus ends up more than 10 m above any walkable ground nearby. Expect "new: ... 0 too high" everywhere.
+@wait 4
+@log === H1 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 15
+hc_cam audit
+@log === H2 golemplains
+hc_next_stage golemplains
+@wait 25
+hc_cam audit
+@log === H3 blackbeach
+hc_next_stage blackbeach
+@wait 25
+hc_cam audit
+@log === H4 foggyswamp
+hc_next_stage foggyswamp
+@wait 25
+hc_cam audit
+@log === H5 goolake
+hc_next_stage goolake
+@wait 25
+hc_cam audit
+@log === H6 frozenwall
+hc_next_stage frozenwall
+@wait 25
+hc_cam audit
+@log === H7 wispgraveyard
+hc_next_stage wispgraveyard
+@wait 25
+hc_cam audit
+@log === H8 dampcavesimple
+hc_next_stage dampcavesimple
+@wait 25
+hc_cam audit
+@log === H9 shipgraveyard
+hc_next_stage shipgraveyard
+@wait 25
+hc_cam audit
+@log === H10 rootjungle
+hc_next_stage rootjungle
+@wait 25
+hc_cam audit
+@log === H11 skymeadow
+hc_next_stage skymeadow
+@wait 25
+hc_cam audit
+@log === END
+disconnect
+@norun
+@wait 4
+@quit

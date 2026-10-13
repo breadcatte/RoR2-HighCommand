@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using RoR2;
 using UnityEngine;
 
@@ -53,6 +54,7 @@ namespace HighCommand.Client
         // height of the focus (see FocusHeight)
         private const float AbyssDrop = 12f;        // ground this far below the level the camera is on counts as a chasm
         private const float AbyssDwell = 5f;        // seconds of panning over a chasm before the camera follows it down
+        private const float StopDwell = 1.5f;       // seconds standing still over it before it does
         private const float MaxHeightSpeed = 45f;   // m/s, the fastest the focus may rise or sink
         private float heightVelocity;
         private float abyssTime;
@@ -226,7 +228,11 @@ namespace HighCommand.Client
                 // a chasm is crossed at the level of its edge; only a long stay over it takes the camera down
                 abyssTime = overAbyss ? abyssTime + dt : 0f;
             }
-            else if (!sweeping) abyssTime = 0f;
+            else if (!sweeping)
+            {
+                abyssTime = 0f;
+                if (FollowTarget == null) Settle(dt);
+            }
 
             // --- zoom ---
             float scroll = ClientInput.PointerOverUi || ClientInput.KeyboardBlocked ? 0f : ClientInput.Scroll;
@@ -463,9 +469,19 @@ namespace HighCommand.Client
 
         private const int MaxSurfaces = 10;
 
+        // ground nodes this far around the point tell what heights a hero can stand at there; a surface this close in
+        // height to one of them is walkable ground
+        private const float WalkReach = 14f, WalkSlack = 8f;
+        private static readonly List<float> NearWalk = new List<float>(64);
+
+        /// <summary>False only while hc_cam audit measures the old behaviour (any surface counted).</summary>
+        private static bool walkFilter = true;
+
         /// <summary>
         /// The height the focus should have above <paramref name="p"/> (p.y is the level the camera is on now, or the
         /// height of the thing that is flown to).
+        ///  * Only ground a hero can stand on counts (the stock node graph): a rock spire, a roof or a sky decoration
+        ///    never lifts the camera, and the level never leaves the height range of the map's walkable ground.
         ///  * Of all the surfaces under the point (a ramp over a passage, a bridge over a pit, floors of a cave) the one
         ///    nearest to that level is taken, so the camera stays on its level instead of hopping between them.
         ///  * When panning, a surface far below that level is a chasm: the focus keeps its height over it (and the
@@ -474,6 +490,13 @@ namespace HighCommand.Client
         private float FocusHeight(Vector3 p, bool deliberate)
         {
             float level = p.y;
+            bool filter = walkFilter && MapInfo.Valid;
+            NearWalk.Clear();
+            if (filter)
+            {
+                level = Mathf.Clamp(level, MapInfo.LowestWalkable - 4f, MapInfo.HighestWalkable + 4f);
+                MapInfo.WalkableHeightsNear(p, WalkReach, NearWalk);
+            }
             float top, length;
             if (MapInfo.Valid)
             {
@@ -507,6 +530,7 @@ namespace HighCommand.Client
                 if (!IsLevelGeometry(hit.collider)) continue;
                 surfaces++;
                 if (hit.point.y < lowestSurface) lowestSurface = hit.point.y;
+                if (filter && !Walkable(hit.point.y, level)) continue;
                 float gap = Mathf.Abs(hit.point.y - level);
                 if (gap < bestGap)
                 {
@@ -515,7 +539,17 @@ namespace HighCommand.Client
                     found = true;
                 }
             }
-            if (!found) return level;
+            if (!found)
+            {
+                // nothing walkable was hit (a slope steeper than the slack, more layers than the rays look through):
+                // the height of the nearby ground nodes themselves
+                if (NearWalk.Count == 0) return level;
+                for (int i = 0; i < NearWalk.Count; i++)
+                {
+                    float gap = Mathf.Abs(NearWalk[i] - level);
+                    if (gap < bestGap) { bestGap = gap; best = NearWalk[i]; }
+                }
+            }
 
             if (!deliberate && best < level - AbyssDrop)
             {
@@ -523,6 +557,131 @@ namespace HighCommand.Client
                 if (abyssTime < AbyssDwell) return level;
             }
             return best;
+        }
+
+        private float settleTime;
+
+        /// <summary>
+        /// The camera stands still above lower ground (a chasm crossed at its edge's level, a void beside a path): after
+        /// a short look it comes down onto that ground instead of hanging in the air there for good.
+        /// </summary>
+        private void Settle(float dt)
+        {
+            if (!overAbyss && !Hanging(focus, out _)) { settleTime = 0f; return; }
+            settleTime += dt;
+            if (settleTime < StopDwell) return;
+            settleTime = 0f;
+
+            abyssTime = AbyssDwell; // the ground under it, if there is any
+            focus = ClampToMap(focus, false);
+            abyssTime = 0f;
+            overAbyss = false;
+            if (Hanging(focus, out float ground)) focus.y = ground; // nothing under it: the walkable ground beside it
+        }
+
+        /// <summary>The focus is more than 10 m above every ground node within 30 m; <paramref name="ground"/> is the highest of them.</summary>
+        private static bool Hanging(Vector3 p, out float ground)
+        {
+            ground = float.MinValue;
+            if (!walkFilter || !MapInfo.Valid) return false;
+            NearWalk.Clear();
+            MapInfo.WalkableHeightsNear(p, 30f, NearWalk);
+            for (int i = 0; i < NearWalk.Count; i++) ground = Mathf.Max(ground, NearWalk[i]);
+            return NearWalk.Count > 0 && p.y > ground + 10f;
+        }
+
+        /// <summary>
+        /// A surface at height y is ground a hero can stand on: near a ground node of about that height. Off the
+        /// walkable area (no node around) nothing may pull the camera up; going down is the chasm rule's business.
+        /// </summary>
+        private static bool Walkable(float y, float level)
+        {
+            if (NearWalk.Count == 0) return y <= level + 0.5f;
+            for (int i = 0; i < NearWalk.Count; i++)
+                if (Mathf.Abs(y - NearWalk[i]) <= WalkSlack) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// hc_cam audit: pans along 32 lines across the whole map through the real height code (the view itself does not
+        /// move) and counts the places where the focus ends up more than 10 m above any ground a hero can stand on
+        /// nearby. Runs once the way the camera used to work and once as it works now.
+        /// </summary>
+        internal string AuditHeights()
+        {
+            if (!MapInfo.Valid) return "no map data";
+            Vector3 keepFocus = focus;
+            float keepAbyss = abyssTime;
+            string result = "";
+            for (int pass = 0; pass < 2; pass++)
+            {
+                walkFilter = pass == 1;
+                int total = 0, bad = 0, held = 0, stops = 0, stuck = 0;
+                float worst = 0f;
+                Vector3 worstAt = Vector3.zero;
+                Bounds b = MapInfo.Bounds;
+                var near = new List<float>(64);
+                const float step = 3f, dt = step / 40f; // about the pan speed at the usual distance
+                for (int line = 0; line < 32; line++)
+                {
+                    float f = ((line % 8) + 0.5f) / 8f;
+                    bool alongX = line < 16;
+                    bool back = (line / 8) % 2 == 1;
+                    Vector3 a = alongX ? new Vector3(b.min.x, b.center.y, Mathf.Lerp(b.min.z, b.max.z, f))
+                                       : new Vector3(Mathf.Lerp(b.min.x, b.max.x, f), b.center.y, b.min.z);
+                    Vector3 z = alongX ? new Vector3(b.max.x, b.center.y, a.z) : new Vector3(a.x, b.center.y, b.max.z);
+                    if (back) { Vector3 t = a; a = z; z = t; }
+
+                    focus = ClampToMap(a, true);
+                    abyssTime = 0f;
+                    int steps = Mathf.CeilToInt(Vector3.Distance(a, z) / step);
+                    for (int s = 1; s <= steps; s++)
+                    {
+                        Vector3 at = Vector3.Lerp(a, z, s / (float)steps);
+                        float before = focus.y;
+                        focus = ClampToMap(new Vector3(at.x, focus.y, at.z), false);
+                        abyssTime = overAbyss ? abyssTime + dt : 0f;
+
+                        near.Clear();
+                        MapInfo.WalkableHeightsNear(focus, 30f, near);
+                        float reference = MapInfo.HighestWalkable;
+                        if (near.Count > 0)
+                        {
+                            reference = near[0];
+                            for (int i = 1; i < near.Count; i++) reference = Mathf.Max(reference, near[i]);
+                        }
+                        float excess = focus.y - reference;
+                        total++;
+                        if (excess <= 10f) continue;
+                        // climbed up there (the fault) or only kept its height over a drop (the chasm rule, wanted)
+                        if (focus.y > before + 0.5f)
+                        {
+                            bad++;
+                            if (excess > worst) { worst = excess; worstAt = focus; }
+                        }
+                        else held++;
+
+                        // the player stops here for two seconds (the frame loop's own rule): still in the air?
+                        if (s % 40 != 0) continue;
+                        stops++;
+                        abyssTime = 0f;
+                        settleTime = 0f;
+                        if (pass == 1) // the old camera never came down while standing still
+                            for (float waited = 0f; waited < 2f; waited += dt) Settle(dt);
+                        near.Clear();
+                        MapInfo.WalkableHeightsNear(focus, 30f, near);
+                        float top = float.MinValue;
+                        for (int i = 0; i < near.Count; i++) top = Mathf.Max(top, near[i]);
+                        if (near.Count > 0 && focus.y - top > 10f) stuck++;
+                    }
+                }
+                result += $"{(pass == 0 ? "old" : "new")}: {total} points, {bad} climbed too high (worst +{worst:0} m at {worstAt.x:0},{worstAt.y:0},{worstAt.z:0}), " +
+                          $"{held} held over a drop, {stuck} of {stops} stops left hanging; ";
+            }
+            walkFilter = true;
+            focus = keepFocus;
+            abyssTime = keepAbyss;
+            return result + $"walkable heights {MapInfo.LowestWalkable:0}..{MapInfo.HighestWalkable:0}";
         }
 
         /// <summary>Terrain height at the XZ of <paramref name="p"/>; <paramref name="fallback"/> when nothing is below.</summary>

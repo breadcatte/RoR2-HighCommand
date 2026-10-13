@@ -52,12 +52,75 @@ namespace HighCommand.Client
             var box = new Bounds((min + max) * 0.5f, max - min);
             box.Expand(new Vector3(24f, 20f, 24f));
             Bounds = box;
+            BuildWalkGrid(positions, box);
+            LowestWalkable = min.y;
+            HighestWalkable = max.y;
 
             MinimapTexture = BuildTexture(ground, nodes, min.y, max.y, box);
             Valid = true;
 
             if (Settings.VerboseLog.Value)
                 Plugin.Log.LogInfo($"MapInfo: {positions.Count} ground nodes, bounds center {box.center} size {box.size}");
+        }
+
+        // ---- where the heroes can stand ----------------------------------------------------------------------
+        //
+        // The ground nodes in cells of WalkCell meters, so the camera can ask "what heights can a hero stand at near
+        // here" cheaply every frame. A rock, a roof or a sky decoration that no node lies on is not a place the
+        // camera has any business going up to.
+
+        /// <summary>Height of the lowest / highest walkable ground node of the map.</summary>
+        internal static float LowestWalkable { get; private set; }
+        internal static float HighestWalkable { get; private set; }
+
+        private const float WalkCell = 8f;
+        private static Vector3[][] walkCells;
+        private static int walkW, walkH;
+        private static Vector2 walkOrigin;
+
+        private static void BuildWalkGrid(List<Vector3> positions, Bounds box)
+        {
+            walkOrigin = new Vector2(box.min.x, box.min.z);
+            walkW = Mathf.Max(1, Mathf.CeilToInt(box.size.x / WalkCell));
+            walkH = Mathf.Max(1, Mathf.CeilToInt(box.size.z / WalkCell));
+            var lists = new List<Vector3>[walkW * walkH];
+            foreach (Vector3 p in positions)
+            {
+                int i = WalkIndex(p.x, p.z);
+                if (i < 0) continue;
+                (lists[i] ?? (lists[i] = new List<Vector3>(4))).Add(p);
+            }
+            walkCells = new Vector3[lists.Length][];
+            for (int i = 0; i < lists.Length; i++)
+                if (lists[i] != null) walkCells[i] = lists[i].ToArray();
+        }
+
+        private static int WalkIndex(float x, float z)
+        {
+            int cx = Mathf.FloorToInt((x - walkOrigin.x) / WalkCell);
+            int cz = Mathf.FloorToInt((z - walkOrigin.y) / WalkCell);
+            if (cx < 0 || cz < 0 || cx >= walkW || cz >= walkH) return -1;
+            return cz * walkW + cx;
+        }
+
+        /// <summary>Adds the heights of the walkable ground nodes within <paramref name="radius"/> (horizontally) of p.</summary>
+        internal static void WalkableHeightsNear(Vector3 p, float radius, List<float> into)
+        {
+            if (!Valid || walkCells == null) return;
+            int cx0 = Mathf.FloorToInt((p.x - radius - walkOrigin.x) / WalkCell), cx1 = Mathf.FloorToInt((p.x + radius - walkOrigin.x) / WalkCell);
+            int cz0 = Mathf.FloorToInt((p.z - radius - walkOrigin.y) / WalkCell), cz1 = Mathf.FloorToInt((p.z + radius - walkOrigin.y) / WalkCell);
+            float r2 = radius * radius;
+            for (int cz = Mathf.Max(0, cz0); cz <= Mathf.Min(walkH - 1, cz1); cz++)
+                for (int cx = Mathf.Max(0, cx0); cx <= Mathf.Min(walkW - 1, cx1); cx++)
+                {
+                    Vector3[] cell = walkCells[cz * walkW + cx];
+                    if (cell == null) continue;
+                    for (int k = 0; k < cell.Length; k++)
+                    {
+                        float dx = cell[k].x - p.x, dz = cell[k].z - p.z;
+                        if (dx * dx + dz * dz <= r2) into.Add(cell[k].y);
+                    }
+                }
         }
 
         // The picture is square and the map is not: one uniform scale, the map centred in the picture.

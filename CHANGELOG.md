@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+Camera height
+* The camera only follows ground a hero can stand on (the stock node graph): a rock spire, a roof or a decoration high
+  above the play area no longer lifts it into the sky, and its height never leaves the range of the map's walkable
+  ground.
+* Standing still above lower ground (after crossing a chasm at its edge's level, beside a path over a void) the camera
+  comes down onto that ground after 1.5 s instead of hanging in the air for good.
+* Dev: `hc_cam audit` pans along 32 lines across the map the old and the new way and counts the places where the camera
+  climbs or hangs above walkable ground; scenario `tools\qa\camheight.txt` runs it on ten stages.
+
 The map is the source of items
 * Items no longer drop from killed enemies. Chests, shrines, multishops, broken drones, printers, lunar pods and the
   rest are placed on the stages as in the stock game again, and the army's purse pays for them (gold; lunar coins come
