@@ -44,7 +44,22 @@ Common rules taken from all of them:
 5. Panning is in the ground plane, never blocked by anything but the map edge; speed proportional to the zoom.
 6. Edge scrolling at the last pixels of the screen, also over the HUD.
 
-## How ours works now
+## Free camera (the default since the user's verdict, 2026-10-13)
+
+After trying the terrain-following camera the user asked for "as much freedom as possible, the less the camera does by
+itself the better" (multi-level, small maps make any following visible). So `Camera/FollowGround` is off by default:
+* The focus height is a plain number (`level`) changed only by the player: `FocusOn` (heroes, alert, roster), follow,
+  minimap (`PanTo` -> ground there), the wheel (3D zoom to the point P under the cursor or under the screen centre:
+  lookAt' = lookAt + (P - lookAt)(1 - d'/d), which keeps P exactly under the cursor), Home (ground under the view).
+* `StepUp`: if the look-at point AND the camera are inside big ground whose top is walkable (a plateau higher than the
+  camera), the level climbs onto that top at 40 m/s. Never down by itself.
+* No tilt by itself (`GroundLift` only in FollowGround mode).
+* Rejected: following the averaged walk field (lifted the camera 40 m above heroes standing under another floor in
+  Sundered Grove); climbing onto any big ground (climbed 80 m onto a giant root); the "lowest level as the plane" idea
+  (heroes on upper floors would be above the camera).
+* Check: `qa-run.ps1 camfree` (sweeps "focus height a..a", "tilt speed max 0"), screenshots `camfree_*`.
+
+## How ours works now (FollowGround on)
 
 `src\Client\CameraGround.cs` - the camera's own ground, built at stage start (`MapInfo.Rebuild`):
 * **Height field**: the stock ground node graph (nodes + points every 2 m along links not steeper than 45 deg) splatted

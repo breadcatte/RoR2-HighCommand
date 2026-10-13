@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+Camera rebuilt (studied 0 A.D., Spring, StarCraft II, Company of Heroes, Total War; notes in `docs\dev\CAMERA.md`)
+* Free camera by default: panning never changes the camera's height or tilt, whatever the ground does (hills, steps,
+  trees, rocks, bridges, other floors of the level). Nothing catches it, it never jumps, sinks or tilts by itself.
+* The height is yours: flying to heroes (Space) or an alert, following, the minimap, the wheel (it zooms towards the
+  point under the cursor in all three directions: zoom at a valley to go down into it, at a plateau to go up onto it)
+  and Home (resets the view and puts the camera back onto the ground where it looks).
+* The only thing it does by itself: panned over a plateau higher than the camera itself, it climbs onto it (else you
+  would look from inside the ground). Cliffs, giant roots and cave roofs in its way are seen through.
+* Option `Camera/FollowGround` (off): the camera follows a smoothed copy of the walkable ground instead (made once per
+  stage from the heroes' ground graph, more blurred the farther out; no trees, rocks or steps in it) and tilts up a
+  little to stay out of hills.
+* Edge scrolling also works where a panel touches the screen edge; a middle-button turn begun in the world goes on over
+  the panels.
+* Dev: `hc_cam info` shows the level, `hc_cam audit|spot|lift|rock`, sweeps end with the highest height and tilt speeds;
+  scenarios `camfree`, `camsmooth`, `camaudit`, `camxray`.
+
 * Commander abilities: a new look for the strip at the bottom. Each ability is a tile of its own colour with its
   picture lit in a coloured well; new pictures with a meaning: a satellite beaming down on a target (orbital strike), a
   first aid kit (medic), a war horn (war cry), a skull in a sight (mark). A charge line along the bottom of the tile

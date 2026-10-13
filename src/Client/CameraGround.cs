@@ -95,6 +95,11 @@ namespace HighCommand.Client
 
             float[] filled = Fill(sum, weight, w, h);
 
+            // the walkable ground alone, lightly blurred: what the free camera steps up onto
+            walkLevel = (float[])filled.Clone();
+            var scratch = new float[w * h];
+            for (int pass = 0; pass < 3; pass++) BoxBlur(walkLevel, scratch, w, h, 1);
+
             // Ground nobody walks on (a mountain, a big mesa) still holds the camera up when the camera is panned over it,
             // as the terrain does in any strategy game: away from the walkable ground the field takes the top of the big
             // ground under the open sky when it is higher (never lower: over a chasm or the void the camera keeps the
@@ -229,6 +234,18 @@ namespace HighCommand.Client
                 return Mathf.Lerp(Bilinear(levels[k - 1], w, h, u, v), Bilinear(levels[k], w, h, u, v), t);
             }
             return Bilinear(levels[last], w, h, u, v);
+        }
+
+        private static float[] walkLevel;
+
+        /// <summary>
+        /// Height of the walkable ground at a point, lightly blurred (about 6 m), without the lift by rock: where heroes
+        /// can stand (or the level of the paths around a gap). NaN when there is no field.
+        /// </summary>
+        internal static float WalkHeight(Vector2 xz)
+        {
+            if (!Valid) return float.NaN;
+            return Bilinear(walkLevel, w, h, (xz.x - ox) / Cell, (xz.y - oz) / Cell);
         }
 
         private static void Splat(float[] sum, float[] weight, Vector3 p, float amount)
@@ -392,6 +409,37 @@ namespace HighCommand.Client
                 break;
             }
             return y;
+        }
+
+        /// <summary>p is inside big ground (the first surface above it is a top); <paramref name="top"/> is that top.</summary>
+        internal static bool Inside(Vector3 p, out float top)
+        {
+            top = float.NaN;
+            if (!Valid) return false;
+            Column c = ColumnAt(p.x, p.z);
+            float topAbove = float.PositiveInfinity, underAbove = float.PositiveInfinity;
+            for (int i = 0; i < c.Tops.Length; i++)
+                if (c.Tops[i] > p.y && c.Tops[i] < topAbove) topAbove = c.Tops[i];
+            for (int i = 0; i < c.Unders.Length; i++)
+                if (c.Unders[i] > p.y && c.Unders[i] < underAbove) underAbove = c.Unders[i];
+            if (topAbove >= underAbove || float.IsPositiveInfinity(topAbove)) return false;
+            top = topAbove;
+            return true;
+        }
+
+        /// <summary>
+        /// The ground at p's spot: the top of the big ground p is inside of, else the highest top below p (the floor
+        /// under it), else NaN.
+        /// </summary>
+        internal static float GroundAt(Vector3 p)
+        {
+            if (!Valid) return float.NaN;
+            if (Inside(p, out float top)) return top;
+            Column c = ColumnAt(p.x, p.z);
+            float below = float.NaN;
+            for (int i = 0; i < c.Tops.Length; i++)
+                if (c.Tops[i] <= p.y && (float.IsNaN(below) || c.Tops[i] > below)) below = c.Tops[i];
+            return below;
         }
 
         /// <summary>Testing: the surfaces of the column at p (tops and undersides) and the free height there.</summary>

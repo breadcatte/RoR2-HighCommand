@@ -14,14 +14,15 @@ namespace HighCommand.Client
     ///
     ///  * It orbits a focus point. WASD and the screen edge slide the focus over the map (the edge works over the panels
     ///    there too) at a speed that grows with the zoom; nothing in the level slows it down or stops it.
-    ///  * The focus never touches the real surface: its height comes from CameraGround, a copy of the ground where only
-    ///    walkable ground exists, read more blurred the farther the camera is. A tree, a rock, a roof or a ledge is not
-    ///    in it, so nothing catches the camera, and the camera never sinks or climbs by itself while it stands.
-    ///  * A point the player flew to (a hero, the followed army, the point zoomed at) lends its own level to the focus
-    ///    around it (fading out over a few dozen metres): a bridge or a cave floor is looked at at its own height.
-    ///  * Only the player changes the distance (the wheel, towards the cursor) and the tilt (middle mouse, PageUp/Down).
-    ///    The camera only tilts up as far as it must to stay out of big ground (smoothly), and a small piece of the level
-    ///    that hides a hero is hidden (CollectHeroCovers).
+    ///  * Free camera (the default, Camera/FollowGround off): the height is the player's too. Panning keeps it whatever
+    ///    the ground does; flying to heroes, following, the minimap, the wheel (towards the 3D point under the cursor) and
+    ///    Home set it. The camera only climbs onto walkable ground that rises above the camera itself, and never tilts.
+    ///  * Following the ground (FollowGround on): the height comes from CameraGround, a copy of the ground where only
+    ///    walkable ground exists, read more blurred the farther the camera is; a point the player flew to lends its own
+    ///    level to the focus around it; the camera tilts up a little to stay out of big ground.
+    ///  * Only the player changes the distance (the wheel) and the tilt (middle mouse, PageUp/Down). Nothing in the level
+    ///    catches the camera: it looks through rock in its way, and a small piece of the level that hides a hero is
+    ///    hidden (CollectHeroCovers).
     /// </summary>
     internal sealed class RtsCamera : MonoBehaviour, ICameraStateProvider
     {
@@ -142,14 +143,19 @@ namespace HighCommand.Client
         internal void FocusOn(Vector3 worldPoint, bool snap = false)
         {
             focusXZ = ClampXZ(new Vector2(worldPoint.x, worldPoint.z));
+            SetLevel(worldPoint.y);
             SetAnchor(worldPoint);
             if (snap || !initialised) Snap();
         }
 
-        /// <summary>Moves the camera over a place of the map (the minimap): only the place, its height is the ground's.</summary>
-        internal void PanTo(Vector3 worldPoint)
+        /// <summary>
+        /// Moves the camera over a place of the map (the minimap): the free camera comes down (or up) onto the walkable
+        /// ground there, unless <paramref name="relevel"/> is false (a test pan that must not touch the height).
+        /// </summary>
+        internal void PanTo(Vector3 worldPoint, bool relevel = true)
         {
             focusXZ = ClampXZ(new Vector2(worldPoint.x, worldPoint.z));
+            if (relevel) LevelOnGround(focusXZ);
             if (!initialised) Snap();
         }
 
@@ -157,11 +163,74 @@ namespace HighCommand.Client
         {
             smoothXZ = focusXZ;
             xzVelocity = Vector2.zero;
-            smoothHeight = HeightAt(smoothXZ, smoothDistance);
+            smoothHeight = FreeCamera ? level : HeightAt(smoothXZ, smoothDistance);
             heightVelocity = 0f;
             smoothFocus = new Vector3(smoothXZ.x, smoothHeight, smoothXZ.y);
             initialised = true;
         }
+
+        // ---- the free camera's height ------------------------------------------------------------
+        //
+        // With Camera/FollowGround off (the default) the camera's height is the player's, like its turn and its zoom:
+        // panning moves it level over the map, whatever the ground under it does (hills, steps, bridges, trees, other
+        // floors of the level). The height is set by what the player does: flying to heroes or an alert, following
+        // them, the minimap, the wheel (it zooms towards the 3D point under the cursor, so it also goes down into a
+        // valley or up onto a plateau), Home (back onto the ground here). The one thing the camera does by itself: when
+        // both the camera and the point it looks at end up inside ground heroes can walk on top of (panned over a plateau
+        // higher than the camera), it climbs onto it, else the view would be from inside it. A floor of the level above
+        // the heroes, a cliff behind the camera, a cave roof, a giant root or a rock nobody stands on change nothing: the
+        // camera looks through them (from inside they are not drawn). It never comes down by itself.
+
+        private static bool FreeCamera => !Settings.FollowGround.Value;
+
+        private float level;
+        private float climbTo = float.NaN;
+        private const float ClimbRate = 40f;   // m/s: how fast it climbs onto higher ground
+        private const float MaxClimb = 80f;    // m: ground higher than this above the camera's level is looked through
+
+        private void SetLevel(float y)
+        {
+            level = y;
+            climbTo = float.NaN;
+        }
+
+        /// <summary>
+        /// The free camera's level onto the ground at a place, starting from the height <paramref name="fromY"/>: the
+        /// top of the ground that height is inside of, else the floor under it (the walkable level there, or the surface
+        /// under the camera, while the map is not read yet).
+        /// </summary>
+        private void LevelOnGround(Vector2 xz, float fromY)
+        {
+            float g = CameraGround.GroundAt(new Vector3(xz.x, fromY, xz.y));
+            if (float.IsNaN(g)) g = CameraGround.WalkHeight(xz);
+            if (float.IsNaN(g)) g = GroundHeight(new Vector3(xz.x, fromY, xz.y), level);
+            SetLevel(g);
+        }
+
+        /// <summary>The level of a place far away (the minimap): the ground nearest to the walkable level there.</summary>
+        private void LevelOnGround(Vector2 xz)
+        {
+            float walk = CameraGround.WalkHeight(xz);
+            LevelOnGround(xz, (float.IsNaN(walk) ? level : walk) + 2f);
+        }
+
+        /// <summary>Climbs onto ground that holds both the camera and the point it looks at (see above).</summary>
+        private void StepUp(float dt)
+        {
+            var lookAt = new Vector3(focusXZ.x, level + LookUp, focusXZ.y);
+            if (CameraGround.Inside(lookAt, out float top) && top - level <= MaxClimb
+                && Walkable(new Vector3(lookAt.x, top, lookAt.z))) // a plateau, not a giant root or a rock nobody stands on
+            {
+                Quaternion turn = Quaternion.Euler(Mathf.Min(SteepestPitch, ViewPitch()), smoothYaw, 0f);
+                Vector3 cam = lookAt - (turn * Vector3.forward) * Mathf.Max(0.01f, smoothDistance);
+                if (CameraGround.Inside(cam, out _)) climbTo = float.IsNaN(climbTo) ? top : Mathf.Max(climbTo, top);
+            }
+            if (float.IsNaN(climbTo)) return;
+            level = Mathf.MoveTowards(level, climbTo, ClimbRate * dt);
+            if (level >= climbTo - 0.01f) climbTo = float.NaN;
+        }
+
+        private const float LookUp = 1f; // m: the camera looks at this point above its focus
 
         /// <summary>While set, the focus follows what it returns (null result = keep position). Cleared by manual panning.</summary>
         internal Func<Vector3?> FollowTarget;
@@ -175,6 +244,7 @@ namespace HighCommand.Client
 
         internal string DebugWanted() =>
             $"wanted: distance={distance:0.0} pitch={pitch:0.0} yaw={yaw:0} smoothPitch={smoothPitch:0.0} lift={liftPitch:0.0} " +
+            $"{(FreeCamera ? $"free level={level:0.0}{(float.IsNaN(climbTo) ? "" : $" climbing to {climbTo:0.0}")} " : "follows ground ")}" +
             $"anchor={(hasAnchor ? $"{anchorOffset:+0.0;-0.0} m, weight {AnchorWeight(smoothXZ):0.00}" : "none")}";
 
         /// <summary>Turns / tilts the camera (testing, screenshots).</summary>
@@ -200,7 +270,7 @@ namespace HighCommand.Client
             sweepSeconds = Mathf.Max(0.5f, seconds);
             sweeping = true;
             FollowTarget = null;
-            PanTo(from);
+            PanTo(from, relevel: false);
         }
 
         private void AdvanceSweep(float dt)
@@ -213,7 +283,7 @@ namespace HighCommand.Client
             {
                 sweepLogAt += 0.4f;
                 float fine = CameraGround.Height(smoothXZ, CameraGround.FineSigma);
-                Plugin.Log.LogInfo($"RtsCamera sweep t={sweepTime:0.0} xz=({smoothXZ.x:0},{smoothXZ.y:0}) wantedY={HeightAt(smoothXZ, smoothDistance):0.0} " +
+                Plugin.Log.LogInfo($"RtsCamera sweep t={sweepTime:0.0} xz=({smoothXZ.x:0},{smoothXZ.y:0}) wantedY={(FreeCamera ? level : HeightAt(smoothXZ, smoothDistance)):0.0} " +
                                    $"shownY={smoothFocus.y:0.0} fineY={fine:0.0} anchor={(hasAnchor ? AnchorWeight(smoothXZ) : 0f):0.00} " +
                                    $"lift={liftPitch:0} hidden={hidden.Count}");
             }
@@ -297,6 +367,7 @@ namespace HighCommand.Client
                     if (followed.HasValue)
                     {
                         focusXZ = ClampXZ(new Vector2(followed.Value.x, followed.Value.z));
+                        SetLevel(followed.Value.y);
                         SetAnchor(followed.Value);
                     }
                 }
@@ -320,9 +391,27 @@ namespace HighCommand.Client
                 float before = distance;
                 distance = Mathf.Clamp(distance * factor, Settings.CameraMinDistance.Value, Settings.CameraMaxDistance.Value);
 
+                // Free camera: towards the point under the mouse in all three directions (the middle of the screen with
+                // ZoomToCursor off). The look-at point moves the same share of the way to it as the distance shrinks, so
+                // the camera slides along the line to that point and the point stays exactly under the mouse: zooming
+                // at a valley goes down into it, at a plateau up onto it (and back out the same way).
+                if (FreeCamera)
+                {
+                    if (FollowTarget == null && ZoomPoint(mouse, out Vector3 at))
+                    {
+                        Vector3 lookAt = new Vector3(focusXZ.x, level + LookUp, focusXZ.y);
+                        Vector3 shift = at - lookAt;
+                        if (shift.magnitude < Settings.CameraMaxDistance.Value * 2f)
+                        {
+                            Vector3 moved = shift * (1f - distance / before);
+                            focusXZ = ClampXZ(focusXZ + new Vector2(moved.x, moved.z));
+                            SetLevel(level + moved.y);
+                        }
+                    }
+                }
                 // towards the point under the mouse: it stays under the mouse (Company of Heroes, Total War); the focus
                 // moves the same share of the way to it as the distance shrinks (and back out the same way)
-                if (Settings.ZoomToCursor.Value && FollowTarget == null && ClientInput.PointerInWindow
+                else if (Settings.ZoomToCursor.Value && FollowTarget == null && ClientInput.PointerInWindow
                     && WorldPicker.GroundPoint(mouse, out Vector3 under))
                 {
                     Vector2 shift = new Vector2(under.x, under.z) - focusXZ;
@@ -335,12 +424,14 @@ namespace HighCommand.Client
                 }
             }
 
-            // the start view again (Age of Empires IV / Company of Heroes): turn, tilt and zoom, not the place
+            // the start view again (Age of Empires IV / Company of Heroes): turn, tilt and zoom, not the place; the free
+            // camera also comes back onto the ground where it looks
             if (ClientInput.KeyDown(Settings.KeyResetCamera.Value))
             {
                 yaw = StartYaw;
                 pitch = Settings.CameraPitch.Value;
                 distance = Mathf.Clamp(StartDistance, Settings.CameraMinDistance.Value, Settings.CameraMaxDistance.Value);
+                if (FreeCamera) LevelOnGround(focusXZ, level + LookUp + 0.5f);
             }
 
             // --- rotate ---
@@ -386,13 +477,36 @@ namespace HighCommand.Client
                 smoothPitch = Mathf.SmoothDamp(smoothPitch, pitch, ref pitchVelocity, smooth, float.PositiveInfinity, dt);
             }
 
-            // the height follows the place and the zoom as shown, a little softer than the place itself
-            if (hasAnchor && FollowTarget == null && (smoothXZ - anchorXZ).sqrMagnitude > 9f * AnchorReach * AnchorReach)
-                hasAnchor = false; // far from it: it no longer adds anything
-            float wantHeight = HeightAt(smoothXZ, smoothDistance);
+            float wantHeight, heightTime;
+            if (FreeCamera)
+            {
+                // the player's height, smoothed like the place (a zoom towards the cursor moves both together)
+                StepUp(dt);
+                wantHeight = level;
+                heightTime = smooth;
+            }
+            else
+            {
+                // the height follows the place and the zoom as shown, a little softer than the place itself
+                if (hasAnchor && FollowTarget == null && (smoothXZ - anchorXZ).sqrMagnitude > 9f * AnchorReach * AnchorReach)
+                    hasAnchor = false; // far from it: it no longer adds anything
+                wantHeight = HeightAt(smoothXZ, smoothDistance);
+                heightTime = Mathf.Max(0.2f, smooth * 2f);
+            }
             smoothHeight = smooth <= 0.001f ? wantHeight
-                : Mathf.SmoothDamp(smoothHeight, wantHeight, ref heightVelocity, Mathf.Max(0.2f, smooth * 2f), float.PositiveInfinity, dt);
+                : Mathf.SmoothDamp(smoothHeight, wantHeight, ref heightVelocity, heightTime, float.PositiveInfinity, dt);
             smoothFocus = new Vector3(smoothXZ.x, smoothHeight, smoothXZ.y);
+        }
+
+        /// <summary>
+        /// The point the wheel zooms towards: the world under the mouse (ZoomToCursor) or under the middle of the screen.
+        /// </summary>
+        private bool ZoomPoint(Vector2 mouse, out Vector3 point)
+        {
+            point = default;
+            if (Settings.ZoomToCursor.Value)
+                return ClientInput.PointerInWindow && WorldPicker.GroundPoint(mouse, out point);
+            return WorldPicker.GroundPoint(new Vector2(Screen.width * 0.5f, Screen.height * 0.5f), out point);
         }
 
         // ---- the height of the focus -------------------------------------------------------------
@@ -538,14 +652,14 @@ namespace HighCommand.Client
 
         private void PlaceCamera(float dt)
         {
-            Vector3 lookAt = smoothFocus + Vector3.up * 1.0f;
+            Vector3 lookAt = smoothFocus + Vector3.up * LookUp;
             float basePitch = ViewPitch();
 
             // The distance is the player's alone (the wheel) and so is the tilt: like in an RTS, the camera never moves
-            // in by itself. It only tilts up as far as it must to stay out of big ground (a low view by a hill), quickly
-            // but smoothly, and back down slowly.
+            // in by itself. The free camera never tilts by itself either (it looks through rock in its way); following
+            // the ground, it tilts up a little to stay out of big ground (a low view by a hill), and back down slowly.
             float length = Mathf.Max(0.01f, smoothDistance);
-            float wantLift = GroundLift(lookAt, basePitch, smoothYaw, length);
+            float wantLift = FreeCamera ? 0f : GroundLift(lookAt, basePitch, smoothYaw, length);
             liftPitch = Mathf.SmoothDamp(liftPitch, wantLift, ref liftVelocity, wantLift > liftPitch ? LiftUpTime : LiftDownTime,
                 float.PositiveInfinity, dt);
             liftPitch = Mathf.Clamp(liftPitch, 0f, SteepestPitch);
@@ -861,6 +975,7 @@ namespace HighCommand.Client
             pitch = smoothPitch = Settings.CameraPitch.Value;
             distance = smoothDistance = 31f;
             focusXZ = ClampXZ(new Vector2(s.x, s.z));
+            LevelOnGround(focusXZ);
             Snap();
             return $"spot {index}: {s.x:0},{s.z:0} yaw {s.y:0}, focus height {smoothFocus.y:0.0}";
         }

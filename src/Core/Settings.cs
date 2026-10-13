@@ -16,7 +16,7 @@ namespace HighCommand
         internal static ConfigEntry<float> CameraZoomSpeed;
         internal static ConfigEntry<float> CameraMinDistance;
         internal static ConfigEntry<float> CameraMaxDistance;
-        internal static ConfigEntry<bool> ZoomToCursor, ZoomTilt;
+        internal static ConfigEntry<bool> ZoomToCursor, ZoomTilt, FollowGround;
         internal static ConfigEntry<float> CameraPitch;
         internal static ConfigEntry<float> CameraFov;
         internal static ConfigEntry<float> CameraRotateSpeed;
@@ -109,6 +109,7 @@ namespace HighCommand
             CameraMinDistance = F("Camera", "MinDistance", 6f, 3f, 60f, "Closest camera distance to the ground focus point, meters.");
             ZoomToCursor = cfg.Bind("Camera", "ZoomToCursor", true, "The wheel zooms towards the point under the mouse (it stays under the mouse), as in Company of Heroes or Total War. Off: towards the middle of the screen.");
             ZoomTilt = cfg.Bind("Camera", "ZoomTilt", true, "Zooming in close also lowers the view towards the ground (a side view of the heroes at the closest zoom); zooming out brings your tilt back.");
+            FollowGround = cfg.Bind("Camera", "FollowGround", false, "Off (free camera): panning never changes the camera's height or tilt; the height is set by you (flying to heroes, the minimap, zooming towards the cursor, Home), and the camera only steps up onto ground higher than itself. On: the height follows a smoothed copy of the ground and the camera tilts up a little over slopes.");
             CameraMaxDistance = F("Camera", "MaxDistance", 220f, 30f, 500f, "Farthest camera distance, meters.");
             CameraPitch = F("Camera", "Pitch", 58f, 25f, 85f, "Camera tilt in degrees (90 = straight down). The starting tilt: middle mouse drag up / down and PageUp / PageDown change it during the game.");
             CameraTiltSpeed = F("Camera", "TiltSpeed", 1.0f, 0.2f, 4f, "Tilt speed multiplier for middle mouse drag up / down and the tilt keys.");
@@ -161,7 +162,7 @@ namespace HighCommand
             KeySelectAll = cfg.Bind("Keys", "SelectAll", KeyCode.A, "Together with Ctrl: select the whole army. (Digits 1-0 are the control groups: Ctrl+digit sets, digit recalls.)");
 
             KeyLastAlert = cfg.Bind("Keys", "LastAlert", KeyCode.Backspace, "Fly the camera to the place of the last alert (a fallen or nearly dead hero).");
-            KeyResetCamera = cfg.Bind("Keys", "ResetCamera", KeyCode.Home, "Reset the camera's turn, tilt and zoom to the start view (it stays where it looks).");
+            KeyResetCamera = cfg.Bind("Keys", "ResetCamera", KeyCode.Home, "Reset the camera's turn, tilt and zoom to the start view and bring its height back onto the ground under it (it stays where it looks).");
             Alerts = cfg.Bind("Interface", "Alerts", true, "Message, sound and a mark on the map when a hero falls or is nearly dead.");
 
             UiScale = F("Interface", "UiScale", 1.0f, 0.6f, 1.6f,

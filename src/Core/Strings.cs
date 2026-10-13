@@ -18,7 +18,7 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_KEY_MINIMAP", "Minimap click", "Клик по мини-карте");
             Loc.Add("HIGHCOMMAND_HELP_PAN", "Move the camera", "Двигать камеру");
             Loc.Add("HIGHCOMMAND_HELP_EDGE", "Move the camera", "Двигать камеру");
-            Loc.Add("HIGHCOMMAND_HELP_ZOOM", "Zoom in / out", "Приблизить / отдалить");
+            Loc.Add("HIGHCOMMAND_HELP_ZOOM", "Zoom in / out (towards the point under the cursor, also up and down)", "Приблизить / отдалить (к точке под курсором, в том числе вверх и вниз)");
             Loc.Add("HIGHCOMMAND_HELP_ROTATE", "Rotate the camera", "Повернуть камеру");
             Loc.Add("HIGHCOMMAND_HELP_TILT", "Tilt the camera (flatter / from above)", "Наклонить камеру (ниже / сверху)");
             Loc.Add("HIGHCOMMAND_KEY_MMB_SIDE", "MMB sideways", "СКМ вбок");
@@ -26,7 +26,7 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_KEY_RMB_OBJECT", "Right click a chest", "ПКМ по сундуку");
             Loc.Add("HIGHCOMMAND_HELP_LOOT", "The nearest hero goes to open it (Shift: a route)", "Ближайший герой идёт открыть (Shift — маршрут)");
             Loc.Add("HIGHCOMMAND_HELP_FOCUS", "Fly to the army (twice: follow it)", "К армии (дважды — следить за ней)");
-            Loc.Add("HIGHCOMMAND_HELP_RESETCAM", "Reset the camera's turn, tilt and zoom", "Сбросить поворот, наклон и приближение камеры");
+            Loc.Add("HIGHCOMMAND_HELP_RESETCAM", "Reset the camera's turn, tilt and zoom, back onto the ground here", "Сбросить поворот, наклон и приближение, камера опускается на землю здесь");
             Loc.Add("HIGHCOMMAND_CAMERA_FOLLOW", "The camera follows the heroes (move it to let go)", "Камера следит за героями (сдвиньте её, чтобы отпустить)");
             Loc.Add("HIGHCOMMAND_HELP_MINIMAP", "Fly the camera there", "Перелёт камеры в эту точку");
             Loc.Add("HIGHCOMMAND_HELP_HELP", "This sheet", "Эта шпаргалка");

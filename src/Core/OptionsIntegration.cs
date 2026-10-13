@@ -36,6 +36,7 @@ namespace HighCommand
                 Slider(Settings.CameraMaxDistance, 30f, 500f, "{0:0}");
                 Check(Settings.EdgeScroll);
                 IntSlider(Settings.EdgeScrollPixels, 1, 40);
+                Check(Settings.FollowGround);
                 Check(Settings.ListenerAtFocus);
 
                 // interface

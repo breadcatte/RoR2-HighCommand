@@ -1,0 +1,80 @@
+# Free camera (Camera/FollowGround off): panning keeps the height ("sweep done ... focus height a..a" unless it had to
+# climb onto higher ground, tilt speed 0), the wheel goes towards the 3D point under the cursor (hc_cam info: level),
+# Home brings it back onto the ground. Two stages with many levels.
+@wait 4
+@log === F1 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 15
+@log === F2 golemplains
+hc_next_stage golemplains
+@wait 25
+hc_cam army
+hc_cam dist 31
+hc_cam pitch 58
+@wait 2
+hc_cam info
+hc_cam sweep 140 0 6
+@wait 3
+hc_screenshot camfree_golem_pan
+@wait 4
+hc_cam sweep 0 140 6
+@wait 7
+hc_cam sweep -140 -140 8
+@wait 9
+hc_cam info
+@log === F3 wheel towards the cursor
+hc_mouse 1400 300
+@wait 1
+hc_screenshot camfree_golem_wheel0
+hc_scroll 4
+@wait 2
+hc_cam info
+hc_screenshot camfree_golem_wheel1
+hc_scroll 4
+@wait 2
+hc_cam info
+hc_screenshot camfree_golem_wheel2
+hc_scroll -8
+@wait 2
+hc_cam info
+hc_input_end
+@log === F4 Home
+hc_key Home
+@wait 2
+hc_cam info
+hc_screenshot camfree_golem_home
+@log === F5 rootjungle
+hc_next_stage rootjungle
+@wait 25
+hc_cam army
+hc_cam dist 31
+hc_cam pitch 58
+@wait 2
+hc_cam info
+hc_cam sweep 140 0 6
+@wait 3
+hc_screenshot camfree_root_pan
+@wait 4
+hc_cam sweep 0 140 6
+@wait 7
+hc_cam sweep -140 -140 8
+@wait 9
+hc_cam info
+hc_screenshot camfree_root_after
+hc_cam dist 12
+hc_cam pitch 18
+@wait 2
+hc_cam sweep -100 0 7
+@wait 4
+hc_screenshot camfree_root_low
+@wait 4
+hc_cam info
+@log === END
+disconnect
+@norun
+@wait 4
+@quit
