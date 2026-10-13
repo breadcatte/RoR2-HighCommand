@@ -1,9 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.13.0 - order lines along the real way, interface hidden in the pause menu
 
 * The pause menu and its settings: the mode's interface is hidden while they are open (dimmed, it still covered their
-  tabs and rows). Under the console it is only dimmed, as before. Scenario 	ools\qa\pause.txt.
+  tabs and rows). Under the console it is only dimmed, as before. Scenario `tools\qa\pause.txt`.
 
 Order routes
 * The line of an order (aiming, given orders, the queue, a hero sent to a chest) follows the way the heroes will really
@@ -18,6 +18,7 @@ Order routes
   towards it and the walking distance.
 * The ways are searched at most ~1 ms a frame and kept for a while (measured: ~0.03 ms a search). Dev: `hc_overlay`
   prints the route counters; scenario `tools\qa\route.txt` (also shots while the camera pans).
+
 ## 0.12.1
 
 * README: the Discord contact as plain text (Thunderstore hid the link).
