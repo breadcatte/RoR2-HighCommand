@@ -132,7 +132,7 @@ High Command превращает Risk of Rain 2 в стратегию в реа
 * **Идеи и предложения:** issue по шаблону *Idea / suggestion* или тема в
   [Discussions](https://github.com/kantemiir/RoR2-HighCommand/discussions).
 * **Просто поговорить, оставить отзыв или показать запись?** Пишите мне в Discord:
-  [kantemiir](https://discord.com/users/327786803891404801).
+  **kantemiir** (профиль: discord.com/users/327786803891404801).
 * **Код, баланс, профили ИИ, переводы:** pull request'ы приветствуются, небольшие проще всего проверить. См.
   [CONTRIBUTING.md](https://github.com/kantemiir/RoR2-HighCommand/blob/master/CONTRIBUTING.md).
 

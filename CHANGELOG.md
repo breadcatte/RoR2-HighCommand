@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.1
+
+* README: the Discord contact as plain text (Thunderstore hid the link).
+
 ## 0.12.0 - monsters hunt the army, seek orders, no friendly fire, a new look
 
 * README / description: a Discord contact for feedback.

@@ -1,6 +1,6 @@
 {
   "name": "HighCommand",
-  "version_number": "0.12.0",
+  "version_number": "0.12.1",
   "website_url": "https://github.com/kantemiir/RoR2-HighCommand",
   "description": "An RTS mode: command an AI army of real survivors from a strategy camera. Recruit heroes, buy upgrades, loot the map with one shared purse. Feedback welcome on Discord or GitHub.",
   "dependencies": [

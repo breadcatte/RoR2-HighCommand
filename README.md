@@ -135,7 +135,7 @@ survivor plays badly, if you have an idea for a feature, or if you want to work 
 * **Ideas and suggestions:** open an issue with the *Idea / suggestion* template, or start a thread in
   [Discussions](https://github.com/kantemiir/RoR2-HighCommand/discussions).
 * **Just want to talk, share feedback or a clip?** Write to me on Discord:
-  [kantemiir](https://discord.com/users/327786803891404801).
+  **kantemiir** (profile: discord.com/users/327786803891404801).
 * **Code, balance, AI profiles, translations:** pull requests are welcome. Small ones are the easiest to review. See
   [CONTRIBUTING.md](https://github.com/kantemiir/RoR2-HighCommand/blob/master/CONTRIBUTING.md).
 
