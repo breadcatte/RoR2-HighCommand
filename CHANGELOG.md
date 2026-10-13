@@ -27,6 +27,17 @@ Health bars
   1000 ... health on heroes and bosses, a pale piece showing the last hit that drains after it. A hero's bar runs green ->
   amber -> red and pulses when nearly dead. Bosses have a gold frame. Ordinary monsters at full health show no bar.
 
+Interface pass
+* One title style for the big windows (accent bar, white title, hairline): barracks, items, F1 sheet.
+* Barracks: the purse on the right of the title, survivor cards with a coloured status band (recruit / too dear / in
+  the army / closed), upgrades as name + level + price, the description right under them (no empty band).
+* Items: a smaller title, the hint on the right, calmer rows, "no items yet" in dim italics, a smaller button.
+* F1 sheet: sections (Camera, Selection, General, Orders, Army and commander), striped rows, a close hint; the K / L
+  line is in it.
+* Orders list: quiet rows (a faint outline, the colour in the picture), three groups with a gap and a hairline.
+* Health bars: always a dark frame (a selected hero's green frame melted into the fill); notches at 100, 200 ... not
+  at the left edge; the gloss covers the filled part only.
+
 Camera and pointer
 * Zoom out up to 220 m (Camera/MaxDistance, up to 500; an old 95 is raised once); tilt down to 89 degrees (straight down).
 * The first look at a stage stays about 31 m.

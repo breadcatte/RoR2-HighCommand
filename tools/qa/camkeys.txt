@@ -1,0 +1,40 @@
+# Does the camera still obey after the seek keys? (in the seek run hc_cam dist did nothing afterwards)
+@wait 4
+@log === C1 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 20
+hc_cam info
+hc_cam dist 60
+@wait 2
+hc_cam info
+@log === C2 after K
+hc_select all
+hc_key K
+@wait 3
+hc_cam dist 100
+@wait 2
+hc_cam info
+@log === C3 after L
+hc_gold 3000
+hc_key L
+@wait 3
+hc_cam dist 150
+@wait 2
+hc_cam info
+hc_cam pitch 80
+@wait 2
+hc_cam info
+@log === C4 after hc_input_end
+hc_input_end
+hc_cam dist 40
+@wait 2
+hc_cam info
+@log === END
+disconnect
+@norun
+@wait 4
+@quit

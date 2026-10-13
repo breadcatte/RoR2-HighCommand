@@ -28,11 +28,25 @@ namespace HighCommand.UI
             internal TextMeshProUGUI name;
             internal TextMeshProUGUI role;
             internal TextMeshProUGUI status;
+            internal Image band;
+            internal RecruitStatus shown = (RecruitStatus)255;
+            internal bool shownOver;
         }
+
+        private const float HeadH = 62f;      // the title strip
+        private const float DetailH = 62f;    // the description under everything
+
+        private static readonly Color InArmy = new Color(0.55f, 0.8f, 1f, 1f);
+        private static readonly Color BandBuy = new Color(0.2f, 0.45f, 0.24f, 0.9f);
+        private static readonly Color BandPrice = new Color(0.28f, 0.22f, 0.08f, 0.85f);
+        private static readonly Color BandArmy = new Color(0.12f, 0.24f, 0.36f, 0.85f);
+        private static readonly Color BandNone = new Color(0.03f, 0.04f, 0.06f, 0.75f);
 
         private readonly RectTransform root;
         private readonly RectTransform grid;
         private readonly TextMeshProUGUI title;
+        private readonly TextMeshProUGUI info;
+        private readonly Image detailRule;
         private readonly TextMeshProUGUI detail;
         private static readonly IReadOnlyList<Hero> NoHeroes = new List<Hero>();
 
@@ -63,21 +77,33 @@ namespace HighCommand.UI
             UiKit.Place(root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 20f), new Vector2(width, 700f));
             panelWidth = width;
 
-            title = UiKit.NewText("Title", root, "", 32f, UiKit.Accent, TextAlignmentOptions.Left);
-            UiKit.Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(20f, -14f), new Vector2(width - 40f, 44f));
+            // the title strip: the same accent bar and hairline as the cards of the interface, the purse on the right
+            Image bar = UiKit.NewImage("HeadBar", root, UiKit.White, UiKit.Accent);
+            UiKit.Place(bar.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(20f, -22f), new Vector2(4f, 24f));
+            title = UiKit.NewText("Title", root, "", 26f, UiKit.Text, TextAlignmentOptions.Left);
+            UiKit.Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(34f, -16f), new Vector2(400f, 36f));
+            info = UiKit.NewText("Info", root, "", 19f, UiKit.TextDim, TextAlignmentOptions.Right);
+            UiKit.Place(info.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-20f, -18f), new Vector2(width - 460f, 32f));
+            info.enableWordWrapping = false;
+            Image rule = UiKit.NewImage("HeadLine", root, UiKit.White, new Color(0.6f, 0.7f, 0.82f, 0.22f));
+            UiKit.Place(rule.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(20f, -HeadH + 8f), new Vector2(width - 40f, 1f));
 
             grid = UiKit.NewRect("Grid", root);
-            UiKit.Place(grid, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(20f, -66f), new Vector2(width - 40f, 520f));
+            UiKit.Place(grid, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(20f, -(HeadH + 6f)), new Vector2(width - 40f, 520f));
 
-            detail = UiKit.NewText("Detail", root, "", 18f, UiKit.TextDim, TextAlignmentOptions.TopLeft);
-            UiKit.Place(detail.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(20f, 12f), new Vector2(width - 40f, 96f));
+            detailRule = UiKit.NewImage("DetailLine", root, UiKit.White, new Color(0.6f, 0.7f, 0.82f, 0.16f));
+            UiKit.Place(detailRule.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(20f, DetailH + 10f), new Vector2(width - 40f, 1f));
+            detail = UiKit.NewText("Detail", root, "", 17f, UiKit.TextDim, TextAlignmentOptions.MidlineLeft);
+            UiKit.Place(detail.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(20f, 8f), new Vector2(width - 40f, DetailH));
             detail.enableWordWrapping = true;
             // long survivor descriptions shrink to fit instead of spilling below the panel
             detail.enableAutoSizing = true;
             detail.fontSizeMin = 11f;
-            detail.fontSizeMax = 18f;
+            detail.fontSizeMax = 17f;
 
-            upgradeHeader = UiKit.NewText("UpgradeHeader", root, Loc.Get("HIGHCOMMAND_UPGRADE_HEADER"), 18f, UiKit.Accent, TextAlignmentOptions.Left);
+            upgradeHeader = UiKit.NewText("UpgradeHeader", root, Loc.Get("HIGHCOMMAND_UPGRADE_HEADER"), 15f, UiKit.Accent, TextAlignmentOptions.BottomLeft);
+            upgradeHeader.fontStyle = FontStyles.UpperCase;
+            upgradeHeader.characterSpacing = 3f;
             float buttonW = (width - 40f - (ArmyUpgrades.Count - 1) * Gap) / ArmyUpgrades.Count;
             for (int i = 0; i < ArmyUpgrades.Count; i++)
             {
@@ -146,24 +172,30 @@ namespace HighCommand.UI
                 c.back = UiKit.NewFill("Back", c.root, new Color(0.06f, 0.08f, 0.11f, 0.95f), 9f);
 
                 c.portrait = UiKit.NewRawImage("Portrait", c.root, null, Color.white);
-                UiKit.Place(c.portrait.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(84f, 84f));
+                UiKit.Place(c.portrait.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -8f), new Vector2(78f, 78f));
                 CharacterBody body = def.bodyPrefab.GetComponent<CharacterBody>();
                 if (body) c.portrait.texture = body.portraitIcon;
 
-                c.name = UiKit.NewText("Name", c.root, HeroName(def), 20f, UiKit.Text, TextAlignmentOptions.Center);
-                UiKit.Place(c.name.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -92f), new Vector2(CardW - 8f, 26f));
+                c.name = UiKit.NewText("Name", c.root, HeroName(def), 18f, UiKit.Text, TextAlignmentOptions.Center);
+                UiKit.Place(c.name.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -88f), new Vector2(CardW - 12f, 24f));
                 c.name.enableAutoSizing = true;
                 c.name.fontSizeMin = 12f;
-                c.name.fontSizeMax = 20f;
+                c.name.fontSizeMax = 18f;
+                c.name.enableWordWrapping = false;
 
-                c.role = UiKit.NewText("Role", c.root, Loc.Get(HeroRoles.RoleToken(def.cachedName)), 15f, UiKit.TextDim, TextAlignmentOptions.Center);
-                UiKit.Place(c.role.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -116f), new Vector2(CardW - 8f, 22f));
+                c.role = UiKit.NewText("Role", c.root, Loc.Get(HeroRoles.RoleToken(def.cachedName)), 14f, UiKit.TextDim, TextAlignmentOptions.Center);
+                UiKit.Place(c.role.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -111f), new Vector2(CardW - 12f, 20f));
 
-                c.status = UiKit.NewText("Status", c.root, "", 18f, UiKit.Gold, TextAlignmentOptions.Center);
-                UiKit.Place(c.status.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 8f), new Vector2(CardW - 8f, 24f));
+                // the status on a band along the bottom of the card (its colour says buy / too dear / in the army / no)
+                c.band = UiKit.NewFill("Band", c.root, BandNone, UiKit.InnerCut(9f, 2f));
+                c.band.rectTransform.anchorMax = new Vector2(1f, 0f);
+                c.band.rectTransform.offsetMax = new Vector2(-2f, 30f);
+                c.status = UiKit.NewText("Status", c.band.rectTransform, "", 16f, UiKit.Gold, TextAlignmentOptions.Center);
+                UiKit.Stretch(c.status.rectTransform, 4, 1, 4, 1);
                 c.status.enableAutoSizing = true;
                 c.status.fontSizeMin = 11f;
-                c.status.fontSizeMax = 18f;
+                c.status.fontSizeMax = 16f;
+                c.status.enableWordWrapping = false;
 
                 cards.Add(c);
                 index++;
@@ -173,19 +205,22 @@ namespace HighCommand.UI
             // fit the panel to the number of rows
             int rows = Mathf.Max(1, (index + Columns - 1) / Columns);
             float gridHeight = rows * CardH + (rows - 1) * Gap;
-            UiKit.Place(grid, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(20f, -66f), new Vector2(panelWidth - 40f, gridHeight));
+            float top = HeadH + 6f;
+            UiKit.Place(grid, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(20f, -top), new Vector2(panelWidth - 40f, gridHeight));
 
             // the upgrade strip right under the cards
-            float y = -66f - gridHeight - 12f;
+            float y = -top - gridHeight - 16f;
             UiKit.Place(upgradeHeader.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(20f, y), new Vector2(panelWidth - 40f, 24f));
-            y -= 28f;
+            y -= 30f;
             for (int i = 0; i < upgrades.Length; i++)
             {
                 RectTransform r = upgrades[i].root;
                 UiKit.Place(r, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(20f + i * (r.sizeDelta.x + Gap), y), r.sizeDelta);
             }
-            float upgradeBlock = 12f + 28f + UpgradeH;
-            UiKit.Place(root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 20f), new Vector2(panelWidth, 66f + gridHeight + upgradeBlock + 130f));
+            float upgradeBlock = 16f + 30f + UpgradeH;
+            // the description sits right under the upgrades: no empty band at the bottom of the panel
+            UiKit.Place(root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 20f),
+                new Vector2(panelWidth, top + gridHeight + upgradeBlock + 18f + DetailH + 18f));
         }
 
         private void TickUpgrades(Vector2 mouse)
@@ -203,11 +238,14 @@ namespace HighCommand.UI
                 if (over) hoveredUpgrade = i;
 
                 bool affordable = price > 0 && gold >= (uint)price;
-                UiKit.SetText(b.text, price < 0
-                    ? Loc.Format("HIGHCOMMAND_UPGRADE_BUTTON_MAX", name, max)
-                    : Loc.Format("HIGHCOMMAND_UPGRADE_BUTTON", name, level, max, price));
-                b.text.color = price < 0 ? UiKit.TextDim : affordable ? UiKit.Good : UiKit.Gold;
-                b.frame.color = affordable ? (over ? UiKit.Good : new Color(0.3f, 0.7f, 0.35f, 0.9f)) : UiKit.Border;
+                // the name on top, the level and the price under it (the price green when it can be paid)
+                string sub = price < 0
+                    ? $"<color=#8C97A8>{Loc.Format("HIGHCOMMAND_UPGRADE_LEVEL", max, max)}   {Loc.Get("HIGHCOMMAND_UPGRADE_MAXSHORT")}</color>"
+                    : $"<color=#8C97A8>{Loc.Format("HIGHCOMMAND_UPGRADE_LEVEL", level, max)}</color>   <color={(affordable ? "#7EE08A" : "#FFD94A")}>${price}</color>";
+                UiKit.SetText(b.text, $"{name}\n<size=82%>{sub}</size>");
+                b.text.color = price < 0 ? UiKit.TextDim : UiKit.Text;
+                b.frame.color = affordable ? (over ? UiKit.Good : new Color(0.3f, 0.7f, 0.35f, 0.9f))
+                    : over ? Color.Lerp(UiKit.Border, Color.white, 0.4f) : new Color(0.5f, 0.6f, 0.72f, 0.45f);
 
                 if (over && ClientInput.MouseDown(0))
                 {
@@ -244,7 +282,8 @@ namespace HighCommand.UI
             IReadOnlyList<Hero> heroes = state != null ? state.Heroes : NoHeroes;
             Vector2 mouse = ClientInput.Mouse;
 
-            UiKit.SetText(title, Loc.Format("HIGHCOMMAND_BARRACKS_TITLE", state != null ? state.NextHeroPrice() : 0, state != null ? state.Gold : 0u));
+            UiKit.SetText(title, Loc.Get("HIGHCOMMAND_BARRACKS_NAME"));
+            UiKit.SetText(info, Loc.Format("HIGHCOMMAND_BARRACKS_INFO", state != null ? state.NextHeroPrice() : 0, state != null ? state.Gold : 0u));
 
             hovered = null;
             foreach (Card c in cards)
@@ -254,27 +293,44 @@ namespace HighCommand.UI
                 bool over = UiKit.Contains(c.root, mouse);
                 if (over) hovered = c.def;
 
-                Color frame = UiKit.Border;
+                Color frame = over ? Color.Lerp(UiKit.Border, Color.white, 0.4f) : new Color(0.5f, 0.6f, 0.72f, 0.45f);
+                Color band = BandNone;
                 string text;
                 switch (status)
                 {
                     case RecruitStatus.Available:
                         frame = over ? UiKit.Good : new Color(0.3f, 0.7f, 0.35f, 0.9f);
+                        band = BandBuy;
                         text = Loc.Format("HIGHCOMMAND_RECRUIT_BUY", state.NextHeroPrice());
-                        c.status.color = UiKit.Good;
+                        c.status.color = Color.Lerp(UiKit.Good, Color.white, 0.35f);
                         break;
                     case RecruitStatus.NeedGold:
+                        band = BandPrice;
                         text = Loc.Format("HIGHCOMMAND_RECRUIT_PRICE", state.NextHeroPrice());
                         c.status.color = UiKit.Gold;
+                        break;
+                    case RecruitStatus.AlreadyOwned:
+                        frame = over ? InArmy : new Color(InArmy.r, InArmy.g, InArmy.b, 0.55f);
+                        band = BandArmy;
+                        text = ArmyService.StatusText(status, state);
+                        c.status.color = InArmy;
                         break;
                     default:
                         text = ArmyService.StatusText(status, state);
                         c.status.color = UiKit.TextDim;
                         break;
                 }
-                c.frame.color = frame;
+                if (c.shown != status || c.shownOver != over)
+                {
+                    c.shown = status;
+                    c.shownOver = over;
+                    c.frame.color = frame;
+                    c.band.color = band;
+                    bool closed = status == RecruitStatus.Locked || status == RecruitStatus.NotAllowed;
+                    c.portrait.color = closed ? new Color(0.25f, 0.25f, 0.25f, 1f) : Color.white;
+                    c.name.color = closed ? UiKit.TextDim : UiKit.Text;
+                }
                 UiKit.SetText(c.status, text);
-                c.portrait.color = status == RecruitStatus.Locked || status == RecruitStatus.NotAllowed ? new Color(0.25f, 0.25f, 0.25f, 1f) : Color.white;
 
                 if (over && ClientInput.MouseDown(0) && status == RecruitStatus.Available)
                     Request(c.def);

@@ -691,27 +691,27 @@ namespace HighCommand.UI
         private static readonly Color BarrierColor = new Color(1f, 0.9f, 0.5f, 0.95f);
         private static readonly Color TrailColor = new Color(1f, 0.93f, 0.8f, 0.85f);
         private static readonly Color FrameDark = new Color(0.01f, 0.015f, 0.02f, 0.92f);
-        private static readonly Color FrameSelected = new Color(0.55f, 1f, 0.62f, 1f);
         private static readonly Color FrameBoss = new Color(0.95f, 0.72f, 0.3f, 0.95f);
         private static readonly float[] SegmentSteps = { 100f, 250f, 500f, 1000f, 2500f, 5000f, 10000f, 25000f };
 
         private static Texture2D tickTexture;
 
-        // one dark notch at the start of a repeating tile (a RawImage repeats it once per segment of health)
+        // one dark notch at the end of a repeating tile (a RawImage repeats it once per segment of health, so the notches
+        // fall on 100, 200 ... and never on the bar's left edge)
         private static Texture2D TickTexture
         {
             get
             {
                 if (tickTexture) return tickTexture;
-                const int w = 16;
+                const int w = 24;
                 var tex = new Texture2D(w, 1, TextureFormat.RGBA32, false)
                 {
                     hideFlags = HideFlags.HideAndDontSave,
                     wrapMode = TextureWrapMode.Repeat,
-                    filterMode = FilterMode.Bilinear
+                    filterMode = FilterMode.Point
                 };
                 var pixels = new Color32[w];
-                for (int x = 0; x < w; x++) pixels[x] = new Color32(0, 0, 0, (byte)(x == 0 ? 170 : 0));
+                for (int x = 0; x < w; x++) pixels[x] = new Color32(0, 0, 0, (byte)(x == w - 1 ? 150 : 0));
                 tex.SetPixels32(pixels);
                 tex.Apply(false, true);
                 tickTexture = tex;
@@ -810,8 +810,9 @@ namespace HighCommand.UI
                     bar.health.color = fill;
                 }
 
-                bool selected = hero != null && selection.Contains(hero);
-                Color frame = selected ? FrameSelected : boss ? FrameBoss : FrameDark;
+                // the selection is shown by the mark above the bar and the arc at the feet: a green frame round a green
+                // fill would melt into one block
+                Color frame = boss ? FrameBoss : FrameDark;
                 if (bar.frameColor != frame)
                 {
                     bar.frameColor = frame;
@@ -829,6 +830,10 @@ namespace HighCommand.UI
                     SetFill(bar.shield.rectTransform, h, Mathf.Min(1f, h + sh));
                     bool hasShield = sh > 0.001f;
                     if (bar.shield.enabled != hasShield) bar.shield.enabled = hasShield;
+                    // the gloss lies on the filled part only: the empty part stays dark and the level reads at once
+                    SetFill(bar.gloss.rectTransform, 0f, Mathf.Min(1f, h + sh), top: 0.45f);
+                    bool glossy = h + sh > 0.001f;
+                    if (bar.gloss.enabled != glossy) bar.gloss.enabled = glossy;
                 }
                 if (Mathf.Abs(bar.trail01 - shownTrail) > 0.002f)
                 {

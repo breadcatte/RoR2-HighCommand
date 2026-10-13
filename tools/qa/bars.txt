@@ -1,0 +1,27 @@
+# Health bars close up: heroes in a fight (some hurt), monsters with and without damage.
+@wait 4
+@log === B1 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 20
+hc_gold 2000
+hc_recruit Commando
+@wait 12
+hc_select none
+hc_spawn 6 LemurianMaster 25
+hc_spawn 1 GolemMaster 25
+hc_cam follow
+hc_cam dist 18
+hc_cam pitch 45
+@wait 6
+hc_screenshot bars_a
+@wait 3
+hc_screenshot bars_b
+@log === END
+disconnect
+@norun
+@wait 4
+@quit

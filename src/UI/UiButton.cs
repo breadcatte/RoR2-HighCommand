@@ -29,6 +29,14 @@ namespace HighCommand.UI
         internal bool Active;
         internal Color Accent = UiKit.Border;
 
+        /// <summary>
+        /// A list row: a faint neutral outline, the colour only in the picture (and on the outline under the pointer). A
+        /// long list of rows with coloured outlines reads as noise.
+        /// </summary>
+        internal bool Quiet;
+
+        private static readonly Color QuietFrame = new Color(0.5f, 0.6f, 0.72f, 0.22f);
+
         // what the colours were last set to (a colour written every frame would rebuild the canvas)
         private Color shownFrame, shownFill, shownGlyph, shownLabel;
         private bool colorsKnown;
@@ -141,10 +149,11 @@ namespace HighCommand.UI
         {
             Hover = Root.gameObject.activeInHierarchy && UiKit.Contains(Root, mouse);
 
-            Color frame = Accent;
-            if (!Enabled) frame = new Color(Accent.r, Accent.g, Accent.b, 0.25f);
+            Color rest = Quiet ? QuietFrame : Accent;
+            Color frame = rest;
+            if (!Enabled) frame = new Color(rest.r, rest.g, rest.b, Quiet ? 0.12f : 0.25f);
             else if (Active) frame = UiKit.Accent;
-            else if (Hover) frame = Color.Lerp(Accent, Color.white, 0.55f);
+            else if (Hover) frame = Quiet ? new Color(Accent.r, Accent.g, Accent.b, 0.95f) : Color.Lerp(Accent, Color.white, 0.55f);
 
             Color fill = new Color(0.08f, 0.1f, 0.14f, 0.96f);
             if (!Enabled) fill = new Color(0.06f, 0.07f, 0.09f, 0.9f);
@@ -157,7 +166,8 @@ namespace HighCommand.UI
             else
             {
                 Color baseColor = new Color(Accent.r, Accent.g, Accent.b, 1f);
-                glyph = Color.Lerp(baseColor, Color.white, Hover ? 0.85f : 0.45f);
+                glyph = Quiet ? Color.Lerp(baseColor, Color.white, Hover ? 0.4f : 0.1f)
+                              : Color.Lerp(baseColor, Color.white, Hover ? 0.85f : 0.45f);
             }
 
             Color label = Enabled ? UiKit.Text : UiKit.TextDim;

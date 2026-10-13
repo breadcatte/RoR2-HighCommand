@@ -110,6 +110,7 @@ namespace HighCommand.Client
         private static void RegisterHelp()
         {
             HelpOverlay.Clear();
+            HelpOverlay.Section(Loc.Get("HIGHCOMMAND_HELP_SEC_CAMERA"));
             HelpOverlay.Add(
                 $"{Settings.KeyUp.Value} {Settings.KeyLeft.Value} {Settings.KeyDown.Value} {Settings.KeyRight.Value}",
                 Loc.Get("HIGHCOMMAND_HELP_PAN"));
@@ -121,6 +122,7 @@ namespace HighCommand.Client
             HelpOverlay.Add(Settings.KeyLastAlert.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_ALERT"));
             HelpOverlay.Add(Settings.KeyResetCamera.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_RESETCAM"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_MINIMAP"), Loc.Get("HIGHCOMMAND_HELP_MINIMAP"));
+            HelpOverlay.Section(Loc.Get("HIGHCOMMAND_HELP_SEC_SELECT"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_LMB"), Loc.Get("HIGHCOMMAND_HELP_SELECT"));
             HelpOverlay.Add("Shift + " + Loc.Get("HIGHCOMMAND_KEY_LMB"), Loc.Get("HIGHCOMMAND_HELP_SELECT_ADD"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_DOUBLE"), Loc.Get("HIGHCOMMAND_HELP_SELECT_TYPE"));
@@ -128,6 +130,11 @@ namespace HighCommand.Client
             HelpOverlay.Add("Ctrl + 1..9", Loc.Get("HIGHCOMMAND_HELP_GROUP_SET"));
             HelpOverlay.Add("1..9 (x2)", Loc.Get("HIGHCOMMAND_HELP_GROUP_RECALL"));
             HelpOverlay.Add(Settings.KeyCycleSelection.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_CYCLE"));
+            HelpOverlay.Section(Loc.Get("HIGHCOMMAND_HELP_SEC_GENERAL"));
+            HelpOverlay.Add(Settings.KeyHelp.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_HELP"));
+            HelpOverlay.Add("Esc", Loc.Get("HIGHCOMMAND_HELP_PAUSE"));
+            HelpOverlay.NextColumn();
+            HelpOverlay.Section(Loc.Get("HIGHCOMMAND_HELP_SEC_ORDERS"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_RMB"), Loc.Get("HIGHCOMMAND_HELP_RMB"));
             HelpOverlay.Add("Shift + " + Loc.Get("HIGHCOMMAND_KEY_RMB"), Loc.Get("HIGHCOMMAND_HELP_QUEUE"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_RMB_OBJECT"), Loc.Get("HIGHCOMMAND_HELP_LOOT"));
@@ -135,18 +142,18 @@ namespace HighCommand.Client
             HelpOverlay.Add(Settings.KeyFocusFire.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FOCUSFIRE"));
             HelpOverlay.Add(Settings.KeyStop.Value + " / " + Settings.KeyHold.Value, Loc.Get("HIGHCOMMAND_HELP_STOPHOLD"));
             HelpOverlay.Add(Settings.KeyRetreat.Value + " / " + Settings.KeyPatrol.Value + " / " + Settings.KeyRally.Value, Loc.Get("HIGHCOMMAND_HELP_RETREAT"));
+            HelpOverlay.Add(Settings.KeySeekEnemies.Value + " / " + Settings.KeySeekChests.Value, Loc.Get("HIGHCOMMAND_HELP_SEEK"));
             HelpOverlay.Add(Settings.KeyCastSecondary.Value + " " + Settings.KeyCastUtility.Value + " " + Settings.KeyCastSpecial.Value + " " + Settings.KeyCastEquipment.Value, Loc.Get("HIGHCOMMAND_HELP_CAST"));
             HelpOverlay.Add(Settings.KeyToggleAuto.Value + " + Z/X/C/Y", Loc.Get("HIGHCOMMAND_HELP_AUTO"));
             HelpOverlay.Add(Settings.KeyStanceAggressive.Value + " / " + Settings.KeyStanceDefensive.Value + " / " + Settings.KeyStancePassive.Value, Loc.Get("HIGHCOMMAND_HELP_STANCE"));
             HelpOverlay.Add(Settings.KeyFormationCycle.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FORMATION"));
+            HelpOverlay.Section(Loc.Get("HIGHCOMMAND_HELP_SEC_ARMY"));
             HelpOverlay.Add(Settings.KeyBarracks.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_BARRACKS"));
             HelpOverlay.Add(Settings.KeyInventory.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_INVENTORY"));
             HelpOverlay.Add(Settings.KeyRevive.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_REVIVE"));
             HelpOverlay.Add(Settings.KeyTeleporter.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_TELEPORTER"));
             HelpOverlay.Add($"{Settings.KeyAbility[0].Value} {Settings.KeyAbility[1].Value} {Settings.KeyAbility[2].Value} {Settings.KeyAbility[3].Value}",
                 Loc.Get("HIGHCOMMAND_HELP_ABILITIES"));
-            HelpOverlay.Add(Settings.KeyHelp.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_HELP"));
-            HelpOverlay.Add("Esc", Loc.Get("HIGHCOMMAND_HELP_PAUSE"));
         }
 
         // short names for the help sheet: "[" instead of "LeftBracket", "PgUp" instead of "PageUp"

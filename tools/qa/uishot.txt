@@ -45,6 +45,25 @@ hc_key F1
 hc_key Alpha1
 @wait 1
 hc_screenshot ui_cast
+@log === V8 the orders list (click on the Orders button of the card, bottom right)
+hc_select all
+hc_click 1657 127
+@wait 1
+hc_mouse 1700 400
+@wait 0.5
+hc_screenshot ui_orders
+hc_key Escape
+hc_input_end
+@wait 1
+@log === V9 health bars close up, in a fight
+hc_spawn 6 LemurianMaster 25
+hc_cam follow
+hc_cam dist 26
+hc_cam pitch 50
+@wait 7
+hc_screenshot ui_bars
+@wait 4
+hc_screenshot ui_bars2
 @log === END
 disconnect
 @norun

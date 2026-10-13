@@ -28,7 +28,7 @@ namespace HighCommand.UI
         private const float AbilityH = 60f;
         private const float CardW = 4 * BtnW + 3 * Gap + 2 * Pad;
 
-        private const float MenuW = 236f, MenuRowH = 32f, MenuPad = 8f;
+        private const float MenuW = 236f, MenuRowH = 32f, MenuPad = 8f, MenuGroupGap = 9f;
         private const float CancelW = 92f;
 
         private static readonly Regex Tags = new Regex("<[^>]+>", RegexOptions.Compiled);
@@ -125,7 +125,7 @@ namespace HighCommand.UI
             AddSkill(inner, 3, skillY, 4, OrderController.Act.CastEquipment, () => Key(Settings.KeyCastEquipment));
 
             // --- the orders list: opens above the button ---
-            float menuH = MenuPad * 2 + 10 * MenuRowH;
+            float menuH = MenuPad * 2 + 10 * MenuRowH + 2 * MenuGroupGap;
             menuRoot = UiKit.NewPanel("OrdersList", parent, UiKit.PanelDark);
             UiKit.Place(menuRoot, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-(14f + CardW - MenuW), 14f + height - Head + 6f), new Vector2(MenuW, menuH));
             AddMenuRow(0, OrderController.Act.AttackMove, Glyph.AttackMove, "HIGHCOMMAND_CMD_ATTACKMOVE", () => Key(Settings.KeyAttackMove));
@@ -220,12 +220,22 @@ namespace HighCommand.UI
 
         private void AddMenuRow(int index, OrderController.Act act, Glyph glyph, string nameToken, Func<string> hotkey)
         {
-            var b = new UiButton(menuRoot, "Order_" + act, new Vector2(MenuW - 2 * MenuPad, MenuRowH - 2f));
-            b.SetPosition(MenuPad, MenuPad + index * MenuRowH);
-            b.SetGlyph(glyph, 20f);
-            b.SetRowLayout(20f);
+            // three groups with a little air between them: fighting (0-3), position (4-7), the army's layout (8-9)
+            int group = index < 4 ? 0 : index < 8 ? 1 : 2;
+            float y = MenuPad + index * MenuRowH + group * MenuGroupGap;
+            if (index == 4 || index == 8)
+            {
+                Image rule = UiKit.NewImage("Rule", menuRoot, UiKit.White, new Color(0.6f, 0.7f, 0.82f, 0.16f));
+                UiKit.Place(rule.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(MenuPad + 6f, -(y - MenuGroupGap * 0.5f - 1f)),
+                    new Vector2(MenuW - 2 * MenuPad - 12f, 1f));
+            }
+            var b = new UiButton(menuRoot, "Order_" + act, new Vector2(MenuW - 2 * MenuPad, MenuRowH - 3f));
+            b.SetPosition(MenuPad, y);
+            b.SetGlyph(glyph, 19f);
+            b.SetRowLayout(19f);
             b.SetHint(hotkey());
             b.Accent = AccentOf(act);
+            b.Quiet = true;
             orderButtons.Add(new OrderButton
             {
                 button = b,
@@ -424,6 +434,11 @@ namespace HighCommand.UI
                     return new Color(1f, 0.55f, 0.3f, 0.7f);
                 case OrderController.Act.SeekChests:
                     return new Color(1f, 0.85f, 0.3f, 0.7f);
+                case OrderController.Act.Stop:
+                    return new Color(1f, 0.45f, 0.4f, 0.7f);
+                case OrderController.Act.Hold:
+                case OrderController.Act.Formation:
+                    return new Color(0.78f, 0.84f, 0.95f, 0.7f);
                 case OrderController.Act.Retreat:
                 case OrderController.Act.Rally:
                     return new Color(0.5f, 0.8f, 1f, 0.7f);

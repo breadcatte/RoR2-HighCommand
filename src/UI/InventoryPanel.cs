@@ -18,8 +18,8 @@ namespace HighCommand.UI
     internal sealed class InventoryPanel
     {
         private const float PanelW = 1240f;
-        private const float HeaderH = 78f;
-        private const float FooterH = 104f;
+        private const float HeaderH = 66f;
+        private const float FooterH = 84f;
         private const float MaxPanelH = 980f;
         private const float RowGap = 6f;
         private const float LeftBlockW = 250f;
@@ -93,11 +93,19 @@ namespace HighCommand.UI
             root = UiKit.NewPanel("Inventory", parent, UiKit.PanelDark);
             UiKit.Place(root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 10f), new Vector2(PanelW, 600f));
 
-            title = UiKit.NewText("Title", root, "", 32f, UiKit.Accent, TextAlignmentOptions.Left);
-            UiKit.Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Margin, -12f), new Vector2(PanelW - 2f * Margin, 40f));
+            // the title strip in the style of the barracks: accent bar, title, the hint on the right
+            Image bar = UiKit.NewImage("HeadBar", root, UiKit.White, UiKit.Accent);
+            UiKit.Place(bar.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Margin, -20f), new Vector2(4f, 24f));
+            title = UiKit.NewText("Title", root, "", 26f, UiKit.Text, TextAlignmentOptions.Left);
+            UiKit.Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Margin + 14f, -14f), new Vector2(420f, 36f));
 
-            hint = UiKit.NewText("Hint", root, "", 18f, UiKit.TextDim, TextAlignmentOptions.Left);
-            UiKit.Place(hint.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Margin, -52f), new Vector2(PanelW - 2f * Margin, 24f));
+            hint = UiKit.NewText("Hint", root, "", 16f, UiKit.TextDim, TextAlignmentOptions.Right);
+            UiKit.Place(hint.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-Margin, -20f), new Vector2(PanelW - 2f * Margin - 440f, 26f));
+            hint.enableAutoSizing = true;
+            hint.fontSizeMin = 11f;
+            hint.fontSizeMax = 16f;
+            Image rule = UiKit.NewImage("HeadLine", root, UiKit.White, new Color(0.6f, 0.7f, 0.82f, 0.22f));
+            UiKit.Place(rule.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Margin, -HeaderH + 10f), new Vector2(PanelW - 2f * Margin, 1f));
 
             rowsHost = UiKit.NewRect("Rows", root);
             UiKit.Place(rowsHost, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Margin, -HeaderH), new Vector2(PanelW - 2f * Margin, 400f));
@@ -109,12 +117,12 @@ namespace HighCommand.UI
             UiKit.Place(spareLabel.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -6f), new Vector2(760f, 26f));
 
             autoButton = UiKit.NewRect("AutoButton", footer);
-            UiKit.Place(autoButton, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0f, 0f), new Vector2(260f, 52f));
+            UiKit.Place(autoButton, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0f, 0f), new Vector2(230f, 44f));
             autoBack = autoButton.gameObject.AddComponent<Image>();
             UiKit.StyleOutline(autoBack, 8f);
             autoBack.color = new Color(0.16f, 0.2f, 0.27f, 1f);
             autoBack.raycastTarget = false;
-            autoLabel = UiKit.NewText("Label", autoButton, "", 21f, UiKit.Text, TextAlignmentOptions.Center);
+            autoLabel = UiKit.NewText("Label", autoButton, "", 18f, UiKit.Text, TextAlignmentOptions.Center);
             UiKit.Stretch(autoLabel.rectTransform);
 
             ghost = UiKit.NewRect("DragGhost", root);
@@ -261,7 +269,7 @@ namespace HighCommand.UI
 
             row.frame = row.root.gameObject.AddComponent<Image>();
             UiKit.StyleOutline(row.frame, 9f);
-            row.frame.color = UiKit.Border;
+            row.frame.color = new Color(0.5f, 0.6f, 0.72f, 0.4f);
             row.frame.raycastTarget = false;
             UiKit.NewFill("Fill", row.root, new Color(0.07f, 0.09f, 0.13f, 0.96f), 9f);
 
@@ -273,20 +281,22 @@ namespace HighCommand.UI
                 if (b) row.portrait.texture = b.portraitIcon;
             }
 
-            row.name = UiKit.NewText("Name", row.root, hero.DisplayName, 22f, UiKit.Text, TextAlignmentOptions.Left);
-            UiKit.Place(row.name.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(78f, -8f), new Vector2(LeftBlockW - 84f, 28f));
+            row.name = UiKit.NewText("Name", row.root, hero.DisplayName, 19f, UiKit.Text, TextAlignmentOptions.Left);
+            UiKit.Place(row.name.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(78f, -10f), new Vector2(LeftBlockW - 84f, 26f));
             row.name.enableAutoSizing = true;
             row.name.fontSizeMin = 12f;
-            row.name.fontSizeMax = 22f;
+            row.name.fontSizeMax = 19f;
+            row.name.enableWordWrapping = false;
 
             string roleToken = HeroRoles.RoleToken(hero.Survivor ? hero.Survivor.cachedName : "");
-            row.role = UiKit.NewText("Role", row.root, Loc.Get(roleToken), 16f, UiKit.TextDim, TextAlignmentOptions.Left);
-            UiKit.Place(row.role.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(78f, -36f), new Vector2(LeftBlockW - 84f, 22f));
+            row.role = UiKit.NewText("Role", row.root, Loc.Get(roleToken), 14f, UiKit.TextDim, TextAlignmentOptions.Left);
+            UiKit.Place(row.role.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(78f, -35f), new Vector2(LeftBlockW - 84f, 20f));
 
-            row.info = UiKit.NewText("Info", row.root, "", 16f, UiKit.Gold, TextAlignmentOptions.Left);
-            UiKit.Place(row.info.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(78f, -58f), new Vector2(LeftBlockW - 84f, 22f));
+            row.info = UiKit.NewText("Info", row.root, "", 14f, UiKit.Gold, TextAlignmentOptions.Left);
+            UiKit.Place(row.info.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(78f, -56f), new Vector2(LeftBlockW - 84f, 20f));
 
-            row.empty = UiKit.NewText("Empty", row.root, Loc.Get("HIGHCOMMAND_INV_EMPTY"), 18f, UiKit.TextDim, TextAlignmentOptions.Left);
+            row.empty = UiKit.NewText("Empty", row.root, Loc.Get("HIGHCOMMAND_INV_EMPTY"), 16f, new Color(0.55f, 0.6f, 0.68f, 0.8f), TextAlignmentOptions.Left);
+            row.empty.fontStyle = FontStyles.Italic;
             row.more = UiKit.NewText("More", row.root, "", 18f, UiKit.Accent, TextAlignmentOptions.Right);
             return row;
         }

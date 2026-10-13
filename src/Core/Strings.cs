@@ -83,7 +83,10 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_TOP_PERMIN", "min", "мин");
             Loc.Add("HIGHCOMMAND_HELP_BARRACKS", "Barracks: recruit heroes", "Казарма: вербовка героев");
             Loc.Add("HIGHCOMMAND_BARRACKS_TITLE", "Barracks - next hero costs ${0}   (gold: ${1})", "Казарма - следующий герой стоит ${0}   (золото: ${1})");
-            Loc.Add("HIGHCOMMAND_BARRACKS_HINT", "Click a survivor to recruit them. Esc closes this window.", "Нажмите на выжившего, чтобы нанять. Esc закрывает окно.");
+            Loc.Add("HIGHCOMMAND_BARRACKS_NAME", "Barracks", "Казарма");
+            Loc.Add("HIGHCOMMAND_BARRACKS_INFO", "next hero <color=#FFD94A>${0}</color>      gold <color=#FFD94A>${1}</color>",
+                "следующий герой <color=#FFD94A>${0}</color>      золото <color=#FFD94A>${1}</color>");
+            Loc.Add("HIGHCOMMAND_BARRACKS_HINT","Click a survivor to recruit them. Esc closes this window.", "Нажмите на выжившего, чтобы нанять. Esc закрывает окно.");
             Loc.Add("HIGHCOMMAND_RECRUIT_BUY", "Recruit - ${0}", "Нанять - ${0}");
             Loc.Add("HIGHCOMMAND_RECRUIT_PRICE", "${0}", "${0}");
             Loc.Add("HIGHCOMMAND_RECRUIT_LOCKED", "Locked", "Закрыт");
@@ -102,10 +105,12 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_UPGRADE_2_DESC", "+0.6 health regeneration per second per level, growing with the hero's level.", "+0,6 здоровья в секунду за уровень, растёт с уровнем героя.");
             Loc.Add("HIGHCOMMAND_UPGRADE_3_NAME", "Logistics", "Логистика");
             Loc.Add("HIGHCOMMAND_UPGRADE_3_DESC", "+8% movement speed for every hero per level.", "+8% скорости бега каждому герою за уровень.");
-            Loc.Add("HIGHCOMMAND_UPGRADE_HEADER", "Army upgrades (every hero, recruits too):", "Улучшения армии (для всех героев, и новых тоже):");
+            Loc.Add("HIGHCOMMAND_UPGRADE_HEADER", "Army upgrades - every hero, recruits too", "Улучшения армии - для всех героев, и новых тоже");
             Loc.Add("HIGHCOMMAND_UPGRADE_BUTTON", "{0} {1}/{2}\n${3}", "{0} {1}/{2}\n${3}");
             Loc.Add("HIGHCOMMAND_UPGRADE_BUTTON_MAX", "{0} {1}/{1}\nMAX", "{0} {1}/{1}\nМАКС.");
-            Loc.Add("HIGHCOMMAND_UPGRADE_MAXED", "Fully upgraded", "Уже максимум");
+            Loc.Add("HIGHCOMMAND_UPGRADE_LEVEL", "level {0}/{1}", "ур. {0}/{1}");
+            Loc.Add("HIGHCOMMAND_UPGRADE_MAXSHORT", "MAX", "МАКС.");
+            Loc.Add("HIGHCOMMAND_UPGRADE_MAXED","Fully upgraded", "Уже максимум");
             Loc.Add("HIGHCOMMAND_UPGRADE_DONE", "{0}: level {1}", "{0}: уровень {1}");
             Loc.Add("HIGHCOMMAND_RANK_UP", "{0} is now a veteran: rank {1} (+10% damage, +5 armor per rank)", "{0}: ранг ветерана {1} (+10% урона и +5 брони за ранг)");
             Loc.Add("HIGHCOMMAND_RANK_INFO", "Veteran rank {0} ({1} kills). Next rank at {2} kills.", "Ранг ветерана {0} ({1} убийств). Следующий ранг: {2} убийств.");
@@ -192,7 +197,13 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_SEEK_CHESTS_GO", "Seeking chests: {0} affordable", "Ищем сундуки: по карману {0}");
             Loc.Add("HIGHCOMMAND_SEEK_CHESTS_START", "Seeking chests", "Ищем сундуки");
             Loc.Add("HIGHCOMMAND_SEEK_CHESTS_NONE", "No chest left that the gold can pay for", "Нет сундуков, на которые хватает золота");
-            Loc.Add("HIGHCOMMAND_HELP_SEEK", "Seek enemies / chests across the map", "Искать врагов / сундуки по всей карте");
+            Loc.Add("HIGHCOMMAND_HELP_SEC_CAMERA", "Camera", "Камера");
+            Loc.Add("HIGHCOMMAND_HELP_SEC_SELECT", "Selection", "Выделение");
+            Loc.Add("HIGHCOMMAND_HELP_SEC_GENERAL", "General", "Общее");
+            Loc.Add("HIGHCOMMAND_HELP_SEC_ORDERS", "Orders", "Приказы");
+            Loc.Add("HIGHCOMMAND_HELP_SEC_ARMY", "Army and commander", "Армия и командир");
+            Loc.Add("HIGHCOMMAND_HELP_CLOSE", "F1 or Esc to close", "F1 или Esc — закрыть");
+            Loc.Add("HIGHCOMMAND_HELP_SEEK","Seek enemies / chests across the map", "Искать врагов / сундуки по всей карте");
             Loc.Add("HIGHCOMMAND_CMD_STANCE_AGGRESSIVE", "Aggressive", "Агресс.");
             Loc.Add("HIGHCOMMAND_CMD_STANCE_AGGRESSIVE_DESC", "Stance: chase every enemy that is seen.", "Стойка: преследовать каждого замеченного врага.");
             Loc.Add("HIGHCOMMAND_CMD_STANCE_DEFENSIVE", "Defensive", "Защита");
