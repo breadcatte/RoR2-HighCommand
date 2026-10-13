@@ -33,7 +33,15 @@ if (Test-Path (Join-Path $root 'package\profiles')) {
 
 $zip = Join-Path $root "dist\HighCommand-$version.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
-Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip
+# Compress-Archive (PowerShell 5.1) writes entries like "profiles\x.json": mod managers expect "/" in zip paths
+Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+$archive = [System.IO.Compression.ZipFile]::Open($zip, [System.IO.Compression.ZipArchiveMode]::Create)
+try {
+    Get-ChildItem $stage -Recurse -File | ForEach-Object {
+        $entry = $_.FullName.Substring($stage.Length + 1).Replace('\', '/')
+        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $_.FullName, $entry, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+    }
+} finally { $archive.Dispose() }
 Write-Host "Package: $zip"
 Get-ChildItem $stage -Recurse -File | ForEach-Object { Write-Host ("  " + $_.FullName.Substring($stage.Length + 1) + "  (" + $_.Length + " bytes)") }
 
