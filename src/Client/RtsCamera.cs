@@ -378,26 +378,8 @@ namespace HighCommand.Client
             float dt = Mathf.Max(0.0001f, Time.unscaledDeltaTime);
             float basePitch = pitchReady ? smoothPitch : Settings.CameraPitch.Value;
 
-            // A ridge, a tree or an arch between the camera and the focus: first the camera looks more from above (an
-            // RTS view stays an RTS view); only when even a steep view is blocked (a tunnel, a roof) is it pulled in
-            // front of the obstacle. Both are smoothed: quick to react, slow to come back, so passing a ridge does not
-            // make the picture jump.
-            float wantLift = 0f, wantArm = 1f;
             float length = Mathf.Max(0.01f, smoothDistance);
-            for (int step = 0; step <= LiftSteps; step++)
-            {
-                float lift = step * (MaxLift / LiftSteps);
-                float tryPitch = Mathf.Min(SteepestPitch, basePitch + lift);
-                Vector3 back = -(Quaternion.Euler(tryPitch, smoothYaw, 0f) * Vector3.forward);
-                // the first meters are skipped: ground rising right behind the focus (a slope, a step) would
-                // otherwise pull the camera down onto the focus, which is far worse than a corner of hidden ground
-                float blocked = length > SkipNear + 1f ? NearestStaticHit(lookAt + back * SkipNear, back, length - SkipNear) : -1f;
-                if (blocked >= 0f) blocked += SkipNear;
-                wantLift = tryPitch - basePitch;
-                if (blocked < 0f) { wantArm = 1f; break; }
-                wantArm = Mathf.Clamp(Mathf.Max(1.5f, blocked - 0.2f) / length, 0.02f, 1f);
-                if (tryPitch >= SteepestPitch) break;
-            }
+            WantView(lookAt, basePitch, smoothYaw, length, roofRule: true, out float wantLift, out float wantArm);
 
             liftPitch = Mathf.SmoothDamp(liftPitch, wantLift, ref liftVelocity, wantLift > liftPitch ? 0.12f : 0.7f, float.PositiveInfinity, dt);
             liftPitch = Mathf.Clamp(liftPitch, 0f, MaxLift);
@@ -412,10 +394,60 @@ namespace HighCommand.Client
             cameraState.fov = Settings.CameraFov.Value;
         }
 
+        /// <summary>
+        /// A ridge, a tree or an arch between the camera and the focus: first the camera looks more from above (an RTS
+        /// view stays an RTS view). Only when every such view is blocked by something FAR from the focus (a hill behind
+        /// the camera) is it pulled in front of it. Something close above the focus (a canopy, a roof, a bridge the
+        /// heroes walk under) is ignored: pulling the camera under it would put it on the heroes' heads, and leaving
+        /// the canopy flips it back out — a small roof is better left hiding a corner for a moment.
+        /// (roofRule false = how it used to work, for hc_cam audit.)
+        /// </summary>
+        private static void WantView(Vector3 lookAt, float basePitch, float yaw, float length, bool roofRule, out float wantLift, out float wantArm)
+        {
+            wantLift = 0f;
+            wantArm = 1f;
+            float bestBlocked = -1f, bestLift = 0f;
+            for (int step = 0; step <= LiftSteps; step++)
+            {
+                float lift = step * (MaxLift / LiftSteps);
+                float tryPitch = Mathf.Min(SteepestPitch, basePitch + lift);
+                Vector3 back = -(Quaternion.Euler(tryPitch, yaw, 0f) * Vector3.forward);
+                // the first meters are skipped: ground rising right behind the focus (a slope, a step) would
+                // otherwise pull the camera down onto the focus, which is far worse than a corner of hidden ground
+                float blocked = length > SkipNear + 1f ? NearestStaticHit(lookAt + back * SkipNear, back, length - SkipNear) : -1f;
+                if (blocked >= 0f) blocked += SkipNear;
+                if (blocked < 0f)
+                {
+                    wantLift = tryPitch - basePitch;
+                    return;
+                }
+                if (!roofRule)
+                {
+                    wantLift = tryPitch - basePitch;
+                    wantArm = Mathf.Clamp(Mathf.Max(1.5f, blocked - 0.2f) / length, 0.02f, 1f);
+                }
+                else if (blocked > bestBlocked)
+                {
+                    bestBlocked = blocked;
+                    bestLift = tryPitch - basePitch;
+                }
+                if (tryPitch >= SteepestPitch) break;
+            }
+            if (!roofRule) return;
+
+            if (bestBlocked >= Mathf.Min(length, Mathf.Max(MinPull, length * 0.4f)))
+            {
+                wantLift = bestLift;
+                wantArm = Mathf.Clamp((bestBlocked - 0.2f) / length, 0.02f, 1f);
+            }
+            // else: the obstacle is right above the focus; the camera stays where it is
+        }
+
         // the view tilts up to this much further down to see past an obstacle, checked in this many steps
         private const float MaxLift = 30f, SteepestPitch = 88f;
         private const int LiftSteps = 3;
         private const float SkipNear = 5f;
+        private const float MinPull = 14f; // the camera is never pulled closer to the focus than this to get past something
         private float liftPitch, liftVelocity;
 
         private static readonly RaycastHit[] CastBuffer = new RaycastHit[64];
@@ -607,16 +639,34 @@ namespace HighCommand.Client
         /// move) and counts the places where the focus ends up more than 10 m above any ground a hero can stand on
         /// nearby. Runs once the way the camera used to work and once as it works now.
         /// </summary>
+        /// <summary>The first place hc_cam audit found where the old camera dived under something (hc_cam roof flies there).</summary>
+        internal static Vector3? RoofSpot;
+        internal static float RoofYaw;
+
+        internal void SetYaw(float degrees) => yaw = degrees;
+
+        private static readonly List<float> SpotNodes = new List<float>(16);
+
+        private static bool OnWalkableGround(Vector3 p)
+        {
+            SpotNodes.Clear();
+            MapInfo.WalkableHeightsNear(p, 5f, SpotNodes);
+            for (int i = 0; i < SpotNodes.Count; i++)
+                if (Mathf.Abs(SpotNodes[i] - p.y) < 2.5f) return true;
+            return false;
+        }
+
         internal string AuditHeights()
         {
             if (!MapInfo.Valid) return "no map data";
+            RoofSpot = null;
             Vector3 keepFocus = focus;
             float keepAbyss = abyssTime;
             string result = "";
             for (int pass = 0; pass < 2; pass++)
             {
                 walkFilter = pass == 1;
-                int total = 0, bad = 0, held = 0, stops = 0, stuck = 0;
+                int total = 0, bad = 0, held = 0, stops = 0, stuck = 0, views = 0, pulled = 0;
                 float worst = 0f;
                 Vector3 worstAt = Vector3.zero;
                 Bounds b = MapInfo.Bounds;
@@ -650,6 +700,19 @@ namespace HighCommand.Client
                             reference = near[0];
                             for (int i = 1; i < near.Count; i++) reference = Mathf.Max(reference, near[i]);
                         }
+                        // the view from here (four turns of the camera): pulled down near the heroes' heads?
+                        for (int turn = 0; turn < 4; turn++)
+                        {
+                            WantView(focus + Vector3.up, Settings.CameraPitch.Value, turn * 90f + 25f, distance, pass == 1, out _, out float arm);
+                            views++;
+                            if (arm * distance < MinPull - 0.5f) pulled++;
+                            if (pass == 0 && arm * distance < 8f && !RoofSpot.HasValue && OnWalkableGround(focus))
+                            {
+                                RoofSpot = focus;
+                                RoofYaw = turn * 90f + 25f;
+                            }
+                        }
+
                         float excess = focus.y - reference;
                         total++;
                         if (excess <= 10f) continue;
@@ -676,7 +739,7 @@ namespace HighCommand.Client
                     }
                 }
                 result += $"{(pass == 0 ? "old" : "new")}: {total} points, {bad} climbed too high (worst +{worst:0} m at {worstAt.x:0},{worstAt.y:0},{worstAt.z:0}), " +
-                          $"{held} held over a drop, {stuck} of {stops} stops left hanging; ";
+                          $"{held} held over a drop, {stuck} of {stops} stops left hanging, {pulled} of {views} views pulled closer than {MinPull:0} m; ";
             }
             walkFilter = true;
             focus = keepFocus;

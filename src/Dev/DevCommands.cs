@@ -215,6 +215,13 @@ namespace HighCommand.Dev
                 case "audit":
                     Debug.Log("HighCommand camera audit: " + cam.AuditHeights());
                     break;
+                case "roof":
+                    // flies to where the audit saw the old camera dive under a roof
+                    if (!Client.RtsCamera.RoofSpot.HasValue) throw new ConCommandException("Run hc_cam audit first (no spot found).");
+                    cam.FocusOn(Client.RtsCamera.RoofSpot.Value, snap: true);
+                    cam.SetYaw(Client.RtsCamera.RoofYaw);
+                    Debug.Log($"HighCommand camera: roof spot {Client.RtsCamera.RoofSpot.Value:0} yaw {Client.RtsCamera.RoofYaw:0}");
+                    break;
                 case "info":
                 {
                     Vector3? army = Client.ClientRoot.ArmyCenter();

@@ -8,6 +8,11 @@ Camera height
   ground.
 * Standing still above lower ground (after crossing a chasm at its edge's level, beside a path over a void) the camera
   comes down onto that ground after 1.5 s instead of hanging in the air for good.
+* Canopies and small roofs (Shattered Abodes): the camera no longer dives under a roof the heroes stand beneath (and
+  flips back out when they leave it). It is pulled in front of an obstacle only when that obstacle is far from the
+  focus (a hill behind the camera) and never closer than 14 m; a roof right above the focus is left hiding that corner.
+* Dev: `hc_cam audit` also counts the views pulled closer than 14 m (Shattered Abodes: 1077 of 23296 before, 0 now);
+  `hc_cam roof` flies to such a spot; scenario `tools\qa\camvillage.txt`.
 * Dev: `hc_cam audit` pans along 32 lines across the map the old and the new way and counts the places where the camera
   climbs or hangs above walkable ground; scenario `tools\qa\camheight.txt` runs it on ten stages.
 
