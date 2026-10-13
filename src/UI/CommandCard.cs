@@ -16,7 +16,8 @@ namespace HighCommand.UI
     /// Bottom-right command card. The mouse already does most of the commanding (right click: move / attack / follow /
     /// use), so the card is short: the selected hero's skills (with cooldowns and the automatic-use switch), one
     /// "Orders" button that opens a list (attack-move, focus, stop, hold, retreat, patrol, rally, formation), a
-    /// three-way stance switch, and above it the commander's own abilities. Every entry does what its hotkey does.
+    /// three-way stance switch; the commander's own abilities sit in a strip at the bottom centre. Every entry does
+    /// what its hotkey does.
     /// </summary>
     internal sealed class CommandCard
     {
@@ -125,9 +126,10 @@ namespace HighCommand.UI
             AddMenuRow(6, OrderController.Act.Rally, Glyph.Rally, "HIGHCOMMAND_CMD_RALLY", () => Key(Settings.KeyRally));
             AddMenuRow(7, OrderController.Act.Formation, Glyph.Formation, "HIGHCOMMAND_CMD_FORMATION", () => Key(Settings.KeyFormationCycle));
 
-            // --- commander abilities ---
+            // --- commander abilities: their own strip at the bottom centre (the selected heroes are already shown by
+            // the roster on the left and the card's title) ---
             commanderRoot = UiKit.NewPanel("Commander", parent, UiKit.PanelColor);
-            UiKit.Place(commanderRoot, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-14f, 14f + height + 8f), new Vector2(CardW, Head + AbilityH + Pad));
+            UiKit.Place(commanderRoot, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 14f), new Vector2(CardW, Head + AbilityH + Pad));
             commanderTitle = AddHeader(commanderRoot);
 
             Color[] colors =

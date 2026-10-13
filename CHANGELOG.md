@@ -54,6 +54,9 @@ Dev
   out from under a fixed pixel).
 
 Interface
+* The strip of selected-hero cards at the bottom centre is gone (the roster on the left already marks the selected
+  heroes, and the command card's title names them); the commander's abilities moved into its place, so the bottom
+  right holds only the orders card.
 * The red "all heroes have fallen" strip is clickable: a click revives the first fallen hero (the text says so).
 * The teleporter strip no longer claims "Teleporter ready" while the teleporter has not been started: "Teleporter found:
   click or press [key] to start".

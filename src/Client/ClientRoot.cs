@@ -31,7 +31,6 @@ namespace HighCommand.Client
         private Minimap minimap;
         private HelpOverlay help;
         private WorldOverlay overlay;
-        private SelectionPanel selectionPanel;
         private SelectionController selectionController;
         private OrderController orders;
         private ToastView toast;
@@ -66,7 +65,6 @@ namespace HighCommand.Client
 
             overlay = new WorldOverlay(canvas.transform);   // first: it draws underneath the panels
             minimap = new Minimap(canvas.transform);
-            selectionPanel = new SelectionPanel(canvas.transform);
             topBar = new TopBar(canvas.transform);
             roster = new RosterPanel(canvas.transform);
             commandCard = new CommandCard(canvas.transform);
@@ -95,7 +93,6 @@ namespace HighCommand.Client
             minimap?.Destroy();
             help?.Destroy();
             overlay?.Destroy();
-            selectionPanel?.Destroy();
             topBar?.Destroy();
             roster?.Destroy();
             commandCard?.Destroy();
@@ -366,7 +363,6 @@ namespace HighCommand.Client
             Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartCommand], t);
 
             t = Dev.Perf.Begin();
-            selectionPanel.Tick(Selection, inStage);
             lootFeed.Tick();
             toast.Tick();
             if (ClientInput.MouseBlocked) Tooltip.Clear(); // a pause screen or the console is on top: no tooltips

@@ -57,7 +57,7 @@
 | Ход забега | ✅ | Телепорт: один герой жмёт, армия собирается в зоне, босс, уход на следующую стадию; поражение по таймеру, когда все мертвы и нет золота на воскрешение; экран конца забега со статистикой армии |
 | Способности командира (добавлено сверх задания) | ✅ | 4 способности: орбитальный удар, полевой медик, боевой клич, метка (F5–F8) |
 | Правила в лобби | ✅ | Категория «Верховное командование» (стартовое золото, цена героев, предел армии, сложность за героя, раздача, частота дропа) — транспилер на `RuleCatalog.Init` |
-| Интерфейс | ✅ | TopBar, RosterPanel, CommandCard, SelectionPanel, Minimap, BarracksPanel, InventoryPanel (drag-and-drop предметов), LootFeed, HelpOverlay (F1), Tooltip, Toast, оповещения о гибели |
+| Интерфейс | ✅ | TopBar, RosterPanel, CommandCard, Minimap, BarracksPanel, InventoryPanel (drag-and-drop предметов), LootFeed, HelpOverlay (F1), Tooltip, Toast, оповещения о гибели |
 | Настройки | ✅ | `BepInEx\config\kantemiir.HighCommand.cfg` + Risk of Options |
 | Локализация | ✅ | ru/en в коде (`Core/Strings.cs`, `Core/Loc.cs`) без R2API |
 
@@ -119,7 +119,7 @@ RoR2Strategy/
 │  │  ├─ MapInfo.cs            картинка миникарты из графа узлов навигации
 │  │  └─ AlertService.cs       «герой пал / при смерти» (сообщение, звук, метка, Backspace)
 │  ├─ UI/                      панели и виджеты (uGUI/TMP, строится кодом на одном overlay-канвасе)
-│  │  └─ TopBar, RosterPanel, CommandCard, SelectionPanel, BarracksPanel, InventoryPanel, LootFeed, Minimap,
+│  │  └─ TopBar, RosterPanel, CommandCard, BarracksPanel, InventoryPanel, LootFeed, Minimap,
 │  │     WorldOverlay, HelpOverlay, Tooltip, Toast, PickupIcons, UiKit, UiButton
 │  ├─ Net/CommandChannel.cs    команды клиент → сервер (два UNET-сообщения 0x4843 / 0x4844) — НЕ ПРОВЕРЯЛСЯ на реальном клиенте
 │  ├─ Core/                    Settings (BepInEx config), Strings/Loc (локализация), MiniJson, OptionsIntegration

@@ -68,7 +68,7 @@
 * UI — uGUI/TMP, строится кодом на одном overlay-канвасе, спрайты процедурные, шрифты игры (`HGTextMeshProUGUI`); свой
   hit-testing (`ClientInput`), поддержка синтетического ввода для тестов (`hc_click`, `hc_drag`, `hc_key`).
 * Панели: `TopBar` (золото, армия, телепорт, баннер поражения), `RosterPanel`, `CommandCard` (приказы, стойки, умения героя,
-  способности командира), `SelectionPanel`, `BarracksPanel`, `InventoryPanel`, `LootFeed`, `Minimap`, `HelpOverlay`,
+  способности командира — полоса снизу по центру), `BarracksPanel`, `InventoryPanel`, `LootFeed`, `Minimap`, `HelpOverlay`,
   `Tooltip`, `Toast`; ru/en через токены `Language` (`Core/Strings.cs`).
 
 ### 2.6 Сеть

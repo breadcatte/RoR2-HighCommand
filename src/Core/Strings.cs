@@ -38,7 +38,6 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_HELP_GROUP_SET", "Set a control group", "Назначить группу");
             Loc.Add("HIGHCOMMAND_HELP_GROUP_RECALL", "Select group (twice: camera)", "Вызвать группу (дважды: камера)");
             Loc.Add("HIGHCOMMAND_HELP_CYCLE", "Next hero (Shift: previous)", "Следующий герой (Shift: предыдущий)");
-            Loc.Add("HIGHCOMMAND_SELECTED_COUNT", "Selected: {0}", "Выбрано: {0}");
             Loc.Add("HIGHCOMMAND_LEVEL_SHORT", "Lv {0}", "Ур. {0}");
 
             // orders
