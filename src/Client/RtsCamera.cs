@@ -10,8 +10,8 @@ namespace HighCommand.Client
     /// post-processing, fog, the UI camera and screen shake all keep working; only the camera pose is ours.
     ///
     /// The camera orbits a "focus" point on the ground: WASD / screen edge pan it, the wheel zooms, middle mouse
-    /// (or Q/E) rotates. The focus follows the terrain height and stays inside the map; the camera itself is pulled
-    /// in front of walls and hills.
+    /// (or Q/E) rotates. The focus follows the terrain height and stays inside the map. Only the player changes the
+    /// distance: small things in the way are hidden, a hill in the way makes the view steeper (see WantView).
     /// </summary>
     internal sealed class RtsCamera : MonoBehaviour, ICameraStateProvider
     {
@@ -60,10 +60,6 @@ namespace HighCommand.Client
         private float abyssTime;
         private bool overAbyss;
 
-        // how much of the arm to the camera is left after pulling it in front of an obstacle (1 = free)
-        private float armFactor = 1f;
-        private float armFactorVelocity;
-
         private bool initialised;
         private Vector2 lastMouse;
         private GameObject listenerProxy;
@@ -101,6 +97,7 @@ namespace HighCommand.Client
             }
             Rig = null;
             silencedRig = null;
+            ShowAllHidden();
         }
 
         // ---- public commands ---------------------------------------------------------------------
@@ -167,7 +164,7 @@ namespace HighCommand.Client
             {
                 sweepLogAt += 0.4f;
                 Plugin.Log.LogInfo($"RtsCamera sweep t={sweepTime:0.0} xz=({at.x:0},{at.z:0}) wantedY={focus.y:0.0} shownY={smoothFocus.y:0.0} " +
-                                   $"surfaces={surfaces} lowestSurfaceY={(surfaces > 0 ? lowestSurface : 0f):0.0} legacyY={legacy:0.0} abyss={overAbyss} dwell={abyssTime:0.0} arm={armFactor:0.00} lift={liftPitch:0}");
+                                   $"surfaces={surfaces} lowestSurfaceY={(surfaces > 0 ? lowestSurface : 0f):0.0} legacyY={legacy:0.0} abyss={overAbyss} dwell={abyssTime:0.0} lift={liftPitch:0} hidden={hidden.Count}");
             }
             if (k >= 1f) sweeping = false;
         }
@@ -341,6 +338,7 @@ namespace HighCommand.Client
         private void OnRigChanged()
         {
             Plugin.Log.LogInfo("RtsCamera: took over camera rig.");
+            ShowAllHidden(); // a new stage: the pieces of the old level are gone
             if (!Settings.ListenerAtFocus.Value || !Rig || !Rig.sceneCam) return;
             try
             {
@@ -378,16 +376,21 @@ namespace HighCommand.Client
             float dt = Mathf.Max(0.0001f, Time.unscaledDeltaTime);
             float basePitch = pitchReady ? smoothPitch : Settings.CameraPitch.Value;
 
+            // The distance is the player's alone (the wheel): like in an RTS, the camera never moves in by itself.
             float length = Mathf.Max(0.01f, smoothDistance);
-            WantView(lookAt, basePitch, smoothYaw, length, roofRule: true, out float wantLift, out float wantArm);
+            WantView(lookAt, basePitch, smoothYaw, length, out float wantLift);
 
-            liftPitch = Mathf.SmoothDamp(liftPitch, wantLift, ref liftVelocity, wantLift > liftPitch ? 0.12f : 0.7f, float.PositiveInfinity, dt);
+            liftPitch = Mathf.SmoothDamp(liftPitch, wantLift, ref liftVelocity, wantLift > liftPitch ? 0.25f : 0.9f, float.PositiveInfinity, dt);
             liftPitch = Mathf.Clamp(liftPitch, 0f, MaxLift);
-            armFactor = Mathf.SmoothDamp(armFactor, wantArm, ref armFactorVelocity, wantArm < armFactor ? 0.07f : 0.45f, float.PositiveInfinity, dt);
-            armFactor = Mathf.Clamp(armFactor, 0.02f, 1f); // the smoothing may overshoot: never past the focus
 
             Quaternion rotation = Quaternion.Euler(Mathf.Min(SteepestPitch, basePitch + liftPitch), smoothYaw, 0f);
-            Vector3 position = lookAt - (rotation * Vector3.forward) * (length * armFactor);
+            Vector3 back = -(rotation * Vector3.forward);
+            Vector3 position = lookAt + back * length;
+
+            // small pieces of the level in the way (a rock, a roof, a tree, a bridge) are hidden while they are
+            Occluders.Clear();
+            CastView(lookAt, back, length, Occluders);
+            HideOccluders();
 
             cameraState.position = position;
             cameraState.rotation = rotation;
@@ -395,88 +398,159 @@ namespace HighCommand.Client
         }
 
         /// <summary>
-        /// A ridge, a tree or an arch between the camera and the focus: first the camera looks more from above (an RTS
-        /// view stays an RTS view). Only when every such view is blocked by something FAR from the focus (a hill behind
-        /// the camera) is it pulled in front of it. Something close above the focus (a canopy, a roof, a bridge the
-        /// heroes walk under) is ignored: pulling the camera under it would put it on the heroes' heads, and leaving
-        /// the canopy flips it back out — a small roof is better left hiding a corner for a moment.
-        /// (roofRule false = how it used to work, for hc_cam audit.)
+        /// How RTS and top-down games deal with things in the way: the camera never moves in (that is a third-person
+        /// trick, and under a roof or a rock it puts the camera inside the level). Instead
+        ///  * small pieces of the level between the camera and the focus are hidden while they are (see HideOccluders);
+        ///  * big ones (a hill, a cliff: too big to hide) make the camera look more from above, if a steeper view gets
+        ///    past them. If none does, the view stays as the player set it.
+        /// Returns false when big ground hides the focus in every view tried.
         /// </summary>
-        private static void WantView(Vector3 lookAt, float basePitch, float yaw, float length, bool roofRule, out float wantLift, out float wantArm)
+        private static bool WantView(Vector3 lookAt, float basePitch, float yaw, float length, out float wantLift)
         {
             wantLift = 0f;
-            wantArm = 1f;
-            float bestBlocked = -1f, bestLift = 0f;
             for (int step = 0; step <= LiftSteps; step++)
             {
-                float lift = step * (MaxLift / LiftSteps);
-                float tryPitch = Mathf.Min(SteepestPitch, basePitch + lift);
+                float tryPitch = Mathf.Min(SteepestPitch, basePitch + step * (MaxLift / LiftSteps));
                 Vector3 back = -(Quaternion.Euler(tryPitch, yaw, 0f) * Vector3.forward);
-                // the first meters are skipped: ground rising right behind the focus (a slope, a step) would
-                // otherwise pull the camera down onto the focus, which is far worse than a corner of hidden ground
-                float blocked = length > SkipNear + 1f ? NearestStaticHit(lookAt + back * SkipNear, back, length - SkipNear) : -1f;
-                if (blocked >= 0f) blocked += SkipNear;
-                if (blocked < 0f)
+                if (!CastView(lookAt, back, length, null))
                 {
                     wantLift = tryPitch - basePitch;
-                    return;
-                }
-                if (!roofRule)
-                {
-                    wantLift = tryPitch - basePitch;
-                    wantArm = Mathf.Clamp(Mathf.Max(1.5f, blocked - 0.2f) / length, 0.02f, 1f);
-                }
-                else if (blocked > bestBlocked)
-                {
-                    bestBlocked = blocked;
-                    bestLift = tryPitch - basePitch;
+                    return true;
                 }
                 if (tryPitch >= SteepestPitch) break;
             }
-            if (!roofRule) return;
-
-            if (bestBlocked >= Mathf.Min(length, Mathf.Max(MinPull, length * 0.4f)))
-            {
-                wantLift = bestLift;
-                wantArm = Mathf.Clamp((bestBlocked - 0.2f) / length, 0.02f, 1f);
-            }
-            // else: the obstacle is right above the focus; the camera stays where it is
+            return false;
         }
 
-        // the view tilts up to this much further down to see past an obstacle, checked in this many steps
+        // the view tilts up to this much further down to see past a hill, checked in this many steps
         private const float MaxLift = 30f, SteepestPitch = 88f;
         private const int LiftSteps = 3;
+        // big ground this close to the focus does not count as in the way (a slope rising right behind the heroes)
         private const float SkipNear = 5f;
-        private const float MinPull = 14f; // the camera is never pulled closer to the focus than this to get past something
         private float liftPitch, liftVelocity;
 
         private static readonly RaycastHit[] CastBuffer = new RaycastHit[64];
 
         /// <summary>
-        /// Distance to the nearest piece of the level between the focus and the camera, or -1. Objects of the game
-        /// (drop pods, interactables, bodies: anything with a network identity) never block the camera: the first hero
-        /// stands inside its pod and the camera must not be dragged into it.
+        /// Looks along the line from the focus to the camera. Small pieces of the level on it go into
+        /// <paramref name="small"/> (when given); returns true when a big piece (terrain, a cliff) is on it further than
+        /// SkipNear from the focus. Objects of the game (drop pods, interactables, bodies) are never in the way.
         /// </summary>
-        private static float NearestStaticHit(Vector3 from, Vector3 direction, float length)
+        private static bool CastView(Vector3 lookAt, Vector3 back, float length, List<Renderer> small)
         {
-            int count = Physics.SphereCastNonAlloc(from, 0.4f, direction, CastBuffer, length, LayerIndex.world.mask, QueryTriggerInteraction.Ignore);
-            float best = -1f;
+            const float start = 0.5f;
+            if (length <= start + 0.5f) return false;
+            int count = Physics.SphereCastNonAlloc(lookAt + back * start, 0.4f, back, CastBuffer, length - start,
+                LayerIndex.world.mask, QueryTriggerInteraction.Ignore);
+            bool big = false;
             for (int i = 0; i < count; i++)
             {
                 RaycastHit hit = CastBuffer[i];
-                if (!IsLevelGeometry(hit.collider)) continue;
-                if (best < 0f || hit.distance < best) best = hit.distance;
+                Renderer[] parts = PieceOf(hit.collider);
+                if (parts == null) continue;             // not the level
+                if (parts.Length > 0)
+                {
+                    // never what the heroes stand on (a slope or a bridge touched right at the start of the line)
+                    if (small != null && hit.point.y > lookAt.y - 0.5f && !UnderFocus(hit.collider.bounds, lookAt)) small.AddRange(parts);
+                }
+                else if (hit.distance + start > SkipNear) big = true;
             }
-            return best;
+            return big;
         }
 
-        /// <summary>True for terrain and buildings; false for the game's objects (pods, interactables, bodies).</summary>
-        private static bool IsLevelGeometry(Collider collider)
+        /// <summary>The piece lies under the focus and no higher than a hero's knees above it: the floor there.</summary>
+        private static bool UnderFocus(Bounds box, Vector3 lookAt)
         {
-            if (!collider) return false;
-            if (collider.GetComponentInParent<UnityEngine.Networking.NetworkIdentity>()) return false;
-            if (collider.GetComponentInParent<RoR2.CharacterBody>()) return false;
-            return true;
+            return lookAt.x >= box.min.x && lookAt.x <= box.max.x && lookAt.z >= box.min.z && lookAt.z <= box.max.z
+                   && box.max.y < lookAt.y + 0.5f;
+        }
+
+        // ---- hiding what is in the way -------------------------------------------------------------------------
+
+        private const float MaxHideSize = 60f;   // m: a piece of the level up to this size may be hidden
+        private const float HideHold = 0.5f;     // s: a hidden piece comes back this long after it is out of the way
+
+        private static readonly Dictionary<int, Renderer[]> Pieces = new Dictionary<int, Renderer[]>();
+        private static readonly Renderer[] BigPiece = new Renderer[0];
+        private static readonly List<Renderer> Occluders = new List<Renderer>(32);
+        private static readonly List<Renderer> Found = new List<Renderer>(16);
+        private readonly Dictionary<Renderer, float> hidden = new Dictionary<Renderer, float>();
+        private readonly List<Renderer> comeBack = new List<Renderer>(16);
+
+        /// <summary>
+        /// What a collider is to the camera: null = not the level (the game's objects, bodies); empty = a big piece of
+        /// the level (terrain, a cliff); otherwise the renderers of a small piece (a rock, a roof, a tree, a bridge).
+        /// Looked up once per collider.
+        /// </summary>
+        private static Renderer[] PieceOf(Collider collider)
+        {
+            if (!collider) return null;
+            int id = collider.GetInstanceID();
+            if (Pieces.TryGetValue(id, out Renderer[] known)) return known;
+
+            Renderer[] result;
+            if (collider.GetComponentInParent<UnityEngine.Networking.NetworkIdentity>() || collider.GetComponentInParent<CharacterBody>())
+                result = null;
+            else
+            {
+                result = BigPiece;
+                Bounds box = collider.bounds;
+                if (Mathf.Max(box.size.x, Mathf.Max(box.size.y, box.size.z)) <= MaxHideSize)
+                {
+                    // the picture of the piece: renderers on the collider's object, else on its parent (a separate
+                    // collision mesh beside the visible one) that lie where the collider is
+                    Found.Clear();
+                    Collect(collider.transform, box);
+                    if (Found.Count == 0 && collider.transform.parent) Collect(collider.transform.parent, box);
+                    if (Found.Count > 0) result = Found.ToArray();
+                }
+            }
+            Pieces[id] = result;
+            return result;
+        }
+
+        private static void Collect(Transform root, Bounds near)
+        {
+            near.Expand(2f);
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>())
+            {
+                if (!(r is MeshRenderer) && !(r is SkinnedMeshRenderer)) continue;
+                if (r.GetComponentInParent<UnityEngine.Networking.NetworkIdentity>() || r.GetComponentInParent<CharacterBody>()) continue;
+                Bounds b = r.bounds;
+                if (Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z)) > MaxHideSize * 1.5f) continue;
+                if (b.Intersects(near)) Found.Add(r);
+            }
+        }
+
+        private void HideOccluders()
+        {
+            float now = Time.unscaledTime;
+            for (int i = 0; i < Occluders.Count; i++)
+            {
+                Renderer r = Occluders[i];
+                if (!r) continue;
+                if (!hidden.ContainsKey(r) && !r.enabled) continue; // switched off by the game itself: not ours
+                hidden[r] = now + HideHold;
+                if (!r.forceRenderingOff) r.forceRenderingOff = true;
+            }
+
+            comeBack.Clear();
+            foreach (var pair in hidden)
+                if (!pair.Key || pair.Value < now) comeBack.Add(pair.Key);
+            for (int i = 0; i < comeBack.Count; i++)
+            {
+                if (comeBack[i]) comeBack[i].forceRenderingOff = false;
+                hidden.Remove(comeBack[i]);
+            }
+        }
+
+        /// <summary>Shows everything hidden again and forgets the pieces (a new stage, the camera going away).</summary>
+        private void ShowAllHidden()
+        {
+            foreach (var pair in hidden)
+                if (pair.Key) pair.Key.forceRenderingOff = false;
+            hidden.Clear();
+            Pieces.Clear();
         }
 
         public bool IsUserLookAllowed(CameraRigController cameraRigController) => false;
@@ -559,7 +633,7 @@ namespace HighCommand.Client
                 float step = hit.distance + 0.05f;
                 origin.y -= step;
                 remaining -= step;
-                if (!IsLevelGeometry(hit.collider)) continue;
+                if (PieceOf(hit.collider) == null) continue; // not the level (a pod, a chest, a body)
                 surfaces++;
                 if (hit.point.y < lowestSurface) lowestSurface = hit.point.y;
                 if (filter && !Walkable(hit.point.y, level)) continue;
@@ -634,12 +708,7 @@ namespace HighCommand.Client
             return false;
         }
 
-        /// <summary>
-        /// hc_cam audit: pans along 32 lines across the whole map through the real height code (the view itself does not
-        /// move) and counts the places where the focus ends up more than 10 m above any ground a hero can stand on
-        /// nearby. Runs once the way the camera used to work and once as it works now.
-        /// </summary>
-        /// <summary>The first place hc_cam audit found where the old camera dived under something (hc_cam roof flies there).</summary>
+        /// <summary>The first place hc_cam audit found where something small is hidden from the view (hc_cam roof flies there).</summary>
         internal static Vector3? RoofSpot;
         internal static float RoofYaw;
 
@@ -656,6 +725,12 @@ namespace HighCommand.Client
             return false;
         }
 
+        /// <summary>
+        /// hc_cam audit: pans along 32 lines across the whole map through the real height code (the view itself does not
+        /// move) and counts the places where the focus ends up more than 10 m above any ground a hero can stand on
+        /// nearby. Runs once the way the camera used to work and once as it works now; the second pass also looks at
+        /// the view (what gets hidden, where big ground is in the way).
+        /// </summary>
         internal string AuditHeights()
         {
             if (!MapInfo.Valid) return "no map data";
@@ -666,7 +741,7 @@ namespace HighCommand.Client
             for (int pass = 0; pass < 2; pass++)
             {
                 walkFilter = pass == 1;
-                int total = 0, bad = 0, held = 0, stops = 0, stuck = 0, views = 0, pulled = 0;
+                int total = 0, bad = 0, held = 0, stops = 0, stuck = 0, views = 0, blocked = 0, hiding = 0;
                 float worst = 0f;
                 Vector3 worstAt = Vector3.zero;
                 Bounds b = MapInfo.Bounds;
@@ -700,18 +775,22 @@ namespace HighCommand.Client
                             reference = near[0];
                             for (int i = 1; i < near.Count; i++) reference = Mathf.Max(reference, near[i]);
                         }
-                        // the view from here (four turns of the camera): pulled down near the heroes' heads?
-                        for (int turn = 0; turn < 4; turn++)
-                        {
-                            WantView(focus + Vector3.up, Settings.CameraPitch.Value, turn * 90f + 25f, distance, pass == 1, out _, out float arm);
-                            views++;
-                            if (arm * distance < MinPull - 0.5f) pulled++;
-                            if (pass == 0 && arm * distance < 8f && !RoofSpot.HasValue && OnWalkableGround(focus))
+                        // the view from here (four turns of the camera, as it works now): something small hidden, or
+                        // big ground in the way of every view tried?
+                        if (pass == 1 && OnWalkableGround(focus))
+                            for (int turn = 0; turn < 4; turn++)
                             {
-                                RoofSpot = focus;
-                                RoofYaw = turn * 90f + 25f;
+                                float turnYaw = turn * 90f + 25f;
+                                bool clear = WantView(focus + Vector3.up, Settings.CameraPitch.Value, turnYaw, distance, out float lift);
+                                views++;
+                                if (!clear) { blocked++; continue; }
+                                Vector3 viewBack = -(Quaternion.Euler(Mathf.Min(SteepestPitch, Settings.CameraPitch.Value + lift), turnYaw, 0f) * Vector3.forward);
+                                Occluders.Clear();
+                                CastView(focus + Vector3.up, viewBack, distance, Occluders);
+                                if (Occluders.Count == 0) continue;
+                                hiding++;
+                                if (!RoofSpot.HasValue) { RoofSpot = focus; RoofYaw = turnYaw; }
                             }
-                        }
 
                         float excess = focus.y - reference;
                         total++;
@@ -739,7 +818,8 @@ namespace HighCommand.Client
                     }
                 }
                 result += $"{(pass == 0 ? "old" : "new")}: {total} points, {bad} climbed too high (worst +{worst:0} m at {worstAt.x:0},{worstAt.y:0},{worstAt.z:0}), " +
-                          $"{held} held over a drop, {stuck} of {stops} stops left hanging, {pulled} of {views} views pulled closer than {MinPull:0} m; ";
+                          $"{held} held over a drop, {stuck} of {stops} stops left hanging" +
+                          (pass == 1 ? $"; views over walkable ground: {views}, {hiding} with something small hidden, {blocked} behind big ground" : "") + "; ";
             }
             walkFilter = true;
             focus = keepFocus;

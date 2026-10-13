@@ -47,8 +47,9 @@ BepInEx-плагин `kantemiir.HighCommand`: отдельный RTS-режим 
 * Высота камеры (`RtsCamera.FocusHeight`) берётся только с земли, где есть узлы графа героев (`MapInfo.WalkableHeightsNear`);
   стоящая камера над более низкой землёй оседает через 1.5 с (`Settle`). Проверка — `tools\qa\camheight.txt`
   (`hc_cam audit`, ждать «0 climbed», «0 of N stops left hanging»; сценарий длинный — `qa-run -TimeoutMin 30`).
-  Подтягивание камеры к препятствию (`WantView`) — только если оно далеко от фокуса и не ближе 14 м; навес над героями
-  игнорируется. Проверка — `tools\qa\camvillage.txt` («0 of N views pulled»).
+  Камера САМА НЕ ПРИБЛИЖАЕТСЯ (решение пользователя, 2026-10-13; как в RTS): расстояние — только колёсико. Мелкие куски
+  уровня между камерой и героями (≤60 м) скрываются `forceRenderingOff` (`CastView`/`HideOccluders`), большой холм —
+  круче наклон (`WantView`). Пол под героями и объекты с NetworkIdentity не скрываются. Проверка — `camvillage.txt`.
 * Картинка миникарты строится в `MapInfo.BuildTexture` (покрытие + рельеф), рамка камеры и точки — в `UI\Minimap.cs`.
 
 ## Структура `src\`
