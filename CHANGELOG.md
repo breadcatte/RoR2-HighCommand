@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.14.0 - free camera, new ability tiles
 
 Camera rebuilt (studied 0 A.D., Spring, StarCraft II, Company of Heroes, Total War; notes in `docs\dev\CAMERA.md`)
 * Free camera by default: panning never changes the camera's height or tilt, whatever the ground does (hills, steps,
