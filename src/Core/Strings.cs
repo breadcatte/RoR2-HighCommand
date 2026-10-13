@@ -159,6 +159,10 @@ namespace HighCommand
                 "Атака-движение: идти в указанную точку и атаковать всех по пути.");
             Loc.Add("HIGHCOMMAND_CMD_STOP", "Stop", "Стоп");
             Loc.Add("HIGHCOMMAND_CMD_STOP_DESC", "Cancel every order and stand where you are.", "Отменить все приказы и встать на месте.");
+            Loc.Add("HIGHCOMMAND_CMD_CANCEL", "Cancel", "Отмена");
+            Loc.Add("HIGHCOMMAND_CMD_CANCEL_DESC",
+                "While a target is being chosen (attack-move, patrol, an ability): stop choosing it. Otherwise: the selected heroes drop what they were told to do (also queued orders) and stand where they are.",
+                "Пока выбирается цель (атака с ходу, патруль, способность) — отменить выбор. Иначе выбранные герои бросают свои приказы (и очередь) и встают на месте.");
             Loc.Add("HIGHCOMMAND_CMD_HOLD", "Hold", "Держать");
             Loc.Add("HIGHCOMMAND_CMD_HOLD_DESC", "Hold position: stand still and fight only what comes into range.",
                 "Держать позицию: стоять и бить только тех, кто подошёл.");

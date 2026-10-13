@@ -9,7 +9,7 @@ namespace HighCommand.UI
         Aggressive, Defensive, Passive, Teleporter,
         OrbitalStrike, Medic, WarCry, Mark,
         Move, Attack, Follow, Interact, Select, ChevronDown,
-        Coin, Person, Clock, Chest,
+        Coin, Person, Clock, Chest, Cancel,
         Count
     }
 
@@ -203,6 +203,12 @@ namespace HighCommand.UI
                     p.Rect(7f, 35f, 57f, 53f);
                     p.Erase(new[] { 25f, 21f, 39f, 21f, 39f, 44f, 25f, 44f }, 1f, 32f, 32f);
                     p.Rect(28.5f, 24f, 35.5f, 41f);
+                    break;
+
+                case Glyph.Cancel:
+                    // a cross
+                    p.Seg(13f, 13f, 51f, 51f, 9f);
+                    p.Seg(13f, 51f, 51f, 13f, 9f);
                     break;
             }
             return p.Alpha;

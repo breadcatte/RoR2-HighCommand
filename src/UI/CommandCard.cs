@@ -29,6 +29,7 @@ namespace HighCommand.UI
         private const float CardW = 4 * BtnW + 3 * Gap + 2 * Pad;
 
         private const float MenuW = 236f, MenuRowH = 32f, MenuPad = 8f;
+        private const float CancelW = 92f;
 
         private static readonly Regex Tags = new Regex("<[^>]+>", RegexOptions.Compiled);
 
@@ -76,6 +77,7 @@ namespace HighCommand.UI
         private readonly TextMeshProUGUI commanderTitle;
         private readonly RectTransform menuRoot;
         private readonly UiButton menuButton;
+        private readonly UiButton cancelButton;
         private readonly List<OrderButton> orderButtons = new List<OrderButton>();
         private readonly List<SkillButton> skillButtons = new List<SkillButton>();
         private readonly List<AbilityButton> abilityButtons = new List<AbilityButton>();
@@ -91,6 +93,15 @@ namespace HighCommand.UI
 
             var inner = UiKit.NewRect("Buttons", root);
             UiKit.Stretch(inner, 0, 0, 0, 0);
+
+            // the cancel button sits at the right end of the title strip (the title gives it room)
+            cancelButton = new UiButton(inner, "Cancel", new Vector2(CancelW, 22f));
+            cancelButton.SetPosition(CardW - Pad - CancelW, 5f);
+            cancelButton.SetGlyph(Glyph.Cancel, 12f);
+            cancelButton.SetRowLayout(12f, keyCap: false);
+            cancelButton.Accent = new Color(1f, 0.45f, 0.4f, 0.8f);
+            cancelButton.Label.text = Loc.Get("HIGHCOMMAND_CMD_CANCEL");
+            title.rectTransform.sizeDelta = new Vector2(CardW - 2 * Pad - 10f - CancelW - 6f, 22f);
 
             // the orders button and the stance switch share one row
             float menuButtonW = 2 * BtnW + Gap;
@@ -301,6 +312,18 @@ namespace HighCommand.UI
             if (menuHover && !menuOpen) Tooltip.Show(Loc.Get("HIGHCOMMAND_MENU_ORDERS"), Loc.Get("HIGHCOMMAND_MENU_ORDERS_DESC"));
             bool pressedMenuButton = menuButton.Clicked(click);
             if (pressedMenuButton) menuOpen = !menuOpen;
+
+            // ---- cancel: a target being chosen first (like Esc), else what the selected heroes were told to do ----
+            bool choosing = orders.Mode != OrderController.Pending.None;
+            cancelButton.Enabled = choosing || any;
+            cancelButton.Active = false;
+            if (cancelButton.Refresh(mouse))
+                Tooltip.Show(Loc.Get("HIGHCOMMAND_CMD_CANCEL"), Loc.Get("HIGHCOMMAND_CMD_CANCEL_DESC") + "\n\n[Esc]  [" + Key(Settings.KeyStop) + "]");
+            if (cancelButton.Clicked(click))
+            {
+                if (choosing) orders.CancelMode();
+                else orders.Perform(OrderController.Act.Stop);
+            }
 
             // ---- list rows and stance switch ----
             bool clickedRow = false;

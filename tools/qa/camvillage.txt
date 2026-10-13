@@ -1,6 +1,6 @@
-# Camera near canopies and small roofs (Shattered Abodes): the camera must not dive under a roof the heroes stand
-# beneath and flip back out. hc_cam audit counts the views pulled closer than 14 m (old way vs new); the sweeps log
-# arm= (1 = the camera at its full distance) every 0.4 s.
+# Camera on a busy stage (Shattered Abodes: roofs, canopies, slopes). hc_cam audit also tries the lowest tilt at the
+# nearest distance on every point and counts where the camera would stay in the ground (expect 0); the sweeps log
+# lift= (how far the camera tilted up to stay above ground) and hidden= (pieces hidden because they covered a hero).
 @wait 4
 @log === V1 run start
 hc_start
@@ -27,11 +27,6 @@ hc_cam sweep 0 -160 10
 hc_cam sweep 160 0 10
 @wait 11
 hc_screenshot camvillage
-@log === V3b the spot where the old camera dived under a roof
-hc_cam roof
-@wait 4
-hc_cam info
-hc_screenshot camvillage_roof
 @log === END
 disconnect
 @norun

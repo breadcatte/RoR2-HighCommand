@@ -9,12 +9,15 @@ Camera height
 * Standing still above lower ground (after crossing a chasm at its edge's level, beside a path over a void) the camera
   comes down onto that ground after 1.5 s instead of hanging in the air for good.
 * The camera never moves in by itself any more: the distance is only what the wheel set (it used to be pulled in front
-  of obstacles, which put it under roofs and rocks, inside the level, and kept the wheel from zooming out). As in RTS
-  and top-down games, small pieces of the level between the camera and the heroes (a rock, a roof, a tree, a bridge,
-  up to 60 m) are hidden while they are in the way and come back half a second later; a hill or a cliff in the way
-  makes the view steeper if that sees past it. The floor the heroes stand on and the game's objects are never hidden.
-* Dev: `hc_cam audit` also reports, over walkable ground, how many views hide something and how many stay behind big
-  ground; `hc_cam roof` flies to the first place where something is hidden; scenario `tools\qa\camvillage.txt`.
+  of obstacles, which put it under roofs and rocks, inside the level, and kept the wheel from zooming out).
+* The camera can be laid almost on the ground: the tilt (middle mouse up / down, PageUp / PageDown) now goes down to
+  4 degrees instead of 25. It tilts up by itself only as far as it must to stay above the ground (a low view on a
+  slope), never to see past a hill.
+* A small piece of the level (a rock, a roof, a tree, a bridge, up to 60 m) is hidden only while it hides a hero on
+  screen (the hero walked behind it, or the camera was turned behind it) and comes back half a second later. The floor
+  a hero stands on, big ground and the game's objects are never hidden.
+* Dev: `hc_cam audit` also tries the lowest tilt at the nearest distance on every point and counts where the camera
+  had to tilt up and where it would stay in the ground; scenario `tools\qa\camvillage.txt`.
 * Dev: `hc_cam audit` pans along 32 lines across the map the old and the new way and counts the places where the camera
   climbs or hangs above walkable ground; scenario `tools\qa\camheight.txt` runs it on ten stages.
 
@@ -59,6 +62,8 @@ Dev
   out from under a fixed pixel).
 
 Interface
+* A "Cancel" button at the right end of the command card's title: while a target is being chosen it stops choosing
+  (like Esc); otherwise the selected heroes drop their orders (and the queue) and stand where they are (like Stop).
 * An "Items" button in the top strip, left of the purse: how many items the army has; a click opens the item panel
   (the same as I), and it is framed while the panel is open.
 * The strip of selected-hero cards at the bottom centre is gone (the roster on the left already marks the selected
