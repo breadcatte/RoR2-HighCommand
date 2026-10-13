@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* The pause menu and its settings: the mode's interface is hidden while they are open (dimmed, it still covered their
+  tabs and rows). Under the console it is only dimmed, as before. Scenario 	ools\qa\pause.txt.
+
 Order routes
 * The line of an order (aiming, given orders, the queue, a hero sent to a chest) follows the way the heroes will really
   walk on the stage's ground graph instead of a straight line through hills and walls, smoothed into a curve.

@@ -1,0 +1,27 @@
+# The pause menu: the mode's interface must be hidden while it is open and come back after (pause_*.png).
+@wait 4
+@log === P0 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 25
+hc_select all
+@wait 1
+hc_screenshot pause_before
+@log === P1 the pause menu open: no mode panels over it
+pause
+@wait 2
+hc_ui
+hc_screenshot pause_open
+@log === P2 closed again: the interface is back
+pause
+@wait 2
+hc_ui
+hc_screenshot pause_after
+@log === END
+disconnect
+@norun
+@wait 4
+@quit

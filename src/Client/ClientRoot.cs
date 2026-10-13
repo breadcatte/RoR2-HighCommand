@@ -269,9 +269,11 @@ namespace HighCommand.Client
             ClientInput.Refresh();
             ApplyUiScale();
 
-            // The pause screen and the console are drawn below this canvas: dim the mode's interface while they are
-            // up, so they stay readable.
-            float wantAlpha = ClientInput.MouseBlocked ? 0.35f : 1f;
+            // The pause screen and the console are drawn below this canvas. The pause menu and its settings fill the
+            // screen: the mode's interface is hidden while they are up (dimmed, it still covered their tabs and rows).
+            // The console is a small window: the interface is only dimmed under it.
+            bool pauseMenu = PauseManager.isPaused || PauseManager.PauseScreenIsOpen();
+            float wantAlpha = pauseMenu ? 0f : ClientInput.MouseBlocked ? 0.35f : 1f;
             if (canvasGroup && !Mathf.Approximately(canvasGroup.alpha, wantAlpha)) canvasGroup.alpha = wantAlpha;
 
             // The map picture is built once the stage's node graph exists.
