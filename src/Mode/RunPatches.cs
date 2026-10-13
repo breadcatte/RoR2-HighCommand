@@ -167,6 +167,30 @@ namespace HighCommand.Mode
             }
         }
 
+        /// <summary>
+        /// No friendly fire in the army: a hero, its turret or drone never hurts another hero or ally, whatever the
+        /// game would allow (the Chaos artifact, an equipment that hits everyone like Glowing Meteorite, a stray
+        /// blast). Damage to oneself (Rex's skills, Void Fiend's corruption) and from the world (falls, fog) stays.
+        /// </summary>
+        [HarmonyPatch(typeof(HealthComponent), "TakeDamageProcess")]
+        internal static class NoFriendlyFire
+        {
+            /// <summary>Hits between allies stopped since the run started (tests).</summary>
+            internal static int Blocked;
+
+            private static bool Prefix(HealthComponent __instance, DamageInfo damageInfo)
+            {
+                if (!HighCommandRun.IsActive || damageInfo == null || !damageInfo.attacker) return true;
+                CharacterBody victim = __instance.body;
+                if (!victim || !victim.teamComponent || victim.teamComponent.teamIndex != TeamIndex.Player) return true;
+                if (damageInfo.attacker == victim.gameObject) return true;
+                CharacterBody attacker = damageInfo.attacker.GetComponent<CharacterBody>();
+                if (!attacker || !attacker.teamComponent || attacker.teamComponent.teamIndex != TeamIndex.Player) return true;
+                Blocked++;
+                return false;
+            }
+        }
+
         /// <summary>The combat director picks a player body to spawn monsters around; give it hero bodies.</summary>
         [HarmonyPatch(typeof(CombatDirector), "PickPlayerAsSpawnTarget")]
         internal static class DirectorSpawnTarget

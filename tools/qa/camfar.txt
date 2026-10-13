@@ -1,0 +1,39 @@
+# The far camera (wheel out to MaxDistance 220, straight down tilt) and the friendly fire block, short.
+@wait 4
+@log === F1 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 20
+hc_cam info
+@log === F2 friendly fire: hero 1 hits hero 2 directly (must be blocked), also with the game's friendly fire on
+hc_ff hit
+hc_ff chaos on
+hc_ff hit
+hc_ff chaos off
+@log === F3 the wheel: 40 notches out at the middle of the screen
+hc_cam army
+hc_mouse 960 600
+hc_scroll -40
+@wait 0.5
+hc_cam info
+@wait 2
+hc_cam info
+hc_screenshot far_wheel
+@log === F4 straight down from far
+hc_cam pitch 89
+@wait 2
+hc_cam info
+hc_screenshot far_top
+hc_cam pitch 35
+@wait 2
+hc_cam info
+hc_screenshot far_low
+hc_input_end
+@log === END
+disconnect
+@norun
+@wait 4
+@quit

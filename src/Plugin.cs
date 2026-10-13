@@ -54,6 +54,7 @@ namespace HighCommand
             TryPatch(typeof(Mode.RunPatches.LivingPlayerCount), "living player count = living heroes");
             TryPatch(typeof(Mode.LobbyRules.InitPatch), "lobby rules category");
             TryPatch(typeof(Mode.RunPatches.DirectorSpawnTarget), "director spawns around heroes");
+            TryPatch(typeof(Mode.RunPatches.NoFriendlyFire), "no friendly fire inside the army");
             TryPatch(typeof(Mode.RunPatches.ActivityGameMode), "no platform-activity error for the game mode");
             Client.ClientRoot.EscapeGuardActive = TryPatch(typeof(Mode.RunPatches.EscapeGuard), "Esc closes the mode's panels before it pauses");
             TryPatch(typeof(Mode.RunPatches.ZoneCountInRadius), "holdout zones count heroes inside");

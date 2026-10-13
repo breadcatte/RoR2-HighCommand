@@ -354,6 +354,8 @@ namespace HighCommand.UI
                 case OrderKind.Patrol: return Loc.Get("HIGHCOMMAND_ORDER_PATROL");
                 case OrderKind.Interact: return Loc.Get("HIGHCOMMAND_ORDER_INTERACT");
                 case OrderKind.Cast: return Loc.Get("HIGHCOMMAND_ORDER_CAST");
+                case OrderKind.SeekEnemies: return Loc.Get("HIGHCOMMAND_ORDER_SEEKENEMIES");
+                case OrderKind.SeekChests: return Loc.Get("HIGHCOMMAND_ORDER_SEEKCHESTS");
                 default: return "";
             }
         }

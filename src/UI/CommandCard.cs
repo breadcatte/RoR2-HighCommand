@@ -125,17 +125,19 @@ namespace HighCommand.UI
             AddSkill(inner, 3, skillY, 4, OrderController.Act.CastEquipment, () => Key(Settings.KeyCastEquipment));
 
             // --- the orders list: opens above the button ---
-            float menuH = MenuPad * 2 + 8 * MenuRowH;
+            float menuH = MenuPad * 2 + 10 * MenuRowH;
             menuRoot = UiKit.NewPanel("OrdersList", parent, UiKit.PanelDark);
             UiKit.Place(menuRoot, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-(14f + CardW - MenuW), 14f + height - Head + 6f), new Vector2(MenuW, menuH));
             AddMenuRow(0, OrderController.Act.AttackMove, Glyph.AttackMove, "HIGHCOMMAND_CMD_ATTACKMOVE", () => Key(Settings.KeyAttackMove));
             AddMenuRow(1, OrderController.Act.Focus, Glyph.Focus, "HIGHCOMMAND_CMD_FOCUS", () => Key(Settings.KeyFocusFire));
-            AddMenuRow(2, OrderController.Act.Stop, Glyph.Stop, "HIGHCOMMAND_CMD_STOP", () => Key(Settings.KeyStop));
-            AddMenuRow(3, OrderController.Act.Hold, Glyph.Hold, "HIGHCOMMAND_CMD_HOLD", () => Key(Settings.KeyHold));
-            AddMenuRow(4, OrderController.Act.Retreat, Glyph.Retreat, "HIGHCOMMAND_CMD_RETREAT", () => Key(Settings.KeyRetreat));
-            AddMenuRow(5, OrderController.Act.Patrol, Glyph.Patrol, "HIGHCOMMAND_CMD_PATROL", () => Key(Settings.KeyPatrol));
-            AddMenuRow(6, OrderController.Act.Rally, Glyph.Rally, "HIGHCOMMAND_CMD_RALLY", () => Key(Settings.KeyRally));
-            AddMenuRow(7, OrderController.Act.Formation, Glyph.Formation, "HIGHCOMMAND_CMD_FORMATION", () => Key(Settings.KeyFormationCycle));
+            AddMenuRow(2, OrderController.Act.SeekEnemies, Glyph.SeekEnemies, "HIGHCOMMAND_CMD_SEEKENEMIES", () => Key(Settings.KeySeekEnemies));
+            AddMenuRow(3, OrderController.Act.SeekChests, Glyph.SeekChests, "HIGHCOMMAND_CMD_SEEKCHESTS", () => Key(Settings.KeySeekChests));
+            AddMenuRow(4, OrderController.Act.Stop, Glyph.Stop, "HIGHCOMMAND_CMD_STOP", () => Key(Settings.KeyStop));
+            AddMenuRow(5, OrderController.Act.Hold, Glyph.Hold, "HIGHCOMMAND_CMD_HOLD", () => Key(Settings.KeyHold));
+            AddMenuRow(6, OrderController.Act.Retreat, Glyph.Retreat, "HIGHCOMMAND_CMD_RETREAT", () => Key(Settings.KeyRetreat));
+            AddMenuRow(7, OrderController.Act.Patrol, Glyph.Patrol, "HIGHCOMMAND_CMD_PATROL", () => Key(Settings.KeyPatrol));
+            AddMenuRow(8, OrderController.Act.Rally, Glyph.Rally, "HIGHCOMMAND_CMD_RALLY", () => Key(Settings.KeyRally));
+            AddMenuRow(9, OrderController.Act.Formation, Glyph.Formation, "HIGHCOMMAND_CMD_FORMATION", () => Key(Settings.KeyFormationCycle));
 
             // --- commander abilities: their own strip at the bottom centre (the selected heroes are already shown by
             // the roster on the left and the card's title) ---
@@ -405,6 +407,8 @@ namespace HighCommand.UI
                 case OrderController.Act.StanceDefensive: return first != null && first.NetStance == (byte)Stance.Defensive;
                 case OrderController.Act.StancePassive: return first != null && first.NetStance == (byte)Stance.Passive;
                 case OrderController.Act.Hold: return first != null && first.NetOrderKind == (byte)OrderKind.Hold;
+                case OrderController.Act.SeekEnemies: return first != null && first.NetOrderKind == (byte)OrderKind.SeekEnemies;
+                case OrderController.Act.SeekChests: return first != null && first.NetOrderKind == (byte)OrderKind.SeekChests;
                 default: return false;
             }
         }
@@ -416,7 +420,10 @@ namespace HighCommand.UI
                 case OrderController.Act.AttackMove:
                 case OrderController.Act.Focus:
                 case OrderController.Act.Patrol:
+                case OrderController.Act.SeekEnemies:
                     return new Color(1f, 0.55f, 0.3f, 0.7f);
+                case OrderController.Act.SeekChests:
+                    return new Color(1f, 0.85f, 0.3f, 0.7f);
                 case OrderController.Act.Retreat:
                 case OrderController.Act.Rally:
                     return new Color(0.5f, 0.8f, 1f, 0.7f);

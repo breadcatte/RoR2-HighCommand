@@ -17,13 +17,26 @@ namespace HighCommand.UI
         private sealed class Bar
         {
             internal RectTransform root;
-            internal Image back, health, shield, barrier, frame;
+            internal Image back, trail, health, shield, barrier, frame, gloss;
+            internal RawImage ticks;
 
             // what was written last: the bar is touched only when its picture really changes
             internal Vector2 position;
-            internal float width, height, health01 = -1f, shield01 = -1f, barrier01 = -1f;
-            internal bool selected;
+            internal float width, height, health01 = -1f, shield01 = -1f, barrier01 = -1f, trail01 = -1f, segments = -1f;
+            internal Color healthColor, frameColor;
         }
+
+        // the recent damage shown as a pale piece that drains after the hit (per body: the pooled bars move between bodies)
+        private sealed class Trail
+        {
+            internal float value = -1f;
+            internal float holdUntil;
+            internal float seen;
+        }
+
+        private readonly Dictionary<CharacterBody, Trail> trails = new Dictionary<CharacterBody, Trail>(64);
+        private readonly List<CharacterBody> trailsGone = new List<CharacterBody>(16);
+        private float trailsCleanAt;
 
         private readonly RectTransform layer;
         private readonly List<Bar> bars = new List<Bar>(128);
@@ -662,6 +675,50 @@ namespace HighCommand.UI
 
         // ---- health bars -------------------------------------------------------------------------
 
+        // Bars in the mode's own cut-corner style: a dark plate, the fill with a slanted end, a soft gloss on its upper
+        // half, notches every 100 / 250 / 1000 ... health on heroes and bosses (how much is left reads at a glance), and
+        // a pale piece that shows the last hit and drains after it. A hero's colour runs green -> amber -> red and pulses
+        // when it is nearly dead. Ordinary monsters at full health show no bar (a crowd stays readable); a hit, the
+        // pointer, an elite or a boss bring it up.
+        private static readonly Color HeroHigh = new Color(0.38f, 0.93f, 0.47f);
+        private static readonly Color HeroMid = new Color(1f, 0.78f, 0.25f);
+        private static readonly Color HeroLow = new Color(0.97f, 0.28f, 0.24f);
+        private static readonly Color AllyColor = new Color(0.42f, 0.86f, 0.8f);
+        private static readonly Color EnemyColor = new Color(0.93f, 0.26f, 0.24f);
+        private static readonly Color EliteColor = new Color(1f, 0.58f, 0.18f);
+        private static readonly Color BossColor = new Color(0.9f, 0.18f, 0.36f);
+        private static readonly Color ShieldColor = new Color(0.38f, 0.68f, 1f);
+        private static readonly Color BarrierColor = new Color(1f, 0.9f, 0.5f, 0.95f);
+        private static readonly Color TrailColor = new Color(1f, 0.93f, 0.8f, 0.85f);
+        private static readonly Color FrameDark = new Color(0.01f, 0.015f, 0.02f, 0.92f);
+        private static readonly Color FrameSelected = new Color(0.55f, 1f, 0.62f, 1f);
+        private static readonly Color FrameBoss = new Color(0.95f, 0.72f, 0.3f, 0.95f);
+        private static readonly float[] SegmentSteps = { 100f, 250f, 500f, 1000f, 2500f, 5000f, 10000f, 25000f };
+
+        private static Texture2D tickTexture;
+
+        // one dark notch at the start of a repeating tile (a RawImage repeats it once per segment of health)
+        private static Texture2D TickTexture
+        {
+            get
+            {
+                if (tickTexture) return tickTexture;
+                const int w = 16;
+                var tex = new Texture2D(w, 1, TextureFormat.RGBA32, false)
+                {
+                    hideFlags = HideFlags.HideAndDontSave,
+                    wrapMode = TextureWrapMode.Repeat,
+                    filterMode = FilterMode.Bilinear
+                };
+                var pixels = new Color32[w];
+                for (int x = 0; x < w; x++) pixels[x] = new Color32(0, 0, 0, (byte)(x == 0 ? 170 : 0));
+                tex.SetPixels32(pixels);
+                tex.Apply(false, true);
+                tickTexture = tex;
+                return tex;
+            }
+        }
+
         private void DrawBars(RtsCamera camera, Selection selection)
         {
             Camera cam = camera.SceneCam;
@@ -669,6 +726,8 @@ namespace HighCommand.UI
             float maxDistance = Mathf.Max(70f, camera.Distance * 2.4f);
             float maxDistanceSqr = maxDistance * maxDistance;
             var bodies = CharacterBody.readOnlyInstancesList;
+            float now = Time.unscaledTime;
+            float dt = Time.unscaledDeltaTime;
 
             for (int i = 0; i < bodies.Count; i++)
             {
@@ -685,29 +744,33 @@ namespace HighCommand.UI
                 Vector3 core = b.corePosition;
                 if ((camPos - core).sqrMagnitude > maxDistanceSqr) continue;
 
-                float radius = b.radius;
-                Vector3 anchor = core + Vector3.up * (Mathf.Max(1.2f, radius * 1.8f) + 0.6f);
-                if (!WorldPicker.ProjectPoint(cam, anchor, out Vector2 s)) continue;
-                if (!WorldPicker.IsOnScreen(s)) continue;
-
                 Hero hero = ally ? HeroMarker.Of(b) : null;
                 bool boss = b.isChampion || b.isBoss;
-
-                // bar width: heroes and bosses wider, grows slightly with body size
-                float width = hero != null ? 74f : boss ? 110f : 40f + Mathf.Min(24f, radius * 10f);
-                float height = hero != null ? 8f : boss ? 9f : 5f;
-
-                Bar bar = AcquireBar();
                 float total = Mathf.Max(1f, hc.fullHealth + hc.fullShield);
                 float h = Mathf.Clamp01(hc.health / total);
                 float sh = Mathf.Clamp01(hc.shield / total);
                 float ba = Mathf.Clamp01(hc.barrier / total);
 
+                // an untouched ordinary monster: no bar
+                bool untouched = hc.health >= hc.fullHealth - 0.5f && hc.shield >= hc.fullShield - 0.5f;
+                if (!ally && !boss && !b.isElite && untouched && b != HoveredEnemy) continue;
+
+                float radius = b.radius;
+                Vector3 anchor = core + Vector3.up * (Mathf.Max(1.2f, radius * 1.8f) + 0.6f);
+                if (!WorldPicker.ProjectPoint(cam, anchor, out Vector2 s)) continue;
+                if (!WorldPicker.IsOnScreen(s)) continue;
+
+                // bar size: heroes and bosses wider, grows slightly with body size
+                float width = hero != null ? 80f : boss ? 128f : 40f + Mathf.Min(24f, radius * 10f);
+                float height = hero != null ? 10f : boss ? 11f : 6f;
+
+                Bar bar = AcquireBar();
                 if (bar.width != width || bar.height != height)
                 {
                     bar.width = width;
                     bar.height = height;
                     bar.root.sizeDelta = new Vector2(width, height);
+                    bar.segments = -1f;
                 }
                 if (bar.position != s)
                 {
@@ -715,68 +778,154 @@ namespace HighCommand.UI
                     bar.root.position = new Vector3(s.x, s.y, 0f);
                 }
 
-                Color healthColor = ally ? new Color(0.35f, 0.9f, 0.4f) : new Color(0.95f, 0.28f, 0.25f);
-                if (!ally && b.isElite) healthColor = new Color(1f, 0.55f, 0.15f);
-                bar.health.color = healthColor;
+                // ---- the last hit, draining ----
+                float hpFraction = h + sh;
+                if (!trails.TryGetValue(b, out Trail trail))
+                {
+                    trail = new Trail { value = hpFraction };
+                    trails[b] = trail;
+                }
+                trail.seen = now;
+                if (hpFraction >= trail.value) trail.value = hpFraction;
+                else if (now >= trail.holdUntil) trail.value = Mathf.MoveTowards(trail.value, hpFraction, dt * 0.9f);
+                if (hpFraction < trail.value - 0.001f && trail.holdUntil < now - 0.5f) trail.holdUntil = now + 0.4f;
+                float shownTrail = trail.value > hpFraction + 0.003f ? trail.value : 0f;
 
-                // the fills move only when the numbers did (a hair of difference is not visible)
+                // ---- colours ----
+                Color fill;
+                if (hero != null)
+                {
+                    float frac = hc.fullHealth > 0f ? hc.health / hc.fullHealth : 1f;
+                    fill = frac > 0.5f ? HeroHigh
+                         : frac > 0.25f ? Color.Lerp(HeroMid, HeroHigh, (frac - 0.25f) / 0.25f)
+                         : Color.Lerp(HeroLow, HeroMid, frac / 0.25f);
+                    if (frac <= 0.25f) fill *= 0.78f + 0.22f * Mathf.Sin(now * 9f); // nearly dead: it pulses
+                    fill.a = 1f;
+                }
+                else if (ally) fill = AllyColor;
+                else fill = boss ? BossColor : b.isElite ? EliteColor : EnemyColor;
+                if (bar.healthColor != fill)
+                {
+                    bar.healthColor = fill;
+                    bar.health.color = fill;
+                }
+
+                bool selected = hero != null && selection.Contains(hero);
+                Color frame = selected ? FrameSelected : boss ? FrameBoss : FrameDark;
+                if (bar.frameColor != frame)
+                {
+                    bar.frameColor = frame;
+                    bar.frame.color = frame;
+                }
+
+                // ---- fills: touched only when the numbers moved (a hair of difference is not visible) ----
                 if (Mathf.Abs(bar.health01 - h) > 0.002f || Mathf.Abs(bar.shield01 - sh) > 0.002f)
                 {
                     bar.health01 = h;
                     bar.shield01 = sh;
                     SetFill(bar.health.rectTransform, 0f, h);
+                    bool hasHealth = h > 0.001f;
+                    if (bar.health.enabled != hasHealth) bar.health.enabled = hasHealth;
                     SetFill(bar.shield.rectTransform, h, Mathf.Min(1f, h + sh));
                     bool hasShield = sh > 0.001f;
                     if (bar.shield.enabled != hasShield) bar.shield.enabled = hasShield;
+                }
+                if (Mathf.Abs(bar.trail01 - shownTrail) > 0.002f)
+                {
+                    bar.trail01 = shownTrail;
+                    bool hasTrail = shownTrail > 0f;
+                    if (bar.trail.enabled != hasTrail) bar.trail.enabled = hasTrail;
+                    if (hasTrail) SetFill(bar.trail.rectTransform, 0f, Mathf.Min(1f, shownTrail));
                 }
                 bool hasBarrier = ba > 0.001f;
                 if (bar.barrier.enabled != hasBarrier) bar.barrier.enabled = hasBarrier;
                 if (hasBarrier && Mathf.Abs(bar.barrier01 - ba) > 0.002f)
                 {
                     bar.barrier01 = ba;
-                    SetFill(bar.barrier.rectTransform, 0f, ba);
+                    SetFill(bar.barrier.rectTransform, 0f, ba, top: 0.4f);
                 }
 
-                bool selected = hero != null && selection.Contains(hero);
-                if (bar.selected != selected)
+                // ---- notches: one per segment of health, never closer than ~6 px ----
+                float segments = 0f;
+                if (hero != null || boss)
                 {
-                    bar.selected = selected;
-                    bar.frame.color = selected ? new Color(0.5f, 1f, 0.55f, 1f) : new Color(0f, 0f, 0f, 0.9f);
+                    float step = SegmentSteps[SegmentSteps.Length - 1];
+                    for (int k = 0; k < SegmentSteps.Length; k++)
+                        if (total / SegmentSteps[k] <= width / 6f) { step = SegmentSteps[k]; break; }
+                    segments = total / step;
+                    if (segments < 1.5f) segments = 0f;
                 }
+                if (Mathf.Abs(bar.segments - segments) > 0.01f)
+                {
+                    bar.segments = segments;
+                    bool hasTicks = segments > 0f;
+                    if (bar.ticks.enabled != hasTicks) bar.ticks.enabled = hasTicks;
+                    if (hasTicks) bar.ticks.uvRect = new Rect(0f, 0f, segments, 1f);
+                }
+            }
+
+            // forget the trails of bodies that are gone or out of sight for a while
+            if (now >= trailsCleanAt)
+            {
+                trailsCleanAt = now + 3f;
+                trailsGone.Clear();
+                foreach (var pair in trails)
+                    if (!pair.Key || now - pair.Value.seen > 2f) trailsGone.Add(pair.Key);
+                for (int i = 0; i < trailsGone.Count; i++) trails.Remove(trailsGone[i]);
             }
         }
 
-        private static void SetFill(RectTransform rt, float from, float to)
+        private static void SetFill(RectTransform rt, float from, float to, float top = 0f)
         {
-            rt.anchorMin = new Vector2(from, 0f);
+            rt.anchorMin = new Vector2(from, top > 0f ? 1f - top : 0f);
             rt.anchorMax = new Vector2(Mathf.Max(from, to), 1f);
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
+        }
+
+        private Image BarFill(string name, Transform parent, Color color, float cut)
+        {
+            Image img = UiKit.NewImage(name, parent, UiKit.Shape(cut), color);
+            img.type = Image.Type.Sliced;
+            img.raycastTarget = false;
+            return img;
         }
 
         private Bar AcquireBar()
         {
             if (barsUsed >= bars.Count)
             {
+                const float cut = 3f, inset = 1.5f;
+                float innerCut = UiKit.InnerCut(cut, inset);
                 var bar = new Bar();
                 bar.root = UiKit.NewRect("Bar", layer);
                 bar.frame = bar.root.gameObject.AddComponent<Image>();
-                bar.frame.sprite = UiKit.White;
-                bar.frame.color = new Color(0f, 0f, 0f, 0.9f);
+                UiKit.StyleOutline(bar.frame, cut);
+                bar.frame.color = FrameDark;
                 bar.frame.raycastTarget = false;
 
                 RectTransform inner = UiKit.NewRect("Inner", bar.root);
-                UiKit.Stretch(inner, 1, 1, 1, 1);
-                bar.back = inner.gameObject.AddComponent<Image>();
-                bar.back.sprite = UiKit.White;
-                bar.back.color = new Color(0.12f, 0.12f, 0.14f, 0.95f);
-                bar.back.raycastTarget = false;
+                UiKit.Stretch(inner, inset, inset, inset, inset);
+                bar.back = BarFill("Back", inner, new Color(0.09f, 0.1f, 0.12f, 0.95f), innerCut);
+                UiKit.Stretch(bar.back.rectTransform, 0, 0, 0, 0);
 
-                bar.health = UiKit.NewImage("Health", inner, UiKit.White, Color.green);
-                bar.shield = UiKit.NewImage("Shield", inner, UiKit.White, new Color(0.35f, 0.65f, 1f));
-                bar.barrier = UiKit.NewImage("Barrier", inner, UiKit.White, new Color(1f, 0.95f, 0.6f, 0.95f));
-                // barrier: a thin line along the top
-                bar.barrier.rectTransform.pivot = new Vector2(0f, 1f);
+                bar.trail = BarFill("Trail", inner, TrailColor, innerCut);
+                bar.health = BarFill("Health", inner, HeroHigh, innerCut);
+                bar.shield = BarFill("Shield", inner, ShieldColor, innerCut);
+
+                bar.ticks = UiKit.NewRawImage("Ticks", inner, TickTexture, Color.white);
+                bar.ticks.raycastTarget = false;
+                UiKit.Stretch(bar.ticks.rectTransform, 0, 0, 0, 0);
+                bar.ticks.enabled = false;
+
+                // a soft light on the upper half: the fill reads as a rounded tube, not a flat strip
+                bar.gloss = BarFill("Gloss", inner, new Color(1f, 1f, 1f, 0.16f), innerCut);
+                SetFill(bar.gloss.rectTransform, 0f, 1f, top: 0.45f);
+
+                bar.barrier = BarFill("Barrier", inner, BarrierColor, innerCut);
+                bar.trail.enabled = false;
+                bar.shield.enabled = false;
+                bar.barrier.enabled = false;
                 bars.Add(bar);
             }
 

@@ -10,6 +10,7 @@ namespace HighCommand.UI
         OrbitalStrike, Medic, WarCry, Mark,
         Move, Attack, Follow, Interact, Select, ChevronDown,
         Coin, Person, Clock, Chest, Cancel,
+        SeekEnemies, SeekChests,
         Count
     }
 
@@ -209,6 +210,26 @@ namespace HighCommand.UI
                     // a cross
                     p.Seg(13f, 13f, 51f, 51f, 9f);
                     p.Seg(13f, 51f, 51f, 13f, 9f);
+                    break;
+
+                case Glyph.SeekEnemies:
+                    // a magnifying glass with a sight in its lens
+                    p.Ring(26f, 38f, 18f, 6f);
+                    p.Seg(39f, 25f, 58f, 6f, 9f);
+                    p.Disc(26f, 38f, 4.5f);
+                    p.Seg(26f, 25f, 26f, 30f, 3.5f);
+                    p.Seg(26f, 46f, 26f, 51f, 3.5f);
+                    p.Seg(13f, 38f, 18f, 38f, 3.5f);
+                    p.Seg(34f, 38f, 39f, 38f, 3.5f);
+                    break;
+
+                case Glyph.SeekChests:
+                    // a small chest with a magnifying glass over its corner
+                    p.Rect(4f, 5f, 40f, 22f);
+                    p.Rect(4f, 25f, 40f, 36f);
+                    p.Rect(19f, 16f, 25f, 30f);
+                    p.Ring(44f, 46f, 12f, 5f);
+                    p.Seg(53f, 37f, 61f, 28f, 7f);
                     break;
             }
             return p.Alpha;

@@ -29,7 +29,7 @@ namespace HighCommand
         internal static ConfigEntry<float> CameraTiltSpeed;
         internal static ConfigEntry<bool> InvertTilt;
         internal static ConfigEntry<KeyCode> KeyFocusSelected, KeyHelp, KeyFastCamera;
-        internal static ConfigEntry<KeyCode> KeyAttackMove, KeyStop, KeyHold, KeyFocusFire, KeyRetreat, KeyPatrol, KeyRally;
+        internal static ConfigEntry<KeyCode> KeyAttackMove, KeyStop, KeyHold, KeyFocusFire, KeyRetreat, KeyPatrol, KeyRally, KeySeekEnemies, KeySeekChests;
         internal static ConfigEntry<KeyCode> KeyCastSecondary, KeyCastUtility, KeyCastSpecial, KeyCastEquipment;
         internal static ConfigEntry<KeyCode> KeyStanceAggressive, KeyStanceDefensive, KeyStancePassive;
         internal static ConfigEntry<KeyCode> KeyToggleAuto, KeyBarracks, KeyInventory;
@@ -109,7 +109,7 @@ namespace HighCommand
             CameraMinDistance = F("Camera", "MinDistance", 6f, 3f, 60f, "Closest camera distance to the ground focus point, meters.");
             ZoomToCursor = cfg.Bind("Camera", "ZoomToCursor", true, "The wheel zooms towards the point under the mouse (it stays under the mouse), as in Company of Heroes or Total War. Off: towards the middle of the screen.");
             ZoomTilt = cfg.Bind("Camera", "ZoomTilt", true, "Zooming in close also lowers the view towards the ground (a side view of the heroes at the closest zoom); zooming out brings your tilt back.");
-            CameraMaxDistance = F("Camera", "MaxDistance", 95f, 30f, 300f, "Farthest camera distance, meters.");
+            CameraMaxDistance = F("Camera", "MaxDistance", 220f, 30f, 500f, "Farthest camera distance, meters.");
             CameraPitch = F("Camera", "Pitch", 58f, 25f, 85f, "Camera tilt in degrees (90 = straight down). The starting tilt: middle mouse drag up / down and PageUp / PageDown change it during the game.");
             CameraTiltSpeed = F("Camera", "TiltSpeed", 1.0f, 0.2f, 4f, "Tilt speed multiplier for middle mouse drag up / down and the tilt keys.");
             InvertTilt = cfg.Bind("Camera", "InvertTilt", false, "Swap the direction of the tilt (middle mouse drag up looks more down).");
@@ -133,6 +133,8 @@ namespace HighCommand
             KeyHold = cfg.Bind("Keys", "HoldPosition", KeyCode.R, "Hold position: stand and fight only what comes into range.");
             KeyFocusFire = cfg.Bind("Keys", "FocusFire", KeyCode.F, "Focus fire: attack the enemy under the cursor (or press, then click an enemy).");
             KeyRetreat = cfg.Bind("Keys", "Retreat", KeyCode.V, "Retreat to the rally point.");
+            KeySeekEnemies = cfg.Bind("Keys", "SeekEnemies", KeyCode.K, "Seek enemies: the selected heroes go after the nearest enemy anywhere on the map, then the next one.");
+            KeySeekChests = cfg.Bind("Keys", "SeekChests", KeyCode.L, "Seek chests: the selected heroes open the chests of the map the purse can pay for, nearest first.");
             KeyPatrol = cfg.Bind("Keys", "Patrol", KeyCode.T, "Patrol: press, then left click the far point.");
             KeyRally = cfg.Bind("Keys", "RallyPoint", KeyCode.G, "Set the rally point: press, then left click.");
             KeyCastSecondary = cfg.Bind("Keys", "CastSecondary", KeyCode.Z, "Use the selected heroes' secondary skill (then click a target).");
@@ -218,7 +220,7 @@ namespace HighCommand
         /// </summary>
         private static void Migrate()
         {
-            const int Current = 3;
+            const int Current = 4;
             if (ConfigVersion.Value >= Current) return;
 
             if (ConfigVersion.Value < 2)
@@ -233,6 +235,12 @@ namespace HighCommand
                 // 0.11: the camera may come closer (with ZoomTilt it then looks along the ground)
                 CameraMinDistance.Value = 6f;
                 Plugin.Log.LogInfo("Config: Camera/MinDistance 10 -> 6 (closer zoom).");
+            }
+            if (ConfigVersion.Value < 4 && Mathf.Approximately(CameraMaxDistance.Value, 95f))
+            {
+                // 0.12: the camera may go much farther out (a look over the whole fight)
+                CameraMaxDistance.Value = 220f;
+                Plugin.Log.LogInfo("Config: Camera/MaxDistance 95 -> 220 (farther zoom).");
             }
 
             ConfigVersion.Value = Current;

@@ -33,7 +33,7 @@ namespace HighCommand
                 Slider(Settings.CameraPitch, 25f, 85f, "{0:0}");
                 Slider(Settings.CameraFov, 20f, 100f, "{0:0}");
                 Slider(Settings.CameraMinDistance, 4f, 60f, "{0:0}");
-                Slider(Settings.CameraMaxDistance, 30f, 300f, "{0:0}");
+                Slider(Settings.CameraMaxDistance, 30f, 500f, "{0:0}");
                 Check(Settings.EdgeScroll);
                 IntSlider(Settings.EdgeScrollPixels, 1, 40);
                 Check(Settings.ListenerAtFocus);

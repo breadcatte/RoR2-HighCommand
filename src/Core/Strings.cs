@@ -182,6 +182,17 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_CMD_FORMATION", "Formation", "Строй");
             Loc.Add("HIGHCOMMAND_CMD_FORMATION_DESC", "Cycle the formation used by move orders: blob, line, column.",
                 "Переключить построение для приказов движения: куча, линия, колонна.");
+            Loc.Add("HIGHCOMMAND_CMD_SEEKENEMIES", "Seek enemies", "Искать врагов");
+            Loc.Add("HIGHCOMMAND_CMD_SEEKENEMIES_DESC", "Go after the nearest enemy anywhere on the map, fight everything on the way, then take the next one. The order stays until you give another.",
+                "Идти к ближайшему врагу на всей карте, сражаясь по пути, затем к следующему. Приказ действует, пока не дадите другой.");
+            Loc.Add("HIGHCOMMAND_CMD_SEEKCHESTS", "Seek chests", "Искать сундуки");
+            Loc.Add("HIGHCOMMAND_CMD_SEEKCHESTS_DESC", "Open every chest of the map the gold can pay for, nearest first; each hero takes its own one. Shops, shrines and printers are not touched.",
+                "Открыть все сундуки карты, на которые хватает золота, сначала ближние; каждый герой идёт к своему. Магазины, святыни и принтеры не трогаются.");
+            Loc.Add("HIGHCOMMAND_SEEK_ENEMIES_GO", "Seeking enemies across the map", "Ищем врагов по всей карте");
+            Loc.Add("HIGHCOMMAND_SEEK_CHESTS_GO", "Seeking chests: {0} affordable", "Ищем сундуки: по карману {0}");
+            Loc.Add("HIGHCOMMAND_SEEK_CHESTS_START", "Seeking chests", "Ищем сундуки");
+            Loc.Add("HIGHCOMMAND_SEEK_CHESTS_NONE", "No chest left that the gold can pay for", "Нет сундуков, на которые хватает золота");
+            Loc.Add("HIGHCOMMAND_HELP_SEEK", "Seek enemies / chests across the map", "Искать врагов / сундуки по всей карте");
             Loc.Add("HIGHCOMMAND_CMD_STANCE_AGGRESSIVE", "Aggressive", "Агресс.");
             Loc.Add("HIGHCOMMAND_CMD_STANCE_AGGRESSIVE_DESC", "Stance: chase every enemy that is seen.", "Стойка: преследовать каждого замеченного врага.");
             Loc.Add("HIGHCOMMAND_CMD_STANCE_DEFENSIVE", "Defensive", "Защита");
@@ -220,8 +231,8 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_CURSOR_QUEUE", " (queued)", " (в очередь)");
             Loc.Add("HIGHCOMMAND_MENU_ORDERS", "Orders", "Приказы");
             Loc.Add("HIGHCOMMAND_MENU_ORDERS_DESC",
-                "Stop, hold, retreat, patrol, focus fire, rally point, formation. The right mouse button already does the rest: move, attack, follow, use.",
-                "Стоп, держать, отход, патруль, фокус, точка сбора, строй. Остальное делает правая кнопка мыши: идти, атаковать, следовать, использовать.");
+                "Stop, hold, retreat, patrol, focus fire, seek enemies or chests, rally point, formation. The right mouse button already does the rest: move, attack, follow, use.",
+                "Стоп, держать, отход, патруль, фокус, поиск врагов и сундуков, точка сбора, строй. Остальное делает правая кнопка мыши: идти, атаковать, следовать, использовать.");
             Loc.Add("HIGHCOMMAND_MENU_STANCE", "Stance", "Стойка");
 
             // objects on the map: prices, the hero who goes, why it came back
@@ -293,6 +304,8 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_ORDER_PATROL", "patrolling", "патрулирует");
             Loc.Add("HIGHCOMMAND_ORDER_INTERACT", "using an object", "использует объект");
             Loc.Add("HIGHCOMMAND_ORDER_CAST", "casting", "применяет умение");
+            Loc.Add("HIGHCOMMAND_ORDER_SEEKENEMIES", "seeking enemies", "ищет врагов");
+            Loc.Add("HIGHCOMMAND_ORDER_SEEKCHESTS", "seeking chests", "ищет сундуки");
 
             // inventory
             Loc.Add("HIGHCOMMAND_HELP_INVENTORY", "Items: who carries what, drag to give", "Предметы: у кого что, перетащите, чтобы передать");

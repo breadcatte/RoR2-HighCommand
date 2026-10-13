@@ -15,7 +15,9 @@ namespace HighCommand.Orders
         Retreat,     // run to a safe point, do not fight
         Patrol,      // attack-move back and forth between two points
         Interact,    // use an object (teleporter, shrine, portal ...)
-        Cast         // use one skill once, at a point or an enemy
+        Cast,        // use one skill once, at a point or an enemy
+        SeekEnemies, // go after the nearest enemy anywhere on the map, then the next one
+        SeekChests   // open the chests of the map the purse can pay for, nearest first, then stop
     }
 
     /// <summary>Why a hero sent to an object came back without using it.</summary>

@@ -225,7 +225,8 @@ namespace HighCommand.Dev
                 {
                     Vector3? army = Client.ClientRoot.ArmyCenter();
                     Debug.Log($"HighCommand camera: focus={cam.Focus:0} distance={cam.Distance:0.0} yaw={cam.Yaw:0} pitch={cam.Pitch:0.0} " +
-                              $"scene camera at {(cam.SceneCam ? cam.SceneCam.transform.position : Vector3.zero):0} army={(army.HasValue ? army.Value : Vector3.zero):0}");
+                              $"scene camera at {(cam.SceneCam ? cam.SceneCam.transform.position : Vector3.zero):0} army={(army.HasValue ? army.Value : Vector3.zero):0} " +
+                              $"far={(cam.SceneCam ? cam.SceneCam.farClipPlane : 0f):0} max={Settings.CameraMaxDistance.Value:0} {cam.DebugWanted()} frame={Time.frameCount} t={Time.unscaledTime:0.0}");
                     break;
                 }
                 default:
@@ -842,7 +843,10 @@ namespace HighCommand.Dev
                 new Vector2(args.GetArgFloat(2), args.GetArgFloat(3)), HasFlag(args, 4, "mid") ? 2 : 0, HasFlag(args, 4, "shift"), !HasFlag(args, 4, "hold"));
         }
 
-        [ConCommand(commandName = "hc_key", flags = HostOnly, helpText = "hc_key <KeyCode> [ctrl] [shift] [alt]: injects a key press.")]
+        [ConCommand(commandName = "hc_scroll", flags = HostOnly, helpText = "hc_scroll <notches>: injects a mouse wheel turn (negative = zoom out); needs hc_mouse first.")]
+        private static void CcScroll(ConCommandArgs args) => Client.ClientInput.InjectScroll(args.GetArgFloat(0));
+
+        [ConCommand(commandName = "hc_key",flags = HostOnly, helpText = "hc_key <KeyCode> [ctrl] [shift] [alt]: injects a key press.")]
         private static void CcKey(ConCommandArgs args)
         {
             var key = (KeyCode)System.Enum.Parse(typeof(KeyCode), args.GetArgString(0), true);
@@ -1086,7 +1090,33 @@ namespace HighCommand.Dev
             Debug.Log(sb.ToString());
         }
 
-        [ConCommand(commandName = "hc_hunt", flags = HostOnly, helpText = "Prints how many enemies have a target, how many stand idle and how far the idle ones are from the army.")]
+        [ConCommand(commandName = "hc_ff", flags = HostOnly, helpText = "hc_ff [chaos on|off] | [hit]: friendly fire check - blocked hero-to-ally hits so far; 'chaos on' turns the game's friendly fire on (as the Chaos artifact does); 'hit' makes hero 1 hit hero 2 for 30 damage.")]
+        private static void CcFriendlyFire(ConCommandArgs args)
+        {
+            string what = args.Count > 0 ? args.GetArgString(0) : "";
+            var run = Mode.HighCommandRun.Instance;
+            if (what == "chaos")
+            {
+                bool on = args.Count < 2 || args.GetArgString(1) != "off";
+                FriendlyFireManager.friendlyFireMode = on ? FriendlyFireManager.FriendlyFireMode.FriendlyFire : FriendlyFireManager.FriendlyFireMode.Off;
+            }
+            else if (what == "hit")
+            {
+                if (run == null || run.Army.Count < 2) throw new ConCommandException("Needs two heroes.");
+                CharacterBody a = run.Army.Heroes[0].Body, b = run.Army.Heroes[1].Body;
+                if (!a || !b) throw new ConCommandException("A hero has no body.");
+                float before = b.healthComponent.health;
+                b.healthComponent.TakeDamage(new DamageInfo
+                {
+                    attacker = a.gameObject, inflictor = a.gameObject, damage = 30f, position = b.corePosition,
+                    procCoefficient = 1f, damageColorIndex = DamageColorIndex.Default, crit = false
+                });
+                Debug.Log($"HighCommand ff: hero {run.Army.Heroes[0].Id} hit hero {run.Army.Heroes[1].Id} for 30: health {before:0} -> {b.healthComponent.health:0}");
+            }
+            Debug.Log($"HighCommand ff: mode={FriendlyFireManager.friendlyFireMode} blocked={Mode.RunPatches.NoFriendlyFire.Blocked}");
+        }
+
+        [ConCommand(commandName = "hc_hunt",flags = HostOnly, helpText = "Prints how many enemies have a target, how many stand idle and how far the idle ones are from the army.")]
         private static void CcHunt(ConCommandArgs args) => Debug.Log("HighCommand hunt: " + Mode.EnemyHunt.Describe());
 
         [ConCommand(commandName = "hc_kill_enemies",flags = HostOnly, helpText = "Host: kills every enemy on the map (monster and lunar teams).")]

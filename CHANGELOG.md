@@ -10,6 +10,29 @@ Monsters hunt the army
 * Dev: `hc_hunt` (enemies with a target / idle / distances), `hc_spawn <n> [master] [distance]`, `hc_cfg hunt|huntrange`;
   scenario `tools\qa\hunt.txt` (control with the hunt off, then on).
 
+No friendly fire in the army
+* A hero, its turret or drone never hurts another hero or ally, even with the Chaos artifact or an equipment that hits
+  everyone (Glowing Meteorite). Self-damage and falls stay. Before: a direct hero-to-hero hit went through.
+* Dev: `hc_ff [chaos on|off] | hit`.
+
+New orders: seek enemies (K) and seek chests (L)
+* Seek enemies: the selected heroes go after the nearest enemy anywhere on the map, fight on the way, then take the next
+  one (an unreachable one is skipped after 10 s). The order stays until another one is given.
+* Seek chests: the selected heroes open every chest of the map the purse can pay for, nearest first, each hero its own;
+  shops, shrines and printers are left alone. The order ends when nothing affordable is left.
+* Both are in the Orders list with their own pictures, in the hero list and in the F1 sheet.
+
+Health bars
+* New look in the mode's cut-corner style: a dark plate, a slanted fill end, a soft gloss, notches every 100 / 250 /
+  1000 ... health on heroes and bosses, a pale piece showing the last hit that drains after it. A hero's bar runs green ->
+  amber -> red and pulses when nearly dead. Bosses have a gold frame. Ordinary monsters at full health show no bar.
+
+Camera and pointer
+* Zoom out up to 220 m (Camera/MaxDistance, up to 500; an old 95 is raised once); tilt down to 89 degrees (straight down).
+* The first look at a stage stays about 31 m.
+* The pointer shows no "Move" badge over plain ground any more (the other badges stay).
+* Dev: `hc_scroll <notches>`, `hc_cam info` prints the wanted values; scenarios `seek.txt`, `camfar.txt`.
+
 ## 0.11.0 - loot from the map, a real strategy camera, first public release
 
 Public release

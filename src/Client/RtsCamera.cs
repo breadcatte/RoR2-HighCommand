@@ -60,7 +60,7 @@ namespace HighCommand.Client
         private float configPitch;
 
         // the player may lay the camera almost on the ground (it then only tilts up as far as the ground makes it)
-        private const float MinPitch = 4f, MaxPitch = 85f;
+        private const float MinPitch = 4f, MaxPitch = 89f;
 
         // smoothed state
         private Vector3 smoothFocus;
@@ -149,6 +149,8 @@ namespace HighCommand.Client
         {
             distance = Mathf.Clamp(meters, Settings.CameraMinDistance.Value, Settings.CameraMaxDistance.Value);
         }
+
+        internal string DebugWanted() => $"wanted: distance={distance:0.0} pitch={pitch:0.0} yaw={yaw:0} smoothPitch={smoothPitch:0.0} lift={liftPitch:0.0}";
 
         /// <summary>Turns / tilts the camera (testing, screenshots).</summary>
         internal void SetAngles(float? newYaw, float? newPitch)

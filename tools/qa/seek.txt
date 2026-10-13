@@ -1,0 +1,67 @@
+# Friendly fire, the new health bars, the seek orders (K enemies, L chests) and the far camera.
+@wait 4
+@log === S1 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 20
+hc_cfg hunt false
+@log === S2 friendly fire: a direct hit hero -> hero must do nothing (game rules), then the same with friendly fire on
+hc_ff hit
+hc_ff chaos on
+hc_ff hit
+@log === S3 a fight next to each other with friendly fire on: blocked hits are counted, heroes keep their health from allies
+hc_select all
+hc_spawn 8 LemurianMaster
+hc_cam army
+hc_cam dist 22
+@wait 6
+hc_screenshot bars_fight
+@wait 6
+hc_screenshot bars_fight2
+hc_ff
+hc_ff chaos off
+hc_invulnerable true
+hc_kill_enemies
+@log === S4 seek enemies: 6 lemurians 90 m away (the hunt of the monsters is off), K
+hc_spawn 6 LemurianMaster 90
+@wait 2
+hc_hunt
+hc_select all
+hc_key K
+@wait 3
+hc_status
+@wait 20
+hc_status
+hc_hunt
+@log === S5 seek chests: gold 3000, L
+hc_kill_enemies
+hc_gold 3000
+hc_loot
+hc_select all
+hc_key L
+@wait 3
+hc_status
+@wait 30
+hc_status
+hc_loot
+@wait 30
+hc_status
+hc_loot
+@log === S6 the orders list and the far camera
+hc_cam army
+hc_cam dist 500
+@wait 3
+hc_cam info
+hc_screenshot cam_far
+hc_cam pitch 89
+@wait 2
+hc_cam info
+hc_screenshot cam_top
+@log === END
+disconnect
+@norun
+@wait 4
+@quit

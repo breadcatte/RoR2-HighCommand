@@ -247,6 +247,8 @@ namespace HighCommand.Orders
                 lastBody = self;
                 initialised = false;
                 skipNearby.Clear();
+                seekSkip.Clear();
+                seekPrey = null;
                 queue.Clear();
                 Current = null;
                 Enemy = null;
@@ -346,6 +348,7 @@ namespace HighCommand.Orders
 
             bool fleeable = order == null || order.Kind == OrderKind.AttackMove || order.Kind == OrderKind.Attack
                             || order.Kind == OrderKind.Patrol || order.Kind == OrderKind.Follow
+                            || order.Kind == OrderKind.SeekEnemies || order.Kind == OrderKind.SeekChests
                             || (order.Kind == OrderKind.Interact && order.Errand); // a trip to a chest is not worth dying for
 
             if (!Fleeing)
@@ -725,6 +728,14 @@ namespace HighCommand.Orders
                     if (Time.time - castStarted > 3f) Finish(); // could not be cast: do not block the queue
                     break;
 
+                case OrderKind.SeekEnemies:
+                    ThinkSeekEnemies(self, pos);
+                    break;
+
+                case OrderKind.SeekChests:
+                    ThinkSeekChests(self, pos);
+                    break;
+
                 default:
                     Finish();
                     break;
@@ -853,6 +864,160 @@ namespace HighCommand.Orders
                 }
             }
             Finish();
+        }
+
+        // ---- seek orders: enemies or chests anywhere on the map -----------------------------------------
+
+        private CharacterBody seekPrey;
+        private float seekScanAt, seekBest, seekProgressAt;
+        private readonly Dictionary<CharacterBody, float> seekSkip = new Dictionary<CharacterBody, float>();
+
+        // Goes after the nearest enemy of the whole map, fights whatever it meets on the way, then takes the next one.
+        // With nothing left the hero waits where it is (the order stays: new monsters are hunted as they come).
+        private void ThinkSeekEnemies(CharacterBody self, Vector3 pos)
+        {
+            CharacterBody enemy = Perception.FindBestEnemy(self, pos, AcquireAttackMove, requireLineOfSight: false, current: Enemy);
+            Anchor = pos;
+            if (enemy)
+            {
+                Enemy = enemy;
+                Mode = BrainMode.Fight;
+                DebugState = "seek enemies: fighting";
+                return;
+            }
+            Enemy = null;
+
+            bool alive = seekPrey && seekPrey.healthComponent && seekPrey.healthComponent.alive
+                         && Perception.IsTargetable(seekPrey, self.teamComponent.teamIndex);
+            if (!alive || Time.time >= seekScanAt)
+            {
+                seekScanAt = Time.time + 1.5f;
+                CharacterBody next = NearestEnemyOnMap(self, pos);
+                if (next != seekPrey)
+                {
+                    seekPrey = next;
+                    seekBest = float.MaxValue;
+                    seekProgressAt = Time.time;
+                }
+            }
+            if (!seekPrey)
+            {
+                Mode = BrainMode.Idle;
+                DebugState = "seek enemies: none on the map";
+                return;
+            }
+
+            // walking for long without getting closer: it cannot be reached (a flier over a pit, a ledge) - the next one
+            float distance = (seekPrey.footPosition - pos).magnitude;
+            if (distance < seekBest - 2f)
+            {
+                seekBest = distance;
+                seekProgressAt = Time.time;
+            }
+            else if (Time.time - seekProgressAt > 10f)
+            {
+                seekSkip[seekPrey] = Time.time + 30f;
+                seekPrey = null;
+                seekScanAt = 0f;
+                Mode = BrainMode.Idle;
+                DebugState = "seek enemies: out of reach, next";
+                return;
+            }
+
+            GoTo(seekPrey.footPosition, pos, sprintFar: true, skills: true);
+            DebugState = $"seek enemies: going ({distance:0} m)";
+        }
+
+        private CharacterBody NearestEnemyOnMap(CharacterBody self, Vector3 pos)
+        {
+            CharacterBody best = null;
+            float bestSqr = float.MaxValue;
+            float now = Time.time;
+            for (int t = 0; t < HostileTeams.Length; t++)
+            {
+                var members = TeamComponent.GetTeamMembers(HostileTeams[t]);
+                for (int i = 0; i < members.Count; i++)
+                {
+                    CharacterBody b = members[i] ? members[i].body : null;
+                    if (!b || !b.healthComponent || !b.healthComponent.alive) continue;
+                    if (seekSkip.TryGetValue(b, out float until) && until > now) continue;
+                    if (!Perception.IsTargetable(b, self.teamComponent.teamIndex)) continue;
+                    Vector3 d = b.footPosition - pos;
+                    d.y *= 2f; // a monster on a ledge far above is a long way round
+                    float sqr = d.sqrMagnitude;
+                    if (sqr < bestSqr) { bestSqr = sqr; best = b; }
+                }
+            }
+            return best;
+        }
+
+        // Opens the chests of the whole map the purse can pay for, the nearest first (every hero its own one), and fights
+        // back on the way. The order ends when no chest is left that the purse (minus what others will spend) can pay.
+        private void ThinkSeekChests(CharacterBody self, Vector3 pos)
+        {
+            Anchor = pos;
+            CharacterBody enemy = Perception.FindBestEnemy(self, pos, AcquireDefensive, requireLineOfSight: true, current: Enemy);
+            if (enemy)
+            {
+                Enemy = enemy;
+                Mode = BrainMode.Fight;
+                DebugState = "seek chests: fighting";
+                return;
+            }
+            Enemy = null;
+            Mode = BrainMode.Idle;
+            if (Time.time < chestScanAt)
+            {
+                DebugState = "seek chests: looking";
+                return;
+            }
+            chestScanAt = Time.time + 0.5f;
+
+            PurchaseInteraction chest = NearestChestOnMap(pos, out float distance);
+            if (!chest)
+            {
+                DebugState = "seek chests: nothing left to buy";
+                Finish();
+                return;
+            }
+            // about 4 m/s counted with fights and detours, like a trip ordered by a click
+            float budget = Mathf.Clamp(30f + distance * 1.6f / 4f, 45f, 300f);
+            Errand(new Order { Kind = OrderKind.Interact, Target = chest.gameObject, Point = chest.transform.position, auto = true, walkBudget = budget },
+                queued: false);
+            DebugState = $"seek chests: going to one ({distance:0} m)";
+            if (Settings.VerboseLog.Value) Plugin.Log.LogInfo($"{Hero}: seeking a chest (${chest.cost}) at {chest.transform.position:0}");
+        }
+
+        /// <summary>Chests the hero could open now: affordable (minus the gold others are on the way to spend), not taken.</summary>
+        internal int CountChestsToSeek() => ChestsOnMap(Hero != null && Hero.Body ? Hero.Body.footPosition : Vector3.zero, out _, out int n) ? n : 0;
+
+        private PurchaseInteraction NearestChestOnMap(Vector3 pos, out float distance)
+        {
+            ChestsOnMap(pos, out PurchaseInteraction best, out _);
+            distance = best ? Vector3.Distance(best.transform.position, pos) : 0f;
+            return best;
+        }
+
+        private bool ChestsOnMap(Vector3 pos, out PurchaseInteraction best, out int count)
+        {
+            best = null;
+            count = 0;
+            long spare = (long)Economy.Gold - GoldClaimedByOthers();
+            float bestSqr = float.MaxValue;
+            var all = InstanceTracker.GetInstancesList<PurchaseInteraction>();
+            for (int i = 0; i < all.Count; i++)
+            {
+                PurchaseInteraction p = all[i];
+                if (!p || !p.available || p.costType != CostTypeIndex.Money || p.cost > spare) continue;
+                GameObject go = p.gameObject;
+                if (skipNearby.Contains(go) || Interactables.KindOf(go) != InteractKind.Chest || ClaimedByAnother(go)) continue;
+                count++;
+                Vector3 d = p.transform.position - pos;
+                d.y *= 2f;
+                float sqr = d.sqrMagnitude;
+                if (sqr < bestSqr) { bestSqr = sqr; best = p; }
+            }
+            return count > 0;
         }
 
         // ---- helpers -----------------------------------------------------------------------------------

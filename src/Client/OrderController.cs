@@ -159,7 +159,8 @@ namespace HighCommand.Client
             Target t = Resolve(mouse, heroes);
             if (t.Kind == Hover.None) return;
 
-            info.Show = true;
+            // a plain move needs no explanation: the pointer stays bare over ground (the user's call)
+            info.Show = t.Kind != Hover.Move;
             info.HasPoint = t.HasPoint;
             info.Point = t.Point;
             switch (t.Kind)
@@ -379,7 +380,8 @@ namespace HighCommand.Client
         {
             Stop, Hold, Retreat, AttackMove, Patrol, Rally, Focus,
             StanceAggressive, StanceDefensive, StancePassive, Formation,
-            CastSecondary, CastUtility, CastSpecial, CastEquipment
+            CastSecondary, CastUtility, CastSpecial, CastEquipment,
+            SeekEnemies, SeekChests
         }
 
         private void HandleHotkeys(IReadOnlyList<Hero> heroes)
@@ -405,6 +407,8 @@ namespace HighCommand.Client
             else if (ClientInput.KeyDown(Settings.KeyAttackMove.Value)) Perform(Act.AttackMove);
             else if (ClientInput.KeyDown(Settings.KeyPatrol.Value)) Perform(Act.Patrol);
             else if (ClientInput.KeyDown(Settings.KeyFocusFire.Value)) Perform(Act.Focus);
+            else if (ClientInput.KeyDown(Settings.KeySeekEnemies.Value)) Perform(Act.SeekEnemies);
+            else if (ClientInput.KeyDown(Settings.KeySeekChests.Value)) Perform(Act.SeekChests);
             else if (ClientInput.KeyDown(Settings.KeyStanceAggressive.Value)) Perform(Act.StanceAggressive);
             else if (ClientInput.KeyDown(Settings.KeyStanceDefensive.Value)) Perform(Act.StanceDefensive);
             else if (ClientInput.KeyDown(Settings.KeyStancePassive.Value)) Perform(Act.StancePassive);
@@ -445,6 +449,20 @@ namespace HighCommand.Client
                     CharacterBody hovered = overlay.HoveredEnemy;
                     if (hovered && !ClientInput.PointerOverUi) SendTargeted(OrderKind.Attack, hovered, focus: true, queued: ClientInput.Shift);
                     else Mode = Pending.Focus;
+                    break;
+                }
+                case Act.SeekEnemies:
+                    SendSimple(OrderKind.SeekEnemies, ClientInput.Shift);
+                    CancelMode();
+                    Toast.Show(Loc.Get("HIGHCOMMAND_SEEK_ENEMIES_GO"));
+                    break;
+                case Act.SeekChests:
+                {
+                    int chests = ChestsToSeek();
+                    if (chests == 0) { Toast.Show(Loc.Get("HIGHCOMMAND_SEEK_CHESTS_NONE")); break; }
+                    SendSimple(OrderKind.SeekChests, ClientInput.Shift);
+                    CancelMode();
+                    Toast.Show(chests > 0 ? Loc.Format("HIGHCOMMAND_SEEK_CHESTS_GO", chests) : Loc.Get("HIGHCOMMAND_SEEK_CHESTS_START"));
                     break;
                 }
                 case Act.StanceAggressive: SendStance(Stance.Aggressive); break;
@@ -668,6 +686,18 @@ namespace HighCommand.Client
             }
 
             if (!stay) Mode = Pending.None;
+        }
+
+        // chests the purse can pay for now (the mode is single player: the host's brain is read directly; -1 = unknown)
+        private int ChestsToSeek()
+        {
+            var heroes = selection.Heroes;
+            for (int i = 0; i < heroes.Count; i++)
+            {
+                HeroBrain brain = heroes[i].Brain;
+                if (brain != null) return brain.CountChestsToSeek();
+            }
+            return -1;
         }
 
         private void RetreatToRally()

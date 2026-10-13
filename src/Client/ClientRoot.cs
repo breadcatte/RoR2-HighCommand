@@ -389,6 +389,9 @@ namespace HighCommand.Client
             Dev.Perf.End(ref Dev.Perf.Part[Dev.Perf.PartMinimap], t);
         }
 
+        // the first look at a stage: about 31 m, as before the far zoom (MaxDistance 220) existed
+        private const float StartDistance = 31f;
+
         /// <summary>Looks at the army when a stage begins (first friendly body appears).</summary>
         private void TryInitialFocus()
         {
@@ -401,12 +404,12 @@ namespace HighCommand.Client
                 if (falling.HasValue)
                 {
                     Camera.FocusOn(HighCommand.Orders.Formation.SnapToGround(falling.Value), snap: true);
-                    Camera.SetDistance(Mathf.Lerp(Settings.CameraMinDistance.Value, Settings.CameraMaxDistance.Value, 0.28f));
+                    Camera.SetDistance(StartDistance);
                 }
                 return;
             }
             Camera.FocusOn(where.Value, snap: true);
-            Camera.SetDistance(Mathf.Lerp(Settings.CameraMinDistance.Value, Settings.CameraMaxDistance.Value, 0.28f));
+            Camera.SetDistance(StartDistance);
             focusedThisStage = true;
             orders.RallyPoint = where.Value;
 
