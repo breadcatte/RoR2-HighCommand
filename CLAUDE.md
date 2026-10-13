@@ -44,6 +44,9 @@ BepInEx-плагин `kantemiir.HighCommand`: отдельный RTS-режим 
 * Картинки кнопок приказов рисуются кодом в `src\UI\GlyphArt.cs` (без файлов). Посмотреть без игры:
   `dotnet run --project tools\glyph-preview -- <файл.png>` (SDK: `%LOCALAPPDATA%\dotnet-sdk`).
 * Вид интерфейса проверять сценарием `uishot` (`qa-run.ps1 uishot`) и скриншотами; «до/после» — `docs\ui-rework\`.
+* Высота камеры (`RtsCamera.FocusHeight`) берётся только с земли, где есть узлы графа героев (`MapInfo.WalkableHeightsNear`);
+  стоящая камера над более низкой землёй оседает через 1.5 с (`Settle`). Проверка — `tools\qa\camheight.txt`
+  (`hc_cam audit`, ждать «0 climbed», «0 of N stops left hanging»; сценарий длинный — `qa-run -TimeoutMin 30`).
 * Картинка миникарты строится в `MapInfo.BuildTexture` (покрытие + рельеф), рамка камеры и точки — в `UI\Minimap.cs`.
 
 ## Структура `src\`
