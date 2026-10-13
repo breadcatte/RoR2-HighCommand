@@ -1,0 +1,63 @@
+# Order routes: the line follows the ground graph, a long way fades in its middle, a target off the screen gets an
+# arrow at the edge with the distance. Screenshots route_*.png; hc_overlay prints the route search counters.
+@wait 4
+@log === R0 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 20
+hc_invulnerable true
+hc_cfg hunt false
+hc_gold 3000
+hc_recruit Commando
+hc_recruit Mage
+@wait 20
+hc_cam army
+hc_cam dist 60
+@wait 2
+hc_select all
+@log === R1 the preview of a far order (Shift: the line is drawn over bare ground)
+hc_mouse 1750 950 shift
+@wait 1
+hc_overlay
+hc_screenshot route_preview
+@log === R2 the order given: the routes of the heroes
+hc_click 1750 950 1
+@wait 1.5
+hc_status
+hc_overlay
+hc_screenshot route_move
+@log === R3 the camera far out
+hc_cam dist 150
+@wait 2
+hc_screenshot route_far
+@log === R4 the camera back on the army, close: the target is off the screen (an arrow at the edge)
+hc_cam army
+hc_cam dist 30
+@wait 2
+hc_overlay
+hc_screenshot route_edge
+@log === R5 a chest: the runner's preview, then the trip
+hc_find kind:Chest
+@wait 2
+hc_click_found 1 hover
+@wait 1
+hc_screenshot route_chest_hover
+hc_click_found 1
+@wait 1.5
+hc_status
+hc_cam army
+hc_cam dist 70
+@wait 2
+hc_overlay
+hc_screenshot route_chest
+@wait 4
+hc_perf
+hc_input_end
+@log === END
+disconnect
+@norun
+@wait 4
+@quit

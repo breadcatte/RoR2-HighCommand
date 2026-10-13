@@ -46,6 +46,75 @@ namespace HighCommand.Orders
             }
         }
 
+        /// <summary>
+        /// The way a hero would walk, as points on the ground from <paramref name="from"/> to <paramref name="to"/>
+        /// (corners softened). False when the stage has no usable graph or the target cannot be reached: the list then
+        /// holds just the two ends.
+        /// </summary>
+        internal static bool Route(Vector3 from, Vector3 to, HullClassification hull, float maxJump, System.Collections.Generic.List<Vector3> points)
+        {
+            points.Clear();
+            points.Add(from);
+            SceneInfo info = SceneInfo.instance;
+            NodeGraph graph = info ? info.groundNodes : null;
+            bool found = false;
+            if (graph && graph.GetNodeCount() >= 20)
+            {
+                using (var path = new Path(graph))
+                {
+                    var request = new NodeGraph.PathRequest
+                    {
+                        startPos = from,
+                        endPos = to,
+                        hullClassification = hull,
+                        maxJumpHeight = Mathf.Max(maxJump, 4f),
+                        maxSpeed = 8f,
+                        path = path
+                    };
+                    PathTask task = graph.ComputePath(request);
+                    if (task != null && task.wasReachable && path.waypointsCount > 0)
+                    {
+                        found = true;
+                        for (int i = 0; i < path.waypointsCount; i++)
+                            if (graph.GetNodePosition(path[i].nodeIndex, out Vector3 p)) points.Add(p);
+                    }
+                }
+            }
+            points.Add(to);
+            if (!found) return false;
+
+            // the nearest node can lie behind the hero or past the target: such a node would make a hook at the ends
+            while (points.Count > 3 && (points[2] - points[0]).sqrMagnitude < (points[2] - points[1]).sqrMagnitude)
+                points.RemoveAt(1);
+            int n = points.Count;
+            while (n > 3 && (points[n - 3] - points[n - 1]).sqrMagnitude < (points[n - 3] - points[n - 2]).sqrMagnitude)
+            {
+                points.RemoveAt(n - 2);
+                n--;
+            }
+            Soften(points);
+            return true;
+        }
+
+        private static readonly System.Collections.Generic.List<Vector3> SoftBuffer = new System.Collections.Generic.List<Vector3>(128);
+
+        // one pass of corner cutting (Chaikin): the ends stay, each inner corner becomes two points a quarter in
+        private static void Soften(System.Collections.Generic.List<Vector3> points)
+        {
+            if (points.Count < 3) return;
+            SoftBuffer.Clear();
+            SoftBuffer.Add(points[0]);
+            for (int i = 0; i < points.Count - 1; i++)
+            {
+                Vector3 a = points[i], b = points[i + 1];
+                if (i > 0) SoftBuffer.Add(Vector3.Lerp(a, b, 0.25f));
+                if (i < points.Count - 2) SoftBuffer.Add(Vector3.Lerp(a, b, 0.75f));
+            }
+            SoftBuffer.Add(points[points.Count - 1]);
+            points.Clear();
+            points.AddRange(SoftBuffer);
+        }
+
         // straight line, climbing counted heavier (a cliff is rarely walked straight up)
         private static float Rough(Vector3 from, Vector3 to)
         {

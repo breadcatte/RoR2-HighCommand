@@ -110,6 +110,7 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_UPGRADE_BUTTON_MAX", "{0} {1}/{1}\nMAX", "{0} {1}/{1}\nМАКС.");
             Loc.Add("HIGHCOMMAND_UPGRADE_LEVEL", "level {0}/{1}", "ур. {0}/{1}");
             Loc.Add("HIGHCOMMAND_UPGRADE_MAXSHORT", "MAX", "МАКС.");
+            Loc.Add("HIGHCOMMAND_DISTANCE", "{0} m", "{0} м");
             Loc.Add("HIGHCOMMAND_UPGRADE_MAXED","Fully upgraded", "Уже максимум");
             Loc.Add("HIGHCOMMAND_UPGRADE_DONE", "{0}: level {1}", "{0}: уровень {1}");
             Loc.Add("HIGHCOMMAND_RANK_UP", "{0} is now a veteran: rank {1} (+10% damage, +5 armor per rank)", "{0}: ранг ветерана {1} (+10% урона и +5 брони за ранг)");

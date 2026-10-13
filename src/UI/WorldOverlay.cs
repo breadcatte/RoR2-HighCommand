@@ -65,6 +65,10 @@ namespace HighCommand.UI
             tagLayer = UiKit.NewRect("PriceTags", layer);
             UiKit.Stretch(tagLayer);
 
+            // the order routes lie under the rings and the bars: the soft lines, then the chevrons on them
+            routeLines = RouteMesh.Create("RouteLines", layer, UiKit.SoftLine.texture);
+            routeChevrons = RouteMesh.Create("RouteChevrons", layer, UiKit.ChevronTexture);
+
             // The selection box: a faint mint tint, a hairline border and brighter corner brackets. The children are
             // anchored to the box, so they follow its size without being touched again.
             dragBox = UiKit.NewImage("DragBox", layer, UiKit.White, new Color(0.6f, 1f, 0.8f, 0.08f));
@@ -111,14 +115,19 @@ namespace HighCommand.UI
             arcsUsed = 0;
             markersUsed = 0;
             ghostsUsed = 0;
-            linesUsed = 0;
-            flowsUsed = 0;
-            arrowsUsed = 0;
+            iconsUsed = 0;
+            edgeMarksUsed = 0;
+            chevronsUsed = 0;
+            chevronSpots.Clear();
             pingsUsed = 0;
             tagsUsed = 0;
+            routeLines.Begin();
+            routeChevrons.Begin();
 
             if (camera && camera.SceneCam)
             {
+                sceneCam = camera.SceneCam;
+                camDistance = camera.Distance;
                 DrawPriceTags(camera);
                 DrawRings(selection, heroes);
                 DrawGhosts(camera, selection, heroes);
@@ -127,6 +136,9 @@ namespace HighCommand.UI
                 DrawPings();
                 DrawPopups();
             }
+            routeLines.End();
+            routeChevrons.End();
+            LastRouteVertices = routeLines.Vertices + routeChevrons.Vertices;
 
             LastBars = barsUsed;
             LastRings = ringsUsed;
@@ -220,9 +232,8 @@ namespace HighCommand.UI
 
         // ---- orders: destination markers, lines and pings ----------------------------------------
 
-        private readonly List<Image> lines = new List<Image>(32);
         private readonly List<Image> pings = new List<Image>(16);
-        private int linesUsed, pingsUsed;
+        private int pingsUsed;
         // the pointer badge: a small dark plate with a picture and a word ("Attack", "Move (queued)" ...)
         private RectTransform badge;
         private Image badgePlate;
@@ -240,6 +251,33 @@ namespace HighCommand.UI
             return camera ? camera.Pitch : Settings.CameraPitch.Value;
         }
 
+        // ---- order routes ----------------------------------------------------------------------
+        //
+        // An order is drawn along the way the hero will really walk (the stage's ground graph), not as a straight line
+        // through hills. A long way is not drawn whole: its first stretch out of the hero and its last stretch into the
+        // target are shown, the middle fades out. A dark line under a coloured one, chevrons running towards the target,
+        // a ring and the order's picture at the end; a target off the screen gets an arrow at the screen edge with the
+        // distance.
+
+        private enum RouteStyle { Preview, Current, Queued }
+
+        private readonly RouteCache routes = new RouteCache();
+        private readonly RouteMesh routeLines;
+        private readonly RouteMesh routeChevrons;
+
+        // one route being drawn: world points with their distance from the start and their visibility
+        private readonly List<Vector3> routeWorld = new List<Vector3>(96);
+        private readonly List<float> routeAt = new List<float>(96);
+        private readonly List<Vector2> runScreen = new List<Vector2>(96);
+        private readonly List<float> runAlpha = new List<float>(96);
+        private float fadeHead, fadeHeadEnd, fadeTailStart, fadeTail, routeLength;
+        private float camDistance = 40f;
+        private Camera sceneCam;
+        private int chevronsUsed;
+
+        private const float RouteLift = 0.3f;     // above the ground nodes, so the line is not cut by the ground
+        private const int ChevronLimit = 500;
+
         private void DrawOrders(Selection selection, OrderController.CursorInfo cursor)
         {
             var sel = selection.Heroes;
@@ -251,8 +289,9 @@ namespace HighCommand.UI
                 if (!body) continue;
 
                 // the replicated order of the hero: the same on the host and on every client
-                Vector3 from = body.footPosition + Vector3.up * 0.2f;
-                DrawOrderLeg(from, (Orders.OrderKind)hero.NetOrderKind, hero.NetOrderPoint, out Vector3 last);
+                Vector3 from = body.footPosition;
+                float length = DrawOrderLeg(hero, 0, from, (Orders.OrderKind)hero.NetOrderKind, hero.NetOrderPoint, out Vector3 last, RouteStyle.Current);
+                if (length > 0f) AddEdgeTarget(last, (Orders.OrderKind)hero.NetOrderKind, length);
 
                 // the rest of the queue (Shift orders), dimmer, leg after leg. The queue lives in the server's brain:
                 // the mode is single-player, so the host reads it directly.
@@ -264,7 +303,7 @@ namespace HighCommand.UI
                     {
                         Orders.Order o = queue[q];
                         if (o == null) continue;
-                        DrawOrderLeg(last, o.Kind, o.Destination(), out last, 0.55f);
+                        DrawOrderLeg(hero, q + 1, last, o.Kind, o.Destination(), out last, RouteStyle.Queued);
                     }
                 }
 
@@ -272,7 +311,8 @@ namespace HighCommand.UI
                 if (cursor.Preview && cursor.HasPoint && cursor.Runner == null && previews < PreviewLimit)
                 {
                     previews++;
-                    DrawPreview(cursor.Queued ? last : from, cursor.Point, cursor.Color);
+                    DrawRoute(hero, RouteCache.Preview, cursor.Queued ? last : from, cursor.Point, cursor.Color, RouteStyle.Preview);
+                    DrawPreviewEnd(cursor.Point, cursor.Color);
                 }
             }
 
@@ -280,78 +320,60 @@ namespace HighCommand.UI
             Hero runner = cursor.Runner;
             if (cursor.Preview && cursor.HasPoint && runner != null && runner.Body)
             {
-                Vector3 start = runner.Body.footPosition + Vector3.up * 0.2f;
+                Vector3 start = runner.Body.footPosition;
                 Orders.HeroBrain brain = runner.Brain;
                 if (cursor.Queued && brain != null) start = brain.ErrandsEnd(start);
-                DrawPreview(start, cursor.Point, cursor.Color);
+                DrawRoute(runner, RouteCache.Preview, start, cursor.Point, cursor.Color, RouteStyle.Preview);
+                DrawPreviewEnd(cursor.Point, cursor.Color);
             }
+
+            DrawEdgeTargets();
         }
 
-        // the preview of an order: a soft glow, dashes that flow from the hero to the target, an arrowhead, a ring
-        private readonly List<RawImage> flows = new List<RawImage>(8);
-        private readonly List<Image> arrows = new List<Image>(8);
-        private int flowsUsed, arrowsUsed;
-
-        private const float FlowSpeed = 46f;   // layer units per second
-        private const float FlowPeriodUnits = 24f;
-
-        private void DrawPreview(Vector3 from, Vector3 to, Color color)
+        private static bool OrderLook(Orders.OrderKind kind, out Color color, out Glyph glyph)
         {
-            if (!WorldPicker.Project(from, 0.1f, out Vector2 a, out float _)) return;
-            if (!WorldPicker.Project(to, 0.1f, out Vector2 b, out float _)) return;
+            color = new Color(0.4f, 1f, 0.5f, 1f);
+            glyph = Glyph.Move;
+            switch (kind)
+            {
+                case Orders.OrderKind.Move: return true;
+                case Orders.OrderKind.AttackMove: color = new Color(1f, 0.55f, 0.3f, 1f); glyph = Glyph.AttackMove; return true;
+                case Orders.OrderKind.Retreat: color = new Color(0.5f, 0.8f, 1f, 1f); glyph = Glyph.Retreat; return true;
+                case Orders.OrderKind.Patrol: color = new Color(1f, 0.8f, 0.3f, 1f); glyph = Glyph.Patrol; return true;
+                case Orders.OrderKind.Attack: color = new Color(1f, 0.3f, 0.25f, 1f); glyph = Glyph.Attack; return true;
+                case Orders.OrderKind.Follow: glyph = Glyph.Follow; return true;
+                case Orders.OrderKind.Interact: color = new Color(1f, 0.9f, 0.3f, 1f); glyph = Glyph.Interact; return true;
+            }
+            return false;
+        }
 
+        /// <summary>One leg of a hero's orders; the length of its way in meters (0 when nothing was drawn).</summary>
+        private float DrawOrderLeg(Hero hero, int leg, Vector3 from, Orders.OrderKind kind, Vector3 point, out Vector3 end, RouteStyle style)
+        {
+            end = from;
+            if (kind == Orders.OrderKind.None || !OrderLook(kind, out Color color, out Glyph glyph)) return 0f;
+            if (point == Vector3.zero) return 0f;
+            end = point;
+
+            float length = DrawRoute(hero, leg, from, point, color, style);
+
+            // a ring on the ground and the order's picture over it
+            if (!WorldPicker.Project(point + Vector3.up * RouteLift, 0.1f, out Vector2 b, out float _)) return length;
+            Image marker = AcquireRing();
+            Color ring = color;
+            ring.a = style == RouteStyle.Queued ? 0.5f : 0.85f;
+            marker.color = ring;
+            marker.rectTransform.sizeDelta = new Vector2(20f, 12f);
+            marker.rectTransform.position = new Vector3(b.x, b.y, 0f);
             float scale = Mathf.Max(0.0001f, layer.lossyScale.x);
-            Vector2 d = b - a;
-            float length = d.magnitude;
-            if (length < 8f * scale) return;
-            Vector2 dir = d / length;
-            float angle = Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg;
+            DrawIcon(new Vector2(b.x, b.y + 15f * scale), glyph, color, style == RouteStyle.Queued ? 0.6f : 1f, 18f);
+            return length;
+        }
 
-            // the line stops short of the arrowhead
-            float head = 10f * scale;
-            Vector2 end = b - dir * head;
-            float lineLength = Mathf.Max(0f, (end - a).magnitude);
-
-            Color glow = color;
-            glow.a = 0.22f;
-            DrawLine(a, end, glow, 7f);
-
-            if (flowsUsed >= flows.Count)
-            {
-                RawImage raw = UiKit.NewRawImage("Flow", layer, UiKit.FlowTexture, Color.white);
-                raw.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-                flows.Add(raw);
-            }
-            RawImage flow = flows[flowsUsed++];
-            if (!flow.enabled) flow.enabled = true;
-            Color line = color;
-            line.a = 0.9f;
-            flow.color = line;
-            float units = lineLength / scale;
-            flow.rectTransform.sizeDelta = new Vector2(units, 7f);
-            flow.rectTransform.position = new Vector3((a.x + end.x) * 0.5f, (a.y + end.y) * 0.5f, 0f);
-            flow.rectTransform.localRotation = Quaternion.Euler(0f, 0f, angle);
-            // the dashes slide towards the target; the pattern is anchored at the target so it never jitters at the end
-            float phase = -Time.unscaledTime * FlowSpeed / FlowPeriodUnits;
-            flow.uvRect = new Rect(phase - units / FlowPeriodUnits, 0f, units / FlowPeriodUnits, 1f);
-
-            // arrowhead: the marker sprite points down, so it is turned by the direction + 90 degrees
-            if (arrowsUsed >= arrows.Count)
-            {
-                Image arrow = UiKit.NewImage("Arrow", layer, UiKit.Marker, Color.white);
-                arrow.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-                arrows.Add(arrow);
-            }
-            Image head2 = arrows[arrowsUsed++];
-            if (!head2.enabled) head2.enabled = true;
-            Color headColor = color;
-            headColor.a = 1f;
-            head2.color = headColor;
-            head2.rectTransform.sizeDelta = new Vector2(17f, 13f);
-            head2.rectTransform.position = new Vector3(b.x - dir.x * head * 0.5f, b.y - dir.y * head * 0.5f, 0f);
-            head2.rectTransform.localRotation = Quaternion.Euler(0f, 0f, angle + 90f);
-
-            // the ring on the ground, breathing a little
+        // the ring under the pointer while an order is being aimed, breathing a little
+        private void DrawPreviewEnd(Vector3 point, Color color)
+        {
+            if (!WorldPicker.Project(point + Vector3.up * RouteLift, 0.1f, out Vector2 b, out float _)) return;
             Image marker = AcquireRing();
             Color m = color;
             m.a = 0.85f;
@@ -361,57 +383,372 @@ namespace HighCommand.UI
             marker.rectTransform.position = new Vector3(b.x, b.y, 0f);
         }
 
-        private void DrawOrderLeg(Vector3 from, Orders.OrderKind kind, Vector3 point, out Vector3 end, float alpha = 1f)
+        /// <summary>Draws the way from one point to another; returns its length in meters.</summary>
+        private float DrawRoute(Hero hero, int leg, Vector3 from, Vector3 to, Color color, RouteStyle style)
         {
-            end = from;
-            if (kind == Orders.OrderKind.None) return;
+            RouteCache.Route route = routes.Get(hero, leg, from, to);
+            BuildRouteWorld(route.Points, from, to);
+            if (routeLength < 0.5f) return routeLength;
 
-            Vector3? destination = null;
-            Color color = new Color(0.4f, 1f, 0.5f, 0.7f);
-            switch (kind)
+            // what is shown of a long way: its first stretch and its last one (longer when the camera is far out)
+            float head = Mathf.Max(30f, camDistance * 0.45f);
+            float tail = Mathf.Max(8f, head * 0.3f);
+            fadeHead = head;
+            fadeHeadEnd = head + head * 0.45f;
+            fadeTail = routeLength - tail;
+            fadeTailStart = fadeTail - tail * 0.8f;
+            if (fadeTailStart <= fadeHeadEnd)
             {
-                case Orders.OrderKind.Move: destination = point; break;
-                case Orders.OrderKind.AttackMove: destination = point; color = new Color(1f, 0.55f, 0.3f, 0.7f); break;
-                case Orders.OrderKind.Retreat: destination = point; color = new Color(0.5f, 0.8f, 1f, 0.7f); break;
-                case Orders.OrderKind.Patrol: destination = point; color = new Color(1f, 0.8f, 0.3f, 0.7f); break;
-                case Orders.OrderKind.Attack: destination = point; color = new Color(1f, 0.3f, 0.25f, 0.8f); break;
-                case Orders.OrderKind.Follow: destination = point; break;
-                case Orders.OrderKind.Interact: destination = point; color = new Color(1f, 0.9f, 0.3f, 0.8f); break;
+                // short enough: drawn whole
+                fadeHead = fadeHeadEnd = fadeTailStart = fadeTail = routeLength + 1f;
             }
-            if (!destination.HasValue || destination.Value == Vector3.zero) return;
-            end = destination.Value;
-            color.a *= alpha;
+            InsertFadePoints();
 
-            if (!WorldPicker.Project(from, 0.1f, out Vector2 a, out float _)) return;
-            if (!WorldPicker.Project(end, 0.1f, out Vector2 b, out float _)) return;
-            DrawLine(a, b, color, 2f);
+            float lineAlpha, lineWidth, chevronAlpha, flow;
+            switch (style)
+            {
+                case RouteStyle.Preview: lineAlpha = 0.8f; lineWidth = 4f; chevronAlpha = 1f; flow = 1.6f; break;
+                case RouteStyle.Queued: lineAlpha = 0.45f; lineWidth = 3f; chevronAlpha = 0.6f; flow = 0f; break;
+                default: lineAlpha = 0.75f; lineWidth = 3.5f; chevronAlpha = 1f; flow = 0.7f; break;
+            }
+            // a way that could not be found stays straight and is drawn fainter
+            if (!route.Found) { lineAlpha *= 0.7f; chevronAlpha *= 0.7f; }
 
-            // small marker at the destination
-            Image marker = AcquireRing();
-            marker.color = color;
-            float inv = 1f / Mathf.Max(0.0001f, layer.lossyScale.x);
-            marker.rectTransform.sizeDelta = new Vector2(20f, 12f);
-            marker.rectTransform.position = new Vector3(b.x, b.y, 0f);
+            Color line = color;
+            line.a = lineAlpha;
+            Color shadow = new Color(0f, 0f, 0f, 0.6f * Mathf.Clamp01(lineAlpha * 1.4f));
+
+            // the lines: runs of points that are on the screen side of the camera and not faded out
+            runScreen.Clear();
+            runAlpha.Clear();
+            Camera cam = sceneCam;
+            bool prevOk = false;
+            for (int i = 0; i < routeWorld.Count; i++)
+            {
+                float a = RouteAlpha(routeAt[i]);
+                Vector2 s = default;
+                if (!cam || !WorldPicker.ProjectPoint(cam, routeWorld[i] + Vector3.up * RouteLift, out s))
+                {
+                    FlushRun(line, shadow, lineWidth);
+                    prevOk = false;
+                    continue;
+                }
+                if (prevOk && a <= 0.001f && runAlpha.Count > 0 && runAlpha[runAlpha.Count - 1] <= 0.001f)
+                    FlushRun(line, shadow, lineWidth);
+                runScreen.Add(s);
+                runAlpha.Add(a);
+                prevOk = true;
+            }
+            FlushRun(line, shadow, lineWidth);
+
+            DrawChevrons(cam, color, chevronAlpha, flow);
+            return routeLength;
         }
 
-        private void DrawLine(Vector2 a, Vector2 b, Color color, float thickness)
+        // the way as world points: the hero's feet, the cached points it has not passed yet, the target as it is now
+        private void BuildRouteWorld(List<Vector3> points, Vector3 from, Vector3 to)
         {
-            if (linesUsed >= lines.Count)
+            routeWorld.Clear();
+            routeAt.Clear();
+            routeWorld.Add(from);
+            int n = points.Count;
+            // the hero walks on between two searches: start from the cached segment nearest to it
+            int nearest = 0;
+            float best = float.MaxValue;
+            for (int i = 0; i < n - 1 && i < 10; i++)
             {
-                Image img = UiKit.NewImage("Line", layer, UiKit.SoftLine, Color.white);
-                img.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-                lines.Add(img);
+                float d = SqrDistanceToSegment(from, points[i], points[i + 1]);
+                if (d < best) { best = d; nearest = i; }
             }
-            Image line = lines[linesUsed++];
-            if (!line.enabled) line.enabled = true;
+            for (int i = nearest + 1; i < n - 1; i++) routeWorld.Add(points[i]);
+            routeWorld.Add(to);
+
+            float at = 0f;
+            routeAt.Add(0f);
+            for (int i = 1; i < routeWorld.Count; i++)
+            {
+                at += Vector3.Distance(routeWorld[i - 1], routeWorld[i]);
+                routeAt.Add(at);
+            }
+            routeLength = at;
+        }
+
+        private static float SqrDistanceToSegment(Vector3 p, Vector3 a, Vector3 b)
+        {
+            Vector3 ab = b - a;
+            float len = ab.sqrMagnitude;
+            float t = len > 1e-6f ? Mathf.Clamp01(Vector3.Dot(p - a, ab) / len) : 0f;
+            return (p - (a + ab * t)).sqrMagnitude;
+        }
+
+        // the colour fades between points: put a point exactly where each fade begins and ends
+        private void InsertFadePoints()
+        {
+            if (fadeHead > routeLength) return;
+            InsertAt(fadeHead);
+            InsertAt(fadeHeadEnd);
+            InsertAt(fadeTailStart);
+            InsertAt(fadeTail);
+        }
+
+        private void InsertAt(float at)
+        {
+            for (int i = 1; i < routeAt.Count; i++)
+            {
+                float a = routeAt[i - 1], b = routeAt[i];
+                if (at <= a) return;
+                if (at >= b) continue;
+                float t = (at - a) / Mathf.Max(0.0001f, b - a);
+                routeWorld.Insert(i, Vector3.Lerp(routeWorld[i - 1], routeWorld[i], t));
+                routeAt.Insert(i, at);
+                return;
+            }
+        }
+
+        private float RouteAlpha(float at)
+        {
+            float head = 1f - Mathf.Clamp01((at - fadeHead) / Mathf.Max(0.001f, fadeHeadEnd - fadeHead));
+            float tail = Mathf.Clamp01((at - fadeTailStart) / Mathf.Max(0.001f, fadeTail - fadeTailStart));
+            return Mathf.Max(head, tail);
+        }
+
+        private void FlushRun(Color line, Color shadow, float width)
+        {
+            int count = runScreen.Count;
+            if (count >= 2)
+            {
+                routeLines.Strip(runScreen, runAlpha, 0, count, shadow, width + 6f);
+                routeLines.Strip(runScreen, runAlpha, 0, count, line, width);
+            }
+            runScreen.Clear();
+            runAlpha.Clear();
+        }
+
+        // chevrons every few meters along the way, sliding towards the target (the spacing grows with the camera distance)
+        private void DrawChevrons(Camera cam, Color color, float alpha, float flow)
+        {
+            if (!cam || routeWorld.Count < 2) return;
+            // about 44 pixels apart on the screen where the way begins (meters per pixel change with the zoom and the tilt)
             float scale = Mathf.Max(0.0001f, layer.lossyScale.x);
-            Vector2 d = b - a;
-            float length = d.magnitude;
-            line.color = color;
-            // the soft sprite fades towards its edges: a thin slanted line has no stair steps
-            line.rectTransform.sizeDelta = new Vector2(length / scale, thickness + 2.5f);
-            line.rectTransform.position = new Vector3((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f, 0f);
-            line.rectTransform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
+            float perMeter = 0f;
+            Vector3 first = routeWorld[0] + Vector3.up * RouteLift;
+            if (WorldPicker.ProjectPoint(cam, first, out Vector2 p0) && WorldPicker.ProjectPoint(cam, first + cam.transform.right, out Vector2 p1))
+                perMeter = (p1 - p0).magnitude;
+            float spacing = perMeter > 0.5f ? Mathf.Clamp(44f * scale / perMeter, 0.8f, 30f) : Mathf.Max(1.6f, camDistance * 0.06f);
+            float offset = flow > 0f ? Mathf.Repeat(Time.unscaledTime * flow * spacing, spacing) : spacing * 0.5f;
+            float stopAt = routeLength - Mathf.Max(1.2f, spacing * 0.6f);
+            int seg = 1;
+            // far from the camera the perspective packs them together: never closer than about their own size
+            float minGap = 30f * scale;
+            Vector2 last = new Vector2(-10000f, -10000f);
+            for (float at = offset + spacing * 0.5f; at < stopAt; at += spacing)
+            {
+                if (chevronsUsed >= ChevronLimit) return;
+                float a = RouteAlpha(at);
+                if (a < 0.04f)
+                {
+                    // the faded middle of a long way: jump to where the last stretch begins
+                    if (at < fadeTailStart) at += Mathf.Floor((fadeTailStart - at) / spacing) * spacing;
+                    continue;
+                }
+                while (seg < routeAt.Count - 1 && routeAt[seg] < at) seg++;
+                float a0 = routeAt[seg - 1], a1 = routeAt[seg];
+                Vector3 w0 = routeWorld[seg - 1], w1 = routeWorld[seg];
+                Vector3 p = Vector3.Lerp(w0, w1, Mathf.Clamp01((at - a0) / Mathf.Max(0.0001f, a1 - a0))) + Vector3.up * RouteLift;
+                Vector3 dir = w1 - w0;
+                if (dir.sqrMagnitude < 1e-6f) continue;
+                if (!WorldPicker.ProjectPoint(cam, p, out Vector2 s)) continue;
+                if (!WorldPicker.ProjectPoint(cam, p + dir.normalized * 0.5f, out Vector2 s2)) continue;
+                if (!WorldPicker.IsOnScreen(s, 20f)) continue;
+                Vector2 d = s2 - s;
+                if (d.sqrMagnitude < 1e-4f) continue;
+                if ((s - last).sqrMagnitude < minGap * minGap) continue;
+                if (!TakeChevronSpot(s, minGap)) continue;   // a group on one road: one chevron per spot
+                last = s;
+                Color c = color;
+                c.a = alpha * a;
+                routeChevrons.Quad(s, d, 19f, 19f, c);
+                chevronsUsed++;
+            }
+        }
+
+        // the screen cells holding a chevron this frame (cleared in Draw)
+        private readonly Dictionary<long, Vector2> chevronSpots = new Dictionary<long, Vector2>(256);
+
+        private bool TakeChevronSpot(Vector2 s, float gap)
+        {
+            int cx = Mathf.FloorToInt(s.x / gap), cy = Mathf.FloorToInt(s.y / gap);
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                    if (chevronSpots.TryGetValue(((long)(cx + dx) << 32) ^ (uint)(cy + dy), out Vector2 o) && (o - s).sqrMagnitude < gap * gap * 0.6f)
+                        return false;
+            chevronSpots[((long)cx << 32) ^ (uint)cy] = s;
+            return true;
+        }
+
+        // ---- order pictures at the targets ----
+
+        private readonly List<Image> icons = new List<Image>(16);
+        private int iconsUsed;
+
+        private void DrawIcon(Vector2 screen, Glyph glyph, Color color, float alpha, float size)
+        {
+            // the formation spreads the targets of a group a little: one picture is enough for them
+            float near = size * 0.9f * Mathf.Max(0.0001f, layer.lossyScale.x);
+            Sprite sprite = UiKit.GlyphSprite(glyph);
+            for (int i = 1; i < iconsUsed; i += 2)
+                if (icons[i].sprite == sprite && ((Vector2)icons[i].rectTransform.position - screen).sqrMagnitude < near * near) return;
+
+            Image shade = AcquireIcon(sprite);
+            shade.color = new Color(0f, 0f, 0f, 0.75f * alpha);
+            shade.rectTransform.sizeDelta = new Vector2(size + 4f, size + 4f);
+            shade.rectTransform.position = new Vector3(screen.x, screen.y - 1f, 0f);
+
+            Image icon = AcquireIcon(sprite);
+            Color c = color;
+            c.a = alpha;
+            icon.color = c;
+            icon.rectTransform.sizeDelta = new Vector2(size, size);
+            icon.rectTransform.position = new Vector3(screen.x, screen.y, 0f);
+        }
+
+        private Image AcquireIcon(Sprite sprite)
+        {
+            if (iconsUsed >= icons.Count)
+            {
+                Image made = UiKit.NewImage("OrderIcon", layer, sprite, Color.white);
+                made.preserveAspect = true;
+                icons.Add(made);
+            }
+            Image img = icons[iconsUsed++];
+            if (img.sprite != sprite) img.sprite = sprite;
+            if (!img.enabled) img.enabled = true;
+            return img;
+        }
+
+        // ---- targets off the screen: a mark at the edge with the order's picture, an arrow and the distance ----
+
+        private struct EdgeTarget
+        {
+            internal Vector3 point;
+            internal Orders.OrderKind kind;
+            internal float meters;
+        }
+
+        // one mark: a dark disc with a coloured rim and the order's picture, an arrow outside it, the distance below
+        private sealed class EdgeMark
+        {
+            internal RectTransform root;
+            internal Image plate, rim, icon, arrowShade, arrow;
+            internal TMPro.TextMeshProUGUI distance;
+            internal RectTransform arrowPivot;
+            internal Glyph glyph = Glyph.Count;
+            internal int meters = -1;
+        }
+
+        private readonly List<EdgeTarget> edgeTargets = new List<EdgeTarget>(8);
+        private readonly List<EdgeMark> edgeMarks = new List<EdgeMark>(4);
+        private int edgeMarksUsed;
+
+        // the parts of the screen the mode's panels cover (canvas units): a mark stays clear of them
+        private const float EdgeLeft = 322f, EdgeRight = 46f, EdgeTop = 104f, EdgeBottom = 236f;
+
+        private void AddEdgeTarget(Vector3 point, Orders.OrderKind kind, float meters)
+        {
+            // a group sent to one place: one mark (the nearest hero's distance)
+            for (int i = 0; i < edgeTargets.Count; i++)
+            {
+                EdgeTarget t = edgeTargets[i];
+                if (t.kind != kind || (t.point - point).sqrMagnitude > 10f * 10f) continue;
+                if (meters < t.meters) { t.meters = meters; edgeTargets[i] = t; }
+                return;
+            }
+            if (edgeTargets.Count < 6) edgeTargets.Add(new EdgeTarget { point = point, kind = kind, meters = meters });
+        }
+
+        private void DrawEdgeTargets()
+        {
+            Camera cam = sceneCam;
+            if (!cam) { edgeTargets.Clear(); return; }
+            float scale = Mathf.Max(0.0001f, layer.lossyScale.x);
+            float left = EdgeLeft * scale, right = Screen.width - EdgeRight * scale;
+            float bottom = EdgeBottom * scale, top = Screen.height - EdgeTop * scale;
+            var center = new Vector2((left + right) * 0.5f, (bottom + top) * 0.5f);
+            for (int i = 0; i < edgeTargets.Count; i++)
+            {
+                EdgeTarget t = edgeTargets[i];
+                Vector3 p = cam.WorldToScreenPoint(t.point + Vector3.up * RouteLift);
+                Vector2 s = new Vector2(p.x, p.y);
+                bool behind = p.z <= 0.1f;
+                if (!behind && s.x > left && s.x < right && s.y > bottom && s.y < top) continue;
+                Vector2 dir = behind ? center - s : s - center;
+                if (dir.sqrMagnitude < 1f) continue;
+                dir.Normalize();
+
+                // where the line from the middle of the free area towards the target leaves it
+                float hx = (right - left) * 0.5f, hy = (top - bottom) * 0.5f;
+                float k = Mathf.Min(Mathf.Abs(dir.x) > 1e-4f ? hx / Mathf.Abs(dir.x) : float.MaxValue,
+                                    Mathf.Abs(dir.y) > 1e-4f ? hy / Mathf.Abs(dir.y) : float.MaxValue);
+                Vector2 at = center + dir * k;
+                OrderLook(t.kind, out Color color, out Glyph glyph);
+
+                EdgeMark mark = AcquireEdgeMark();
+                mark.root.position = new Vector3(at.x, at.y, 0f);
+                if (mark.glyph != glyph)
+                {
+                    mark.glyph = glyph;
+                    mark.icon.sprite = UiKit.GlyphSprite(glyph);
+                }
+                mark.rim.color = color;
+                mark.icon.color = color;
+                mark.arrow.color = color;
+                // the marker sprite points down: turned by the direction + 90 degrees, it points away from the middle
+                mark.arrowPivot.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg + 90f);
+                int meters = Mathf.RoundToInt(t.meters);
+                if (mark.meters != meters)
+                {
+                    mark.meters = meters;
+                    mark.distance.text = Loc.Format("HIGHCOMMAND_DISTANCE", meters);
+                }
+                mark.distance.color = color;
+            }
+            edgeTargets.Clear();
+        }
+
+        private EdgeMark AcquireEdgeMark()
+        {
+            if (edgeMarksUsed >= edgeMarks.Count)
+            {
+                var m = new EdgeMark();
+                m.root = UiKit.NewRect("EdgeMark", layer);
+                m.root.sizeDelta = new Vector2(36f, 36f);
+                m.plate = UiKit.NewImage("Plate", m.root, UiKit.Circle, new Color(0.03f, 0.04f, 0.06f, 0.82f));
+                UiKit.Stretch(m.plate.rectTransform);
+                m.rim = UiKit.NewImage("Rim", m.root, UiKit.Ring, Color.white);
+                UiKit.Stretch(m.rim.rectTransform);
+                m.icon = UiKit.NewImage("Icon", m.root, UiKit.White, Color.white);
+                m.icon.preserveAspect = true;
+                UiKit.Place(m.icon.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(22f, 22f));
+
+                // the arrow sits on a pivot in the middle of the disc and is turned with it, just outside the rim
+                m.arrowPivot = UiKit.NewRect("ArrowPivot", m.root);
+                UiKit.Place(m.arrowPivot, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+                m.arrowShade = UiKit.NewImage("ArrowShade", m.arrowPivot, UiKit.Marker, new Color(0f, 0f, 0f, 0.75f));
+                UiKit.Place(m.arrowShade.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -27f), new Vector2(22f, 17f));
+                m.arrow = UiKit.NewImage("Arrow", m.arrowPivot, UiKit.Marker, Color.white);
+                UiKit.Place(m.arrow.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -26f), new Vector2(17f, 12f));
+
+                m.distance = UiKit.NewText("Distance", m.root, "", 16f, Color.white, TMPro.TextAlignmentOptions.Center);
+                m.distance.enableWordWrapping = false;
+                m.distance.text = "";
+                UiKit.Place(m.distance.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f), new Vector2(0f, -2f), new Vector2(100f, 20f));
+                m.distance.outlineWidth = 0.25f;
+                m.distance.outlineColor = new Color32(0, 0, 0, 230);
+                edgeMarks.Add(m);
+            }
+            EdgeMark mark = edgeMarks[edgeMarksUsed++];
+            if (!mark.root.gameObject.activeSelf) mark.root.gameObject.SetActive(true);
+            return mark;
         }
 
         private void DrawPings()
@@ -534,7 +871,7 @@ namespace HighCommand.UI
         }
 
         // diagnostics (hc_overlay)
-        internal static int LastBars, LastRings;
+        internal static int LastBars, LastRings, LastRouteVertices;
 
         // ---- rings -------------------------------------------------------------------------------
 
@@ -980,12 +1317,10 @@ namespace HighCommand.UI
                 if (markers[i].enabled) markers[i].enabled = false;
             for (int i = ghostsUsed; i < ghosts.Count; i++)
                 if (ghosts[i].enabled) ghosts[i].enabled = false;
-            for (int i = linesUsed; i < lines.Count; i++)
-                if (lines[i].enabled) lines[i].enabled = false;
-            for (int i = flowsUsed; i < flows.Count; i++)
-                if (flows[i].enabled) flows[i].enabled = false;
-            for (int i = arrowsUsed; i < arrows.Count; i++)
-                if (arrows[i].enabled) arrows[i].enabled = false;
+            for (int i = iconsUsed; i < icons.Count; i++)
+                if (icons[i].enabled) icons[i].enabled = false;
+            for (int i = edgeMarksUsed; i < edgeMarks.Count; i++)
+                if (edgeMarks[i].root.gameObject.activeSelf) edgeMarks[i].root.gameObject.SetActive(false);
             for (int i = pingsUsed; i < pings.Count; i++)
                 if (pings[i].enabled) pings[i].enabled = false;
             for (int i = tagsUsed; i < tags.Count; i++)

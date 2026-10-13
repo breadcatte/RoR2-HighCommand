@@ -173,7 +173,6 @@ namespace HighCommand.UI
         // ---- soft lines ---------------------------------------------------------------------------
 
         private static Sprite softLine;
-        private static Texture2D flowTexture;
 
         // alpha across a line: a solid core and edges that fade out, so a thin rotated line has no stair steps
         private static float LineProfile(float across01)
@@ -209,38 +208,51 @@ namespace HighCommand.UI
             }
         }
 
-        /// <summary>Texels of one dash + gap in <see cref="FlowTexture"/>.</summary>
-        internal const int FlowPeriod = 32;
+        private static Texture2D chevronTexture;
 
-        /// <summary>A repeating row of soft dashes (for a RawImage whose uvRect scrolls: a line that flows towards its end).</summary>
-        internal static Texture2D FlowTexture
+        /// <summary>
+        /// A chevron pointing to +x (the way a route runs) with a dark rim baked in: multiplied by a colour it stays
+        /// readable on bright ground and on dark ground alike.
+        /// </summary>
+        internal static Texture2D ChevronTexture
         {
             get
             {
-                if (flowTexture) return flowTexture;
-                const int w = FlowPeriod, h = 16;
-                var tex = new Texture2D(w, h, TextureFormat.RGBA32, false)
+                if (chevronTexture) return chevronTexture;
+                const int size = 32;
+                var tex = new Texture2D(size, size, TextureFormat.RGBA32, true)
                 {
                     hideFlags = HideFlags.HideAndDontSave,
-                    wrapMode = TextureWrapMode.Repeat,
-                    filterMode = FilterMode.Bilinear
+                    wrapMode = TextureWrapMode.Clamp,
+                    filterMode = FilterMode.Trilinear
                 };
-                var pixels = new Color32[w * h];
-                for (int x = 0; x < w; x++)
-                {
-                    // a dash 20 texels long with rounded ends, then a gap
-                    float along = Mathf.Clamp01(Mathf.Min(x + 0.5f - 1f, 21f - (x + 0.5f)) / 3.5f);
-                    for (int y = 0; y < h; y++)
+                var a = new Vector2(0.3f, 0.86f);
+                var tip = new Vector2(0.7f, 0.5f);
+                var b = new Vector2(0.3f, 0.14f);
+                const float stroke = 0.1f, rim = 0.075f;
+                var pixels = new Color32[size * size];
+                for (int py = 0; py < size; py++)
+                    for (int px = 0; px < size; px++)
                     {
-                        float a = along * LineProfile((y + 0.5f) / h);
-                        pixels[y * w + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(Mathf.Clamp01(a) * 255f));
+                        var p = new Vector2((px + 0.5f) / size, (py + 0.5f) / size);
+                        float d = Mathf.Min(SegmentDistance(p, a, tip), SegmentDistance(p, tip, b));
+                        float alpha = Mathf.Clamp01((stroke + rim - d) * size);
+                        float lum = Mathf.Lerp(1f, 0.05f, Mathf.Clamp01((d - stroke) * size + 0.5f));
+                        byte l = (byte)Mathf.RoundToInt(lum * 255f);
+                        pixels[py * size + px] = new Color32(l, l, l, (byte)Mathf.RoundToInt(alpha * 255f));
                     }
-                }
                 tex.SetPixels32(pixels);
-                tex.Apply(false, true);
-                flowTexture = tex;
-                return flowTexture;
+                tex.Apply(true, true);
+                chevronTexture = tex;
+                return tex;
             }
+        }
+
+        private static float SegmentDistance(Vector2 p, Vector2 a, Vector2 b)
+        {
+            Vector2 ab = b - a;
+            float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude);
+            return (p - (a + ab * t)).magnitude;
         }
 
         // ---- dots and glyphs --------------------------------------------------------------------

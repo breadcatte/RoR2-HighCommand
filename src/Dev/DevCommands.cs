@@ -990,6 +990,8 @@ namespace HighCommand.Dev
         {
             var cam = Client.RtsCamera.Instance;
             var sb = new StringBuilder();
+            sb.AppendLine($"HighCommand overlay: routes={UI.RouteCache.LastCount} searched={UI.RouteCache.LastComputed} " +
+                          $"found={UI.RouteCache.LastFound} searchMs={UI.RouteCache.LastMs:0.00} routeVerts={UI.WorldOverlay.LastRouteVertices}");
             sb.AppendLine($"HighCommand overlay: bars={UI.WorldOverlay.LastBars} rings={UI.WorldOverlay.LastRings} " +
                           $"camera={(cam ? "yes" : "no")} sceneCam={(cam && cam.SceneCam ? cam.SceneCam.name : "none")} " +
                           $"focus={(cam ? cam.Focus : Vector3.zero):0.0} dist={(cam ? cam.Distance : 0f):0.0}");

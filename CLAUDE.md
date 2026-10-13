@@ -57,6 +57,10 @@ BepInEx-плагин `kantemiir.HighCommand`: отдельный RTS-режим 
   опускание вида при приближении (`ZoomTilt`, `ViewPitch`), Home — сброс вида, двойной Пробел — слежение,
   силуэт героя за большой землёй (`IsBehindGround` → `WorldOverlay.DrawGhosts`).
 * Картинка миникарты строится в `MapInfo.BuildTexture` (покрытие + рельеф), рамка камеры и точки — в `UI\Minimap.cs`.
+* Линии приказов (2026-10-13): путь по графу (`PathCost.Route`, кэш `UI\RouteCache`, бюджет ~1 мс/кадр), рисуются одной
+  сеткой `UI\RouteMesh` (полосы + шевроны), у длинного пути видны начало и конец, середина гаснет; цель за экраном —
+  метка у края (`DrawEdgeTargets`, поля под панели `EdgeLeft/Top/...`). Проверка — `qa-run.ps1 route`.
+  Бэкап до переделки — тег `backup/pre-order-lines`.
 
 ## Структура `src\`
 * `Plugin.cs` — вход: ContentPack, Harmony-патчи по одному (`TryPatch`), Risk of Options, AutoExec.
