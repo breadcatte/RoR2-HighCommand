@@ -60,6 +60,8 @@ namespace HighCommand
         internal static ConfigEntry<bool> AutoRevive;
         internal static ConfigEntry<float> AutoReviveDelay;
         internal static ConfigEntry<float> ThreatPerExtraHero;
+        internal static ConfigEntry<bool> EnemiesHunt;
+        internal static ConfigEntry<float> EnemyHuntRange;
 
         // ---- loot ----
         internal static ConfigEntry<bool> ItemDropsEnabled;
@@ -183,6 +185,9 @@ namespace HighCommand
             AutoReviveDelay = F("Run", "AutoReviveDelay", 4f, 0f, 30f, "Seconds between the fall of the last hero and the automatic revival.");
             ThreatPerExtraHero = F("Run", "ThreatPerExtraHero", 0.65f, 0f, 2f,
                 "How much each hero beyond the first counts as an extra player for the game's difficulty scaling (monster credits, boss count, loot). 1 = like a real co-op player.");
+            EnemiesHunt = cfg.Bind("Run", "EnemiesHunt", true,
+                "Monsters with no target go for the nearest hero, seen or not, so they come at the army from all sides like at a player in a normal run. Off: the stock rule, a monster attacks only what it has seen.");
+            EnemyHuntRange = F("Run", "EnemyHuntRange", 250f, 30f, 2000f, "With EnemiesHunt: monsters farther than this from every hero (meters) stay where they are until they see one.");
 
             ItemDropsEnabled = cfg.Bind("Loot", "ItemDropsEnabled", false, "Enemies also drop items straight into the army's pool (the old way of the mode; normally items come from chests).");
             ItemGoldFactor = F("Loot", "ItemGoldFactor", 2.5f, 0.2f, 30f, "With ItemDropsEnabled: an item is worth this many chests' worth of gold: bigger = fewer drops.");

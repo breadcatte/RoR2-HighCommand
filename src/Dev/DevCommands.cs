@@ -411,13 +411,14 @@ namespace HighCommand.Dev
             Debug.Log("HighCommand: ability " + index + " -> " + (result == null ? "ok" : result));
         }
 
-        [ConCommand(commandName = "hc_spawn", flags = HostOnly, helpText = "hc_spawn <count> [MasterName]: spawns hostile AI around the army (testing / load tests).")]
+        [ConCommand(commandName = "hc_spawn", flags = HostOnly, helpText = "hc_spawn <count> [MasterName] [distance]: spawns hostile AI around the army, 18-40 m away or about <distance> m (testing / load tests).")]
         private static void CcSpawn(ConCommandArgs args)
         {
             if (!UnityEngine.Networking.NetworkServer.active || !Run.instance)
                 throw new ConCommandException("Only the host can do this, and a run must be in progress.");
             int count = args.Count > 0 ? Mathf.Clamp(args.GetArgInt(0), 1, 200) : 10;
             string name = args.Count > 1 ? args.GetArgString(1) : "LemurianMaster";
+            float far = args.Count > 2 ? Mathf.Clamp(args.GetArgFloat(2), 5f, 500f) : 0f;
             GameObject prefab = MasterCatalog.FindMasterPrefab(name);
             if (!prefab) throw new ConCommandException("Unknown master: " + name);
 
@@ -425,7 +426,7 @@ namespace HighCommand.Dev
             int made = 0;
             for (int i = 0; i < count; i++)
             {
-                Vector2 ring = Random.insideUnitCircle.normalized * Random.Range(18f, 40f);
+                Vector2 ring = Random.insideUnitCircle.normalized * (far > 0f ? Random.Range(far * 0.85f, far) : Random.Range(18f, 40f));
                 Vector3 at = Orders.Formation.SnapToGround(center + new Vector3(ring.x, 0f, ring.y));
                 var summon = new MasterSummon
                 {
@@ -477,6 +478,8 @@ namespace HighCommand.Dev
                 case "verbose": Settings.VerboseLog.Value = bool.Parse(value); break;
                 case "autobarrels": Settings.AutoOpenBarrels.Value = bool.Parse(value); break;
                 case "autochests": Settings.AutoOpenChests.Value = bool.Parse(value); break;
+                case "hunt": Settings.EnemiesHunt.Value = bool.Parse(value); break;
+                case "huntrange": Settings.EnemyHuntRange.Value = float.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
                 case "uiscale": Settings.UiScale.Value = float.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
                 case "allowhidden": Settings.AllowHiddenSurvivors.Value = bool.Parse(value); break;
                 default: throw new ConCommandException("Unknown setting.");
@@ -1083,7 +1086,10 @@ namespace HighCommand.Dev
             Debug.Log(sb.ToString());
         }
 
-        [ConCommand(commandName = "hc_kill_enemies", flags = HostOnly, helpText = "Host: kills every enemy on the map (monster and lunar teams).")]
+        [ConCommand(commandName = "hc_hunt", flags = HostOnly, helpText = "Prints how many enemies have a target, how many stand idle and how far the idle ones are from the army.")]
+        private static void CcHunt(ConCommandArgs args) => Debug.Log("HighCommand hunt: " + Mode.EnemyHunt.Describe());
+
+        [ConCommand(commandName = "hc_kill_enemies",flags = HostOnly, helpText = "Host: kills every enemy on the map (monster and lunar teams).")]
         private static void CcKillEnemies(ConCommandArgs args)
         {
             if (!UnityEngine.Networking.NetworkServer.active) throw new ConCommandException("Only the host can do this.");

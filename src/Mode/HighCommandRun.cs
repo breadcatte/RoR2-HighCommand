@@ -76,6 +76,7 @@ namespace HighCommand.Mode
                 ArmyUpgrades.Reset();
                 Net.CommandChannel.RegisterServer();
                 if (!GetComponent<RunFlow>()) gameObject.AddComponent<RunFlow>();
+                if (!GetComponent<EnemyHunt>()) gameObject.AddComponent<EnemyHunt>();
             }
             if (NetworkClient.active)
             {

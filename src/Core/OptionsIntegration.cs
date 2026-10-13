@@ -65,6 +65,8 @@ namespace HighCommand
                 Slider(Settings.DefeatGraceRevive, 0f, 600f, "{0:0}");
                 Check(Settings.AutoRevive);
                 Slider(Settings.AutoReviveDelay, 0f, 30f, "{0:0}");
+                Check(Settings.EnemiesHunt);
+                Slider(Settings.EnemyHuntRange, 30f, 1000f, "{0:0}");
 
                 // loot
                 Check(Settings.ItemDropsEnabled);

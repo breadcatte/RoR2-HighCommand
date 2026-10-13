@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+Monsters hunt the army
+* A stock monster attacks only what it has seen. In a normal run the director spawns everything next to the one player,
+  so they all see you and come from all sides; the army is spread out, so many monsters just stood still. Now a monster
+  with no target goes for the nearest hero (seen or not) within `Run/EnemyHuntRange` (250 m) and walks to it with its
+  own path finding. `Run/EnemiesHunt` (on) switches it off (also in Mod Options).
+* Dev: `hc_hunt` (enemies with a target / idle / distances), `hc_spawn <n> [master] [distance]`, `hc_cfg hunt|huntrange`;
+  scenario `tools\qa\hunt.txt` (control with the hunt off, then on).
+
 ## 0.11.0 - loot from the map, a real strategy camera, first public release
 
 Public release
