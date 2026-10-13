@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.12.0 - monsters hunt the army, seek orders, no friendly fire, a new look
+
+* README / description: a Discord contact for feedback.
 
 Monsters hunt the army
 * A stock monster attacks only what it has seen. In a normal run the director spawns everything next to the one player,
