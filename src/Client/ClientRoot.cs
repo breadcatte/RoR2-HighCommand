@@ -118,8 +118,8 @@ namespace HighCommand.Client
                 Loc.Get("HIGHCOMMAND_HELP_PAN"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_EDGE"), Loc.Get("HIGHCOMMAND_HELP_EDGE"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_WHEEL"), Loc.Get("HIGHCOMMAND_HELP_ZOOM"));
-            HelpOverlay.Add($"{Loc.Get("HIGHCOMMAND_KEY_MMB_SIDE")} / {Settings.KeyRotateLeft.Value} {Settings.KeyRotateRight.Value}", Loc.Get("HIGHCOMMAND_HELP_ROTATE"));
-            HelpOverlay.Add($"{Loc.Get("HIGHCOMMAND_KEY_MMB_VERT")} / {Settings.KeyTiltUp.Value} {Settings.KeyTiltDown.Value}", Loc.Get("HIGHCOMMAND_HELP_TILT"));
+            HelpOverlay.Add($"{Loc.Get("HIGHCOMMAND_KEY_MMB_SIDE")} / {KeyName(Settings.KeyRotateLeft.Value)} {KeyName(Settings.KeyRotateRight.Value)}", Loc.Get("HIGHCOMMAND_HELP_ROTATE"));
+            HelpOverlay.Add($"{Loc.Get("HIGHCOMMAND_KEY_MMB_VERT")} / {KeyName(Settings.KeyTiltUp.Value)} {KeyName(Settings.KeyTiltDown.Value)}", Loc.Get("HIGHCOMMAND_HELP_TILT"));
             HelpOverlay.Add(Settings.KeyFocusSelected.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FOCUS"));
             HelpOverlay.Add(Settings.KeyLastAlert.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_ALERT"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_MINIMAP"), Loc.Get("HIGHCOMMAND_HELP_MINIMAP"));
@@ -132,6 +132,7 @@ namespace HighCommand.Client
             HelpOverlay.Add(Settings.KeyCycleSelection.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_CYCLE"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_RMB"), Loc.Get("HIGHCOMMAND_HELP_RMB"));
             HelpOverlay.Add("Shift + " + Loc.Get("HIGHCOMMAND_KEY_RMB"), Loc.Get("HIGHCOMMAND_HELP_QUEUE"));
+            HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_RMB_OBJECT"), Loc.Get("HIGHCOMMAND_HELP_LOOT"));
             HelpOverlay.Add(Settings.KeyAttackMove.Value + " + " + Loc.Get("HIGHCOMMAND_KEY_LMB"), Loc.Get("HIGHCOMMAND_HELP_ATTACKMOVE"));
             HelpOverlay.Add(Settings.KeyFocusFire.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FOCUSFIRE"));
             HelpOverlay.Add(Settings.KeyStop.Value + " / " + Settings.KeyHold.Value, Loc.Get("HIGHCOMMAND_HELP_STOPHOLD"));
@@ -148,6 +149,21 @@ namespace HighCommand.Client
                 Loc.Get("HIGHCOMMAND_HELP_ABILITIES"));
             HelpOverlay.Add(Settings.KeyHelp.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_HELP"));
             HelpOverlay.Add("Esc", Loc.Get("HIGHCOMMAND_HELP_PAUSE"));
+        }
+
+        // short names for the help sheet: "[" instead of "LeftBracket", "PgUp" instead of "PageUp"
+        private static string KeyName(KeyCode key)
+        {
+            switch (key)
+            {
+                case KeyCode.LeftBracket: return "[";
+                case KeyCode.RightBracket: return "]";
+                case KeyCode.PageUp: return "PgUp";
+                case KeyCode.PageDown: return "PgDn";
+                default:
+                    string s = key.ToString();
+                    return s.StartsWith("Alpha") ? s.Substring(5) : s;
+            }
         }
 
         /// <summary>True when the Esc / pause key is intercepted by a Harmony patch (so Esc closes our panels first).</summary>

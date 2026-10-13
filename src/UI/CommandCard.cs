@@ -144,7 +144,12 @@ namespace HighCommand.UI
                 b.SetPosition(Pad + i * (BtnW + Gap), Head);
                 b.Accent = colors[i];
                 b.Icon.enabled = false;
-                b.SetGlyph(glyphs[Mathf.Min(i, glyphs.Length - 1)], 24f);
+                b.SetGlyph(glyphs[Mathf.Min(i, glyphs.Length - 1)], 18f);
+                // a smaller picture leaves two full lines for names like "Orbital strike" / "Удар с орбиты"
+                UiKit.Stretch(b.Label.rectTransform, 1, 2, 1, 24);
+                b.Label.fontSizeMin = 10f;
+                b.Label.fontSizeMax = 13f;
+                b.Label.lineSpacing = -12f;
                 b.Label.text = Loc.Get(CommanderAbilities.NameToken(i));
                 b.SetHint(Key(Settings.KeyAbility[i]));
                 abilityButtons.Add(new AbilityButton { button = b, index = i });

@@ -29,6 +29,9 @@ Audit of the interface rework (fixes)
   ground right behind the focus no longer pulls the camera down onto it. Stacked surfaces of one mesh (a ramp over a
   passage) are found now.
 * The top strip's tooltip text is no longer rebuilt every frame.
+* Help sheet (F1): both columns fit inside the panel (the right one ran past its edge), short key names ("СКМ вбок / [ ]",
+  "PgUp PgDn"), a line for the right click on a chest; the sheet shrinks on a big interface scale.
+* Commander ability buttons: a smaller picture, the names ("Удар с орбиты", "Боевой клич") read on two lines.
 
 Dev
 * `hc_find <kind:Chest|name>`, `hc_click_found [button] [shift] [hover]`, `hc_move_found <hero>`, `hc_loot`,

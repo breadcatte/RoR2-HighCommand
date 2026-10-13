@@ -21,8 +21,10 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_HELP_ZOOM", "Zoom in / out", "Приблизить / отдалить");
             Loc.Add("HIGHCOMMAND_HELP_ROTATE", "Rotate the camera", "Повернуть камеру");
             Loc.Add("HIGHCOMMAND_HELP_TILT", "Tilt the camera (flatter / from above)", "Наклонить камеру (ниже / сверху)");
-            Loc.Add("HIGHCOMMAND_KEY_MMB_SIDE", "Middle mouse, sideways", "Средняя кнопка, вбок");
-            Loc.Add("HIGHCOMMAND_KEY_MMB_VERT", "Middle mouse, up / down", "Средняя кнопка, вверх-вниз");
+            Loc.Add("HIGHCOMMAND_KEY_MMB_SIDE", "MMB sideways", "СКМ вбок");
+            Loc.Add("HIGHCOMMAND_KEY_MMB_VERT", "MMB up / down", "СКМ вверх-вниз");
+            Loc.Add("HIGHCOMMAND_KEY_RMB_OBJECT", "Right click a chest", "ПКМ по сундуку");
+            Loc.Add("HIGHCOMMAND_HELP_LOOT", "The nearest hero goes to open it (Shift: a route)", "Ближайший герой идёт открыть (Shift — маршрут)");
             Loc.Add("HIGHCOMMAND_HELP_FOCUS", "Fly to the army", "Перелёт к армии");
             Loc.Add("HIGHCOMMAND_HELP_MINIMAP", "Fly the camera there", "Перелёт камеры в эту точку");
             Loc.Add("HIGHCOMMAND_HELP_HELP", "This sheet", "Эта шпаргалка");
@@ -47,7 +49,7 @@ namespace HighCommand
             Loc.Add("HIGHCOMMAND_HELP_FOCUSFIRE", "Focus fire on the enemy under the cursor", "Фокус на враге под курсором");
             Loc.Add("HIGHCOMMAND_HELP_STOPHOLD", "Stop / hold position", "Стоп / держать позицию");
             Loc.Add("HIGHCOMMAND_HELP_RETREAT", "Retreat / patrol / rally point", "Отступить / патруль / точка сбора");
-            Loc.Add("HIGHCOMMAND_HELP_CAST", "Use secondary / utility / special / equipment", "Применить: вторичный / рывок / особый / экипировку");
+            Loc.Add("HIGHCOMMAND_HELP_CAST", "Use secondary / utility / special / equipment", "Умения: второе / рывок / особое / снаряжение");
             Loc.Add("HIGHCOMMAND_HELP_AUTO", "Switch a skill's auto-use", "Вкл/выкл автоприменение умения");
             Loc.Add("HIGHCOMMAND_HELP_STANCE", "Stance: aggressive / defensive / passive", "Стойка: агрессивная / защитная / пассивная");
             Loc.Add("HIGHCOMMAND_HELP_FORMATION", "Formation: blob / line / column", "Построение: кучка / линия / колонна");

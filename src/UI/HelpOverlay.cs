@@ -14,10 +14,11 @@ namespace HighCommand.UI
 
         internal static void Clear() => Lines.Clear();
 
-        private const float PanelW = 1580f;
-        private const float ColumnW = 770f;
-        private const float KeysW = 280f;
-        private const float WhatW = 480f;
+        // two columns of keys + text, both inside the panel: 28 + 840 + 24 + 840 + 28 = 1760
+        private const float PanelW = 1760f;
+        private const float ColumnW = 840f;
+        private const float KeysW = 290f;
+        private const float WhatW = 540f;
         private const float RowH = 30f;
         private const float HeaderH = 92f;
         private const float FooterH = 34f;
@@ -89,13 +90,20 @@ namespace HighCommand.UI
             float height = HeaderH + perColumn * RowH + FooterH;
             UiKit.Place(root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(PanelW, height));
             UiKit.Place(rowsHost, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -HeaderH), new Vector2(PanelW, perColumn * RowH));
+
+            // a big interface scale or a narrow screen: the whole sheet shrinks to fit instead of running off the sides
+            var parent = root.parent as RectTransform;
+            float room = parent ? parent.rect.width - 40f : PanelW;
+            float roomH = parent ? parent.rect.height - 40f : height;
+            float fit = Mathf.Min(1f, room / PanelW, roomH / height);
+            root.localScale = new Vector3(fit, fit, 1f);
         }
 
         private static void Fit(TextMeshProUGUI text)
         {
             text.enableWordWrapping = false;
             text.enableAutoSizing = true;
-            text.fontSizeMin = 12f;
+            text.fontSizeMin = 14f;
             text.fontSizeMax = 20f;
             text.overflowMode = TextOverflowModes.Ellipsis;
         }
