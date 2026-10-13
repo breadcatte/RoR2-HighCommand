@@ -65,9 +65,8 @@ namespace HighCommand.UI
             tagLayer = UiKit.NewRect("PriceTags", layer);
             UiKit.Stretch(tagLayer);
 
-            // the order routes lie under the rings and the bars: the soft lines, then the chevrons on them
+            // the order routes lie under the rings and the bars
             routeLines = RouteMesh.Create("RouteLines", layer, UiKit.SoftLine.texture);
-            routeChevrons = RouteMesh.Create("RouteChevrons", layer, UiKit.ChevronTexture);
 
             // The selection box: a faint mint tint, a hairline border and brighter corner brackets. The children are
             // anchored to the box, so they follow its size without being touched again.
@@ -115,14 +114,11 @@ namespace HighCommand.UI
             arcsUsed = 0;
             markersUsed = 0;
             ghostsUsed = 0;
-            iconsUsed = 0;
             edgeMarksUsed = 0;
-            chevronsUsed = 0;
-            chevronSpots.Clear();
+            arrowheadsUsed = 0;
             pingsUsed = 0;
             tagsUsed = 0;
             routeLines.Begin();
-            routeChevrons.Begin();
 
             if (camera && camera.SceneCam)
             {
@@ -137,8 +133,7 @@ namespace HighCommand.UI
                 DrawPopups();
             }
             routeLines.End();
-            routeChevrons.End();
-            LastRouteVertices = routeLines.Vertices + routeChevrons.Vertices;
+            LastRouteVertices = routeLines.Vertices;
 
             LastBars = barsUsed;
             LastRings = ringsUsed;
@@ -253,66 +248,94 @@ namespace HighCommand.UI
 
         // ---- order routes ----------------------------------------------------------------------
         //
-        // An order is drawn along the way the hero will really walk (the stage's ground graph), not as a straight line
-        // through hills. A long way is not drawn whole: its first stretch out of the hero and its last stretch into the
-        // target are shown, the middle fades out. A dark line under a coloured one, chevrons running towards the target,
-        // a ring and the order's picture at the end; a target off the screen gets an arrow at the screen edge with the
-        // distance.
+        // An order is drawn along the way the heroes will really walk (the stage's ground graph), not as a straight line
+        // through hills. Heroes standing together with one order share one line, from their middle to a ring on the
+        // ground as wide as their formation. The line is a smooth ribbon with soft light pulses running to the target;
+        // everything is placed in the world (pulses are measured from the target), so moving the camera moves nothing on
+        // the line. A long way shows its first and last stretch only, the middle fades out. A target off the screen gets
+        // a mark at the screen edge.
 
         private enum RouteStyle { Preview, Current, Queued }
 
+        // heroes drawn as one: close to each other, the same order to (nearly) the same place
+        private sealed class RouteGroup
+        {
+            internal readonly List<Hero> Members = new List<Hero>(8);
+            internal Orders.OrderKind Kind;
+            internal Vector3 FeetSum, PointSum, Feet0, Point0;
+            internal Vector3 Feet => FeetSum / Members.Count;
+            internal Vector3 Point => PointSum / Members.Count;
+        }
+
+        private readonly List<RouteGroup> groups = new List<RouteGroup>(8);
+        private int groupsUsed;
+
+        private const float GroupStand = 25f;     // heroes this close (m) count as standing together
+        private const float GroupTarget = 14f;    // and sent this close to each other
+
         private readonly RouteCache routes = new RouteCache();
         private readonly RouteMesh routeLines;
-        private readonly RouteMesh routeChevrons;
 
-        // one route being drawn: world points with their distance from the start and their visibility
+        // one route being drawn: world points with their distance from the start
         private readonly List<Vector3> routeWorld = new List<Vector3>(96);
         private readonly List<float> routeAt = new List<float>(96);
-        private readonly List<Vector2> runScreen = new List<Vector2>(96);
-        private readonly List<float> runAlpha = new List<float>(96);
+        private readonly List<Vector2> runScreen = new List<Vector2>(192);
+        private readonly List<Color32> runColor = new List<Color32>(192);
+        private readonly List<Color32> runShade = new List<Color32>(192);
+        private readonly List<float> runWidth = new List<float>(192);
         private float fadeHead, fadeHeadEnd, fadeTailStart, fadeTail, routeLength;
         private float camDistance = 40f;
         private Camera sceneCam;
-        private int chevronsUsed;
 
         private const float RouteLift = 0.3f;     // above the ground nodes, so the line is not cut by the ground
-        private const int ChevronLimit = 500;
 
         private void DrawOrders(Selection selection, OrderController.CursorInfo cursor)
         {
-            var sel = selection.Heroes;
+            BuildGroups(selection.Heroes);
             int previews = 0;
-            for (int i = 0; i < sel.Count; i++)
+            for (int g = 0; g < groupsUsed; g++)
             {
-                Hero hero = sel[i];
-                CharacterBody body = hero.Body;
-                if (!body) continue;
+                RouteGroup group = groups[g];
+                Hero lead = group.Members[0];
+                Vector3 feet = group.Feet;
+                Vector3 last = feet;
 
-                // the replicated order of the hero: the same on the host and on every client
-                Vector3 from = body.footPosition;
-                float length = DrawOrderLeg(hero, 0, from, (Orders.OrderKind)hero.NetOrderKind, hero.NetOrderPoint, out Vector3 last, RouteStyle.Current);
-                if (length > 0f) AddEdgeTarget(last, (Orders.OrderKind)hero.NetOrderKind, length);
-
-                // the rest of the queue (Shift orders), dimmer, leg after leg. The queue lives in the server's brain:
-                // the mode is single-player, so the host reads it directly.
-                Orders.HeroBrain brain = hero.Brain;
-                if (brain != null)
+                if (OrderLook(group.Kind, out Color color, out Glyph _) && group.Point0 != Vector3.zero)
                 {
-                    IReadOnlyList<Orders.Order> queue = brain.Queue;
-                    for (int q = 0; q < queue.Count && q < 8; q++)
+                    Vector3 end = group.Point;
+                    float radius = TargetRadius(group, end);
+                    float length = DrawRoute(lead, 0, feet, end, color, RouteStyle.Current, radius);
+                    DrawGroundRing(end, radius, color, RouteStyle.Current);
+                    if (length > 0f) AddEdgeTarget(end, group.Kind, length);
+                    last = end;
+
+                    // the rest of the queue (Shift orders), dimmer, leg after leg. The queue lives in the server's
+                    // brain: the mode is single-player, so the host reads it directly.
+                    Orders.HeroBrain brain = lead.Brain;
+                    if (brain != null)
                     {
-                        Orders.Order o = queue[q];
-                        if (o == null) continue;
-                        DrawOrderLeg(hero, q + 1, last, o.Kind, o.Destination(), out last, RouteStyle.Queued);
+                        IReadOnlyList<Orders.Order> queue = brain.Queue;
+                        for (int q = 0; q < queue.Count && q < 8; q++)
+                        {
+                            Orders.Order o = queue[q];
+                            if (o == null || !OrderLook(o.Kind, out Color qc, out Glyph _)) continue;
+                            Vector3 next = o.Destination();
+                            if (next == Vector3.zero) continue;
+                            float r = IsPlace(o.Kind) ? radius : 1.2f;
+                            DrawRoute(lead, q + 1, last, next, qc, RouteStyle.Queued, r);
+                            DrawGroundRing(next, r, qc, RouteStyle.Queued);
+                            last = next;
+                        }
                     }
                 }
 
-                // where a click would send this hero: from its feet, or from the end of its queue with Shift held
+                // where a click would send them: from their middle, or from the end of the queue with Shift held
                 if (cursor.Preview && cursor.HasPoint && cursor.Runner == null && previews < PreviewLimit)
                 {
                     previews++;
-                    DrawRoute(hero, RouteCache.Preview, cursor.Queued ? last : from, cursor.Point, cursor.Color, RouteStyle.Preview);
-                    DrawPreviewEnd(cursor.Point, cursor.Color);
+                    float r = Mathf.Clamp(0.7f + 0.4f * Mathf.Sqrt(group.Members.Count), 1.2f, 3f);
+                    DrawRoute(lead, RouteCache.Preview, cursor.Queued ? last : feet, cursor.Point, cursor.Color, RouteStyle.Preview, r);
+                    DrawGroundRing(cursor.Point, r, cursor.Color, RouteStyle.Preview);
                 }
             }
 
@@ -323,16 +346,68 @@ namespace HighCommand.UI
                 Vector3 start = runner.Body.footPosition;
                 Orders.HeroBrain brain = runner.Brain;
                 if (cursor.Queued && brain != null) start = brain.ErrandsEnd(start);
-                DrawRoute(runner, RouteCache.Preview, start, cursor.Point, cursor.Color, RouteStyle.Preview);
-                DrawPreviewEnd(cursor.Point, cursor.Color);
+                DrawRoute(runner, RouteCache.Preview, start, cursor.Point, cursor.Color, RouteStyle.Preview, 1.2f);
+                DrawGroundRing(cursor.Point, 1.2f, cursor.Color, RouteStyle.Preview);
             }
 
             DrawEdgeTargets();
         }
 
+        private void BuildGroups(IReadOnlyList<Hero> sel)
+        {
+            for (int g = 0; g < groupsUsed; g++) groups[g].Members.Clear();
+            groupsUsed = 0;
+            for (int i = 0; i < sel.Count; i++)
+            {
+                Hero hero = sel[i];
+                CharacterBody body = hero != null ? hero.Body : null;
+                if (!body) continue;
+                var kind = (Orders.OrderKind)hero.NetOrderKind;
+                Vector3 feet = body.footPosition;
+                Vector3 point = hero.NetOrderPoint;
+                bool place = OrderLook(kind, out Color _, out Glyph _);
+
+                RouteGroup group = null;
+                for (int g = 0; g < groupsUsed && group == null; g++)
+                {
+                    RouteGroup o = groups[g];
+                    if (o.Kind != kind || (o.Feet0 - feet).sqrMagnitude > GroupStand * GroupStand) continue;
+                    if (place && (o.Point0 - point).sqrMagnitude > GroupTarget * GroupTarget) continue;
+                    group = o;
+                }
+                if (group == null)
+                {
+                    if (groupsUsed >= groups.Count) groups.Add(new RouteGroup());
+                    group = groups[groupsUsed++];
+                    group.Kind = kind;
+                    group.Feet0 = feet;
+                    group.Point0 = point;
+                    group.FeetSum = Vector3.zero;
+                    group.PointSum = Vector3.zero;
+                }
+                group.Members.Add(hero);
+                group.FeetSum += feet;
+                group.PointSum += point;
+            }
+        }
+
+        // a place on the ground (the formation spreads round it) or a thing (an enemy, a friend, a chest)
+        private static bool IsPlace(Orders.OrderKind kind) =>
+            kind == Orders.OrderKind.Move || kind == Orders.OrderKind.AttackMove || kind == Orders.OrderKind.Retreat || kind == Orders.OrderKind.Patrol;
+
+        // the ring round a target: as wide as the formation the group will stand in
+        private static float TargetRadius(RouteGroup group, Vector3 end)
+        {
+            if (!IsPlace(group.Kind)) return 1.2f;
+            float spread = 0f;
+            for (int i = 0; i < group.Members.Count; i++)
+                spread = Mathf.Max(spread, Vector3.Distance(group.Members[i].NetOrderPoint, end));
+            return Mathf.Clamp(spread * 0.6f + 0.9f, 1.2f, 3.5f);
+        }
+
         private static bool OrderLook(Orders.OrderKind kind, out Color color, out Glyph glyph)
         {
-            color = new Color(0.4f, 1f, 0.5f, 1f);
+            color = new Color(0.45f, 1f, 0.55f, 1f);
             glyph = Glyph.Move;
             switch (kind)
             {
@@ -347,112 +422,91 @@ namespace HighCommand.UI
             return false;
         }
 
-        /// <summary>One leg of a hero's orders; the length of its way in meters (0 when nothing was drawn).</summary>
-        private float DrawOrderLeg(Hero hero, int leg, Vector3 from, Orders.OrderKind kind, Vector3 point, out Vector3 end, RouteStyle style)
-        {
-            end = from;
-            if (kind == Orders.OrderKind.None || !OrderLook(kind, out Color color, out Glyph glyph)) return 0f;
-            if (point == Vector3.zero) return 0f;
-            end = point;
+        // the zoom in steps of two: the spacing of the line's points and pulses changes only when the zoom does
+        private float ZoomStep() => Mathf.Pow(2f, Mathf.Max(0f, Mathf.Round(Mathf.Log(Mathf.Max(1f, camDistance / 45f), 2f))));
 
-            float length = DrawRoute(hero, leg, from, point, color, style);
-
-            // a ring on the ground and the order's picture over it
-            if (!WorldPicker.Project(point + Vector3.up * RouteLift, 0.1f, out Vector2 b, out float _)) return length;
-            Image marker = AcquireRing();
-            Color ring = color;
-            ring.a = style == RouteStyle.Queued ? 0.5f : 0.85f;
-            marker.color = ring;
-            marker.rectTransform.sizeDelta = new Vector2(20f, 12f);
-            marker.rectTransform.position = new Vector3(b.x, b.y, 0f);
-            float scale = Mathf.Max(0.0001f, layer.lossyScale.x);
-            DrawIcon(new Vector2(b.x, b.y + 15f * scale), glyph, color, style == RouteStyle.Queued ? 0.6f : 1f, 18f);
-            return length;
-        }
-
-        // the ring under the pointer while an order is being aimed, breathing a little
-        private void DrawPreviewEnd(Vector3 point, Color color)
-        {
-            if (!WorldPicker.Project(point + Vector3.up * RouteLift, 0.1f, out Vector2 b, out float _)) return;
-            Image marker = AcquireRing();
-            Color m = color;
-            m.a = 0.85f;
-            marker.color = m;
-            float pulse = 1f + 0.12f * Mathf.Sin(Time.unscaledTime * 5f);
-            marker.rectTransform.sizeDelta = new Vector2(26f * pulse, 14f * pulse);
-            marker.rectTransform.position = new Vector3(b.x, b.y, 0f);
-        }
-
-        /// <summary>Draws the way from one point to another; returns its length in meters.</summary>
-        private float DrawRoute(Hero hero, int leg, Vector3 from, Vector3 to, Color color, RouteStyle style)
+        /// <summary>Draws the way from one point to a ring round another; returns its length in meters.</summary>
+        private float DrawRoute(Hero hero, int leg, Vector3 from, Vector3 to, Color color, RouteStyle style, float ringRadius)
         {
             RouteCache.Route route = routes.Get(hero, leg, from, to);
             BuildRouteWorld(route.Points, from, to);
-            if (routeLength < 0.5f) return routeLength;
+            Camera cam = sceneCam;
+            if (!cam || routeLength < 0.5f) return routeLength;
 
             // what is shown of a long way: its first stretch and its last one (longer when the camera is far out)
             float head = Mathf.Max(30f, camDistance * 0.45f);
-            float tail = Mathf.Max(8f, head * 0.3f);
+            float tail = Mathf.Max(10f, head * 0.35f);
             fadeHead = head;
-            fadeHeadEnd = head + head * 0.45f;
+            fadeHeadEnd = head * 1.45f;
             fadeTail = routeLength - tail;
             fadeTailStart = fadeTail - tail * 0.8f;
-            if (fadeTailStart <= fadeHeadEnd)
-            {
-                // short enough: drawn whole
-                fadeHead = fadeHeadEnd = fadeTailStart = fadeTail = routeLength + 1f;
-            }
-            InsertFadePoints();
+            if (fadeTailStart <= fadeHeadEnd) fadeHead = fadeHeadEnd = fadeTailStart = fadeTail = routeLength + 1f;
 
-            float lineAlpha, lineWidth, chevronAlpha, flow;
+            float alpha, width, pulse;
             switch (style)
             {
-                case RouteStyle.Preview: lineAlpha = 0.8f; lineWidth = 4f; chevronAlpha = 1f; flow = 1.6f; break;
-                case RouteStyle.Queued: lineAlpha = 0.45f; lineWidth = 3f; chevronAlpha = 0.6f; flow = 0f; break;
-                default: lineAlpha = 0.75f; lineWidth = 3.5f; chevronAlpha = 1f; flow = 0.7f; break;
+                case RouteStyle.Preview: alpha = 0.9f; width = 7f; pulse = 1f; break;
+                case RouteStyle.Queued: alpha = 0.5f; width = 4.5f; pulse = 0f; break;
+                default: alpha = 0.85f; width = 6.5f; pulse = 0.8f; break;
             }
-            // a way that could not be found stays straight and is drawn fainter
-            if (!route.Found) { lineAlpha *= 0.7f; chevronAlpha *= 0.7f; }
+            if (!route.Found) alpha *= 0.7f; // a way that could not be found stays straight and fainter
 
-            Color line = color;
-            line.a = lineAlpha;
-            Color shadow = new Color(0f, 0f, 0f, 0.6f * Mathf.Clamp01(lineAlpha * 1.4f));
+            float zoom = ZoomStep();
+            float step = 0.6f * zoom;                       // meters between the points of the ribbon
+            float period = 9f * zoom, comet = 3f * zoom;     // a pulse every 9 m, its glowing tail 3 m long
+            float shift = Time.unscaledTime * 7f * zoom;     // pulses run 7 m/s towards the target
+            float stopAt = ringRadius + 0.35f;              // the ribbon ends where the arrowhead sits, inside the ring
 
-            // the lines: runs of points that are on the screen side of the camera and not faded out
+            // the ribbon is sampled from the target backwards: the points stay where they are while the heroes walk on
             runScreen.Clear();
-            runAlpha.Clear();
-            Camera cam = sceneCam;
-            bool prevOk = false;
-            for (int i = 0; i < routeWorld.Count; i++)
+            runColor.Clear();
+            runShade.Clear();
+            runWidth.Clear();
+            int seg = routeWorld.Count - 1;
+            bool prevVisible = false;
+            for (float d = stopAt; ; d += step)
             {
-                float a = RouteAlpha(routeAt[i]);
-                Vector2 s = default;
-                if (!cam || !WorldPicker.ProjectPoint(cam, routeWorld[i] + Vector3.up * RouteLift, out s))
+                bool lastPoint = d >= routeLength;
+                if (lastPoint) d = routeLength;
+                float at = routeLength - d;
+                float a = RouteAlpha(at) * Mathf.Clamp01(at / 2.5f);   // it also grows out of the heroes softly
+                bool visible = a > 0.003f;
+                if (visible || prevVisible)
                 {
-                    FlushRun(line, shadow, lineWidth);
-                    prevOk = false;
-                    continue;
+                    while (seg > 1 && routeAt[seg - 1] > at) seg--;
+                    float a0 = routeAt[seg - 1], a1 = routeAt[seg];
+                    Vector3 p = Vector3.Lerp(routeWorld[seg - 1], routeWorld[seg], Mathf.Clamp01((at - a0) / Mathf.Max(0.0001f, a1 - a0)));
+                    if (WorldPicker.ProjectPoint(cam, p + Vector3.up * RouteLift, out Vector2 s))
+                    {
+                        float u = Mathf.Repeat(d + shift, period);
+                        float glow = pulse * Mathf.Clamp01(1f - u / comet);
+                        Color c = Color.Lerp(color, Color.white, 0.85f * glow);
+                        c.a = Mathf.Clamp01(alpha * a * (1f + 0.3f * glow));
+                        runScreen.Add(s);
+                        runColor.Add(c);
+                        runShade.Add(new Color(0f, 0f, 0f, 0.65f * Mathf.Clamp01(alpha * 1.3f) * a));
+                        runWidth.Add(1f + 0.6f * glow);   // a pulse also swells the ribbon a little
+                    }
+                    else FlushRun(width);
                 }
-                if (prevOk && a <= 0.001f && runAlpha.Count > 0 && runAlpha[runAlpha.Count - 1] <= 0.001f)
-                    FlushRun(line, shadow, lineWidth);
-                runScreen.Add(s);
-                runAlpha.Add(a);
-                prevOk = true;
+                if (!visible && prevVisible) FlushRun(width);
+                prevVisible = visible;
+                if (lastPoint) break;
             }
-            FlushRun(line, shadow, lineWidth);
+            FlushRun(width);
 
-            DrawChevrons(cam, color, chevronAlpha, flow);
+            DrawArrowhead(cam, stopAt, color, alpha * RouteAlpha(routeLength - stopAt));
             return routeLength;
         }
 
-        // the way as world points: the hero's feet, the cached points it has not passed yet, the target as it is now
+        // the way as world points: the heroes' middle, the cached points not passed yet, the target as it is now
         private void BuildRouteWorld(List<Vector3> points, Vector3 from, Vector3 to)
         {
             routeWorld.Clear();
             routeAt.Clear();
             routeWorld.Add(from);
             int n = points.Count;
-            // the hero walks on between two searches: start from the cached segment nearest to it
+            // the heroes walk on between two searches: start from the cached segment nearest to them
             int nearest = 0;
             float best = float.MaxValue;
             for (int i = 0; i < n - 1 && i < 10; i++)
@@ -481,30 +535,6 @@ namespace HighCommand.UI
             return (p - (a + ab * t)).sqrMagnitude;
         }
 
-        // the colour fades between points: put a point exactly where each fade begins and ends
-        private void InsertFadePoints()
-        {
-            if (fadeHead > routeLength) return;
-            InsertAt(fadeHead);
-            InsertAt(fadeHeadEnd);
-            InsertAt(fadeTailStart);
-            InsertAt(fadeTail);
-        }
-
-        private void InsertAt(float at)
-        {
-            for (int i = 1; i < routeAt.Count; i++)
-            {
-                float a = routeAt[i - 1], b = routeAt[i];
-                if (at <= a) return;
-                if (at >= b) continue;
-                float t = (at - a) / Mathf.Max(0.0001f, b - a);
-                routeWorld.Insert(i, Vector3.Lerp(routeWorld[i - 1], routeWorld[i], t));
-                routeAt.Insert(i, at);
-                return;
-            }
-        }
-
         private float RouteAlpha(float at)
         {
             float head = 1f - Mathf.Clamp01((at - fadeHead) / Mathf.Max(0.001f, fadeHeadEnd - fadeHead));
@@ -512,120 +542,108 @@ namespace HighCommand.UI
             return Mathf.Max(head, tail);
         }
 
-        private void FlushRun(Color line, Color shadow, float width)
+        // a world point at a distance from the target, and the way's direction there
+        private Vector3 PointFromEnd(float d, out Vector3 dir)
+        {
+            float at = Mathf.Clamp(routeLength - d, 0f, routeLength);
+            int seg = routeWorld.Count - 1;
+            while (seg > 1 && routeAt[seg - 1] > at) seg--;
+            float a0 = routeAt[seg - 1], a1 = routeAt[seg];
+            dir = routeWorld[seg] - routeWorld[seg - 1];
+            return Vector3.Lerp(routeWorld[seg - 1], routeWorld[seg], Mathf.Clamp01((at - a0) / Mathf.Max(0.0001f, a1 - a0)));
+        }
+
+        private void FlushRun(float width)
         {
             int count = runScreen.Count;
             if (count >= 2)
             {
-                routeLines.Strip(runScreen, runAlpha, 0, count, shadow, width + 6f);
-                routeLines.Strip(runScreen, runAlpha, 0, count, line, width);
+                routeLines.Strip(runScreen, runShade, 0, count, width + 8f, runWidth);
+                routeLines.Strip(runScreen, runColor, 0, count, width, runWidth);
             }
             runScreen.Clear();
-            runAlpha.Clear();
+            runColor.Clear();
+            runShade.Clear();
+            runWidth.Clear();
         }
 
-        // chevrons every few meters along the way, sliding towards the target (the spacing grows with the camera distance)
-        private void DrawChevrons(Camera cam, Color color, float alpha, float flow)
+        // ---- the ends: an arrowhead and a ring lying on the ground ----
+
+        private readonly List<Image> arrowheads = new List<Image>(16);
+        private int arrowheadsUsed;
+        private readonly List<Vector2> ringScreen = new List<Vector2>(40);
+        private readonly List<Color32> ringColor = new List<Color32>(40);
+        private readonly List<Color32> ringShade = new List<Color32>(40);
+
+        private void DrawArrowhead(Camera cam, float atFromEnd, Color color, float alpha)
         {
-            if (!cam || routeWorld.Count < 2) return;
-            // about 44 pixels apart on the screen where the way begins (meters per pixel change with the zoom and the tilt)
-            float scale = Mathf.Max(0.0001f, layer.lossyScale.x);
-            float perMeter = 0f;
-            Vector3 first = routeWorld[0] + Vector3.up * RouteLift;
-            if (WorldPicker.ProjectPoint(cam, first, out Vector2 p0) && WorldPicker.ProjectPoint(cam, first + cam.transform.right, out Vector2 p1))
-                perMeter = (p1 - p0).magnitude;
-            float spacing = perMeter > 0.5f ? Mathf.Clamp(44f * scale / perMeter, 0.8f, 30f) : Mathf.Max(1.6f, camDistance * 0.06f);
-            float offset = flow > 0f ? Mathf.Repeat(Time.unscaledTime * flow * spacing, spacing) : spacing * 0.5f;
-            float stopAt = routeLength - Mathf.Max(1.2f, spacing * 0.6f);
-            int seg = 1;
-            // far from the camera the perspective packs them together: never closer than about their own size
-            float minGap = 30f * scale;
-            Vector2 last = new Vector2(-10000f, -10000f);
-            for (float at = offset + spacing * 0.5f; at < stopAt; at += spacing)
-            {
-                if (chevronsUsed >= ChevronLimit) return;
-                float a = RouteAlpha(at);
-                if (a < 0.04f)
-                {
-                    // the faded middle of a long way: jump to where the last stretch begins
-                    if (at < fadeTailStart) at += Mathf.Floor((fadeTailStart - at) / spacing) * spacing;
-                    continue;
-                }
-                while (seg < routeAt.Count - 1 && routeAt[seg] < at) seg++;
-                float a0 = routeAt[seg - 1], a1 = routeAt[seg];
-                Vector3 w0 = routeWorld[seg - 1], w1 = routeWorld[seg];
-                Vector3 p = Vector3.Lerp(w0, w1, Mathf.Clamp01((at - a0) / Mathf.Max(0.0001f, a1 - a0))) + Vector3.up * RouteLift;
-                Vector3 dir = w1 - w0;
-                if (dir.sqrMagnitude < 1e-6f) continue;
-                if (!WorldPicker.ProjectPoint(cam, p, out Vector2 s)) continue;
-                if (!WorldPicker.ProjectPoint(cam, p + dir.normalized * 0.5f, out Vector2 s2)) continue;
-                if (!WorldPicker.IsOnScreen(s, 20f)) continue;
-                Vector2 d = s2 - s;
-                if (d.sqrMagnitude < 1e-4f) continue;
-                if ((s - last).sqrMagnitude < minGap * minGap) continue;
-                if (!TakeChevronSpot(s, minGap)) continue;   // a group on one road: one chevron per spot
-                last = s;
-                Color c = color;
-                c.a = alpha * a;
-                routeChevrons.Quad(s, d, 19f, 19f, c);
-                chevronsUsed++;
-            }
-        }
+            if (alpha < 0.05f || routeLength < atFromEnd + 1f) return;
+            Vector3 p = PointFromEnd(atFromEnd, out Vector3 dir);
+            if (dir.sqrMagnitude < 1e-6f) return;
+            p += Vector3.up * RouteLift;
+            if (!WorldPicker.ProjectPoint(cam, p, out Vector2 s) || !WorldPicker.IsOnScreen(s, 30f)) return;
+            if (!WorldPicker.ProjectPoint(cam, p + dir.normalized * 0.5f, out Vector2 s2)) return;
+            Vector2 d = s2 - s;
+            if (d.sqrMagnitude < 1e-4f) return;
+            // the marker sprite points down: turned by the direction + 90 degrees it points along the way
+            Quaternion turn = Quaternion.Euler(0f, 0f, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg + 90f);
 
-        // the screen cells holding a chevron this frame (cleared in Draw)
-        private readonly Dictionary<long, Vector2> chevronSpots = new Dictionary<long, Vector2>(256);
+            Image shade = AcquireArrowhead();
+            shade.color = new Color(0f, 0f, 0f, 0.6f * alpha);
+            shade.rectTransform.sizeDelta = new Vector2(23f, 19f);
+            shade.rectTransform.position = new Vector3(s.x, s.y, 0f);
+            shade.rectTransform.localRotation = turn;
 
-        private bool TakeChevronSpot(Vector2 s, float gap)
-        {
-            int cx = Mathf.FloorToInt(s.x / gap), cy = Mathf.FloorToInt(s.y / gap);
-            for (int dx = -1; dx <= 1; dx++)
-                for (int dy = -1; dy <= 1; dy++)
-                    if (chevronSpots.TryGetValue(((long)(cx + dx) << 32) ^ (uint)(cy + dy), out Vector2 o) && (o - s).sqrMagnitude < gap * gap * 0.6f)
-                        return false;
-            chevronSpots[((long)cx << 32) ^ (uint)cy] = s;
-            return true;
-        }
-
-        // ---- order pictures at the targets ----
-
-        private readonly List<Image> icons = new List<Image>(16);
-        private int iconsUsed;
-
-        private void DrawIcon(Vector2 screen, Glyph glyph, Color color, float alpha, float size)
-        {
-            // the formation spreads the targets of a group a little: one picture is enough for them
-            float near = size * 0.9f * Mathf.Max(0.0001f, layer.lossyScale.x);
-            Sprite sprite = UiKit.GlyphSprite(glyph);
-            for (int i = 1; i < iconsUsed; i += 2)
-                if (icons[i].sprite == sprite && ((Vector2)icons[i].rectTransform.position - screen).sqrMagnitude < near * near) return;
-
-            Image shade = AcquireIcon(sprite);
-            shade.color = new Color(0f, 0f, 0f, 0.75f * alpha);
-            shade.rectTransform.sizeDelta = new Vector2(size + 4f, size + 4f);
-            shade.rectTransform.position = new Vector3(screen.x, screen.y - 1f, 0f);
-
-            Image icon = AcquireIcon(sprite);
+            Image head = AcquireArrowhead();
             Color c = color;
-            c.a = alpha;
-            icon.color = c;
-            icon.rectTransform.sizeDelta = new Vector2(size, size);
-            icon.rectTransform.position = new Vector3(screen.x, screen.y, 0f);
+            c.a = Mathf.Clamp01(alpha * 1.15f);
+            head.color = c;
+            head.rectTransform.sizeDelta = new Vector2(17f, 14f);
+            head.rectTransform.position = new Vector3(s.x, s.y, 0f);
+            head.rectTransform.localRotation = turn;
         }
 
-        private Image AcquireIcon(Sprite sprite)
+        private Image AcquireArrowhead()
         {
-            if (iconsUsed >= icons.Count)
+            if (arrowheadsUsed >= arrowheads.Count)
             {
-                Image made = UiKit.NewImage("OrderIcon", layer, sprite, Color.white);
-                made.preserveAspect = true;
-                icons.Add(made);
+                Image made = UiKit.NewImage("Arrowhead", layer, UiKit.Marker, Color.white);
+                made.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                arrowheads.Add(made);
             }
-            Image img = icons[iconsUsed++];
-            if (img.sprite != sprite) img.sprite = sprite;
+            Image img = arrowheads[arrowheadsUsed++];
             if (!img.enabled) img.enabled = true;
             return img;
         }
 
+        // a circle on the ground round the target (projected, so it lies flat in the view like the ground does)
+        private void DrawGroundRing(Vector3 center, float radius, Color color, RouteStyle style)
+        {
+            Camera cam = sceneCam;
+            if (!cam) return;
+            float alpha = style == RouteStyle.Queued ? 0.5f : 0.9f;
+            float width = style == RouteStyle.Queued ? 2.5f : 3.5f;
+            if (style == RouteStyle.Preview) radius *= 1f + 0.08f * Mathf.Sin(Time.unscaledTime * 5f);
+            const int sides = 36;
+            ringScreen.Clear();
+            ringColor.Clear();
+            ringShade.Clear();
+            Color c = color;
+            c.a = alpha;
+            Color shade = new Color(0f, 0f, 0f, 0.5f * alpha);
+            Vector3 lifted = center + Vector3.up * RouteLift;
+            for (int i = 0; i <= sides; i++)
+            {
+                float angle = i * (Mathf.PI * 2f / sides);
+                Vector3 p = lifted + new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+                if (!WorldPicker.ProjectPoint(cam, p, out Vector2 s)) return;
+                ringScreen.Add(s);
+                ringColor.Add(c);
+                ringShade.Add(shade);
+            }
+            routeLines.Strip(ringScreen, ringShade, 0, ringScreen.Count, width + 4f);
+            routeLines.Strip(ringScreen, ringColor, 0, ringScreen.Count, width);
+        }
         // ---- targets off the screen: a mark at the edge with the order's picture, an arrow and the distance ----
 
         private struct EdgeTarget
@@ -650,8 +668,11 @@ namespace HighCommand.UI
         private readonly List<EdgeMark> edgeMarks = new List<EdgeMark>(4);
         private int edgeMarksUsed;
 
-        // the parts of the screen the mode's panels cover (canvas units): a mark stays clear of them
-        private const float EdgeLeft = 322f, EdgeRight = 46f, EdgeTop = 104f, EdgeBottom = 236f;
+        // a mark sits this far inside the screen edge (canvas units); the text under it needs a little more at the bottom
+        private const float EdgeInset = 40f, EdgeInsetBottom = 58f;
+
+        // the mode's panels (canvas units at 1920 x 1080, from the corner each one hangs on): a mark is pushed out of them
+        private readonly Rect[] panelRects = new Rect[5];
 
         private void AddEdgeTarget(Vector3 point, Orders.OrderKind kind, float meters)
         {
@@ -671,16 +692,23 @@ namespace HighCommand.UI
             Camera cam = sceneCam;
             if (!cam) { edgeTargets.Clear(); return; }
             float scale = Mathf.Max(0.0001f, layer.lossyScale.x);
-            float left = EdgeLeft * scale, right = Screen.width - EdgeRight * scale;
-            float bottom = EdgeBottom * scale, top = Screen.height - EdgeTop * scale;
-            var center = new Vector2((left + right) * 0.5f, (bottom + top) * 0.5f);
+            float left = EdgeInset * scale, right = Screen.width - EdgeInset * scale;
+            float bottom = EdgeInsetBottom * scale, top = Screen.height - EdgeInset * scale;
+            var center = new Vector2(Screen.width * 0.5f, (bottom + top) * 0.5f);
+            float w = Screen.width, h = Screen.height;
+            panelRects[0] = new Rect(0f, h - 290f * scale, 280f * scale, 290f * scale);             // the heroes, top left
+            panelRects[1] = new Rect(0f, h - 90f * scale, 1620f * scale, 90f * scale);              // the top bar
+            panelRects[2] = new Rect(0f, 0f, 290f * scale, 275f * scale);                          // the minimap
+            panelRects[3] = new Rect(w * 0.5f - 180f * scale, 0f, 360f * scale, 125f * scale);     // the commander's abilities
+            panelRects[4] = new Rect(w - 360f * scale, 0f, 360f * scale, 185f * scale);            // the orders card
             for (int i = 0; i < edgeTargets.Count; i++)
             {
                 EdgeTarget t = edgeTargets[i];
                 Vector3 p = cam.WorldToScreenPoint(t.point + Vector3.up * RouteLift);
                 Vector2 s = new Vector2(p.x, p.y);
                 bool behind = p.z <= 0.1f;
-                if (!behind && s.x > left && s.x < right && s.y > bottom && s.y < top) continue;
+                // only a target really off the screen gets a mark (the free area only says where the mark goes)
+                if (!behind && WorldPicker.IsOnScreen(s, -12f * scale)) continue;
                 Vector2 dir = behind ? center - s : s - center;
                 if (dir.sqrMagnitude < 1f) continue;
                 dir.Normalize();
@@ -689,7 +717,7 @@ namespace HighCommand.UI
                 float hx = (right - left) * 0.5f, hy = (top - bottom) * 0.5f;
                 float k = Mathf.Min(Mathf.Abs(dir.x) > 1e-4f ? hx / Mathf.Abs(dir.x) : float.MaxValue,
                                     Mathf.Abs(dir.y) > 1e-4f ? hy / Mathf.Abs(dir.y) : float.MaxValue);
-                Vector2 at = center + dir * k;
+                Vector2 at = ClearOfPanels(center + dir * k, 26f * scale, left, right, bottom, top);
                 OrderLook(t.kind, out Color color, out Glyph glyph);
 
                 EdgeMark mark = AcquireEdgeMark();
@@ -713,6 +741,31 @@ namespace HighCommand.UI
                 mark.distance.color = color;
             }
             edgeTargets.Clear();
+        }
+
+        // a point inside a panel (grown by pad) moved out of it the shortest way that stays on the screen
+        private Vector2 ClearOfPanels(Vector2 at, float pad, float left, float right, float bottom, float top)
+        {
+            for (int i = 0; i < panelRects.Length; i++)
+            {
+                Rect r = panelRects[i];
+                if (at.x < r.xMin - pad || at.x > r.xMax + pad || at.y < r.yMin - pad || at.y > r.yMax + pad) continue;
+                Vector2 best = at;
+                float bestMove = float.MaxValue;
+                Consider(new Vector2(at.x, r.yMax + pad), ref best, ref bestMove, at, left, right, bottom, top);
+                Consider(new Vector2(at.x, r.yMin - pad), ref best, ref bestMove, at, left, right, bottom, top);
+                Consider(new Vector2(r.xMax + pad, at.y), ref best, ref bestMove, at, left, right, bottom, top);
+                Consider(new Vector2(r.xMin - pad, at.y), ref best, ref bestMove, at, left, right, bottom, top);
+                at = best;
+            }
+            return at;
+        }
+
+        private static void Consider(Vector2 p, ref Vector2 best, ref float bestMove, Vector2 from, float left, float right, float bottom, float top)
+        {
+            if (p.x < left || p.x > right || p.y < bottom || p.y > top) return;
+            float move = (p - from).sqrMagnitude;
+            if (move < bestMove) { bestMove = move; best = p; }
         }
 
         private EdgeMark AcquireEdgeMark()
@@ -1317,8 +1370,8 @@ namespace HighCommand.UI
                 if (markers[i].enabled) markers[i].enabled = false;
             for (int i = ghostsUsed; i < ghosts.Count; i++)
                 if (ghosts[i].enabled) ghosts[i].enabled = false;
-            for (int i = iconsUsed; i < icons.Count; i++)
-                if (icons[i].enabled) icons[i].enabled = false;
+            for (int i = arrowheadsUsed; i < arrowheads.Count; i++)
+                if (arrowheads[i].enabled) arrowheads[i].enabled = false;
             for (int i = edgeMarksUsed; i < edgeMarks.Count; i++)
                 if (edgeMarks[i].root.gameObject.activeSelf) edgeMarks[i].root.gameObject.SetActive(false);
             for (int i = pingsUsed; i < pings.Count; i++)

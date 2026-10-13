@@ -6,8 +6,8 @@ namespace HighCommand.UI
 {
     /// <summary>
     /// One piece of mesh for all order lines of a frame: soft strips that bend along a way with the colour (and its
-    /// fading) given per point, plus small turned quads (the chevrons). Thousands of pooled images would cost far more
-    /// than these few hundred vertices rebuilt each frame. Points are given in screen pixels.
+    /// fading) given per point, the rings round the targets included. Pooled images per piece would cost far more than
+    /// these few hundred vertices rebuilt each frame. Points are given in screen pixels.
     /// </summary>
     internal sealed class RouteMesh : MaskableGraphic
     {
@@ -48,10 +48,10 @@ namespace HighCommand.UI
         private Vector2 Local(Vector2 screen) => rectTransform.InverseTransformPoint(new Vector3(screen.x, screen.y, 0f));
 
         /// <summary>
-        /// A soft strip through the points (screen pixels), <paramref name="width"/> in canvas units, the colour's alpha
-        /// multiplied by <paramref name="alphas"/> point by point. Corners are joined by mitres (clamped at sharp turns).
+        /// A soft strip through the points (screen pixels), <paramref name="width"/> in canvas units, coloured point by
+        /// point, the width optionally scaled point by point. Corners are joined by mitres (clamped at sharp turns).
         /// </summary>
-        internal void Strip(List<Vector2> points, List<float> alphas, int start, int count, Color color, float width)
+        internal void Strip(List<Vector2> points, List<Color32> colors, int start, int count, float width, List<float> widths = null)
         {
             if (count < 2) return;
             float half = width * 0.5f;
@@ -73,11 +73,10 @@ namespace HighCommand.UI
                 Vector2 nIn = new Vector2(-dIn.y, dIn.x);
                 float miter = Mathf.Min(2f, 1f / Mathf.Max(0.35f, Vector2.Dot(normal, nIn)));
 
-                Color c = color;
-                c.a *= alphas[i];
-                Color32 c32 = c;
-                verts.Add(Vertex(p + normal * (half * miter), c32, new Vector2(0.5f, 1f)));
-                verts.Add(Vertex(p - normal * (half * miter), c32, new Vector2(0.5f, 0f)));
+                Color32 c32 = colors[i];
+                float h = widths != null ? half * widths[i] : half;
+                verts.Add(Vertex(p + normal * (h * miter), c32, new Vector2(0.5f, 1f)));
+                verts.Add(Vertex(p - normal * (h * miter), c32, new Vector2(0.5f, 0f)));
             }
             for (int k = 0; k < count - 1; k++)
             {
@@ -85,22 +84,6 @@ namespace HighCommand.UI
                 indices.Add(a); indices.Add(a + 2); indices.Add(a + 1);
                 indices.Add(a + 1); indices.Add(a + 2); indices.Add(a + 3);
             }
-        }
-
-        /// <summary>A quad centred on a screen point, its +x side turned along <paramref name="dir"/> (sizes in canvas units).</summary>
-        internal void Quad(Vector2 screen, Vector2 dir, float length, float width, Color color)
-        {
-            Vector2 p = Local(screen);
-            Vector2 along = dir.normalized * (length * 0.5f);
-            Vector2 across = new Vector2(-along.y, along.x) * (width / Mathf.Max(0.0001f, length));
-            int b = verts.Count;
-            Color32 c = color;
-            verts.Add(Vertex(p - along - across, c, new Vector2(0f, 0f)));
-            verts.Add(Vertex(p - along + across, c, new Vector2(0f, 1f)));
-            verts.Add(Vertex(p + along + across, c, new Vector2(1f, 1f)));
-            verts.Add(Vertex(p + along - across, c, new Vector2(1f, 0f)));
-            indices.Add(b); indices.Add(b + 1); indices.Add(b + 2);
-            indices.Add(b + 2); indices.Add(b + 3); indices.Add(b);
         }
 
         private static UIVertex Vertex(Vector2 position, Color32 color, Vector2 uv)

@@ -3,16 +3,18 @@
 ## Unreleased
 
 Order routes
-* The line of an order (aiming, given orders, the queue, a hero sent to a chest) follows the way the hero will really
-  walk on the stage's ground graph instead of a straight line through hills and walls. A dark outline under a coloured
-  line, chevrons running towards the target, a ring and the order's picture at the end.
-* A long way is not drawn across the whole map: its first stretch out of the hero and its last stretch into the target
-  are shown (longer with the camera far out), the middle fades out.
-* A target off the screen gets a mark at the screen edge (clear of the panels): the order's picture, an arrow towards it
-  and the walking distance.
-* The ways are searched at most ~1 ms a frame and kept for a while (measured: ~0.03 ms a search); a group on one road
-  draws one row of chevrons. Dev: `hc_overlay` prints the route counters; scenario `tools\qa\route.txt`.
-
+* The line of an order (aiming, given orders, the queue, a hero sent to a chest) follows the way the heroes will really
+  walk on the stage's ground graph instead of a straight line through hills and walls, smoothed into a curve.
+* Heroes standing together with one order share one line: from their middle to a ring on the ground as wide as their
+  formation (a hero far from the others gets its own line).
+* The look: a smooth ribbon with a dark outline and soft light pulses running to the target, a small arrowhead and a ring
+  lying flat on the ground at the end. Everything sits in the world, so moving the camera moves nothing on the line.
+* A long way is not drawn across the whole map: its first stretch and its last stretch into the target are shown
+  (longer with the camera far out), the middle fades out.
+* A target off the screen gets a mark at the screen edge (pushed out of the panels): the order's picture, an arrow
+  towards it and the walking distance.
+* The ways are searched at most ~1 ms a frame and kept for a while (measured: ~0.03 ms a search). Dev: `hc_overlay`
+  prints the route counters; scenario `tools\qa\route.txt` (also shots while the camera pans).
 ## 0.12.1
 
 * README: the Discord contact as plain text (Thunderstore hid the link).

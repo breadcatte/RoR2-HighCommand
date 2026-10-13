@@ -208,53 +208,6 @@ namespace HighCommand.UI
             }
         }
 
-        private static Texture2D chevronTexture;
-
-        /// <summary>
-        /// A chevron pointing to +x (the way a route runs) with a dark rim baked in: multiplied by a colour it stays
-        /// readable on bright ground and on dark ground alike.
-        /// </summary>
-        internal static Texture2D ChevronTexture
-        {
-            get
-            {
-                if (chevronTexture) return chevronTexture;
-                const int size = 32;
-                var tex = new Texture2D(size, size, TextureFormat.RGBA32, true)
-                {
-                    hideFlags = HideFlags.HideAndDontSave,
-                    wrapMode = TextureWrapMode.Clamp,
-                    filterMode = FilterMode.Trilinear
-                };
-                var a = new Vector2(0.3f, 0.86f);
-                var tip = new Vector2(0.7f, 0.5f);
-                var b = new Vector2(0.3f, 0.14f);
-                const float stroke = 0.1f, rim = 0.075f;
-                var pixels = new Color32[size * size];
-                for (int py = 0; py < size; py++)
-                    for (int px = 0; px < size; px++)
-                    {
-                        var p = new Vector2((px + 0.5f) / size, (py + 0.5f) / size);
-                        float d = Mathf.Min(SegmentDistance(p, a, tip), SegmentDistance(p, tip, b));
-                        float alpha = Mathf.Clamp01((stroke + rim - d) * size);
-                        float lum = Mathf.Lerp(1f, 0.05f, Mathf.Clamp01((d - stroke) * size + 0.5f));
-                        byte l = (byte)Mathf.RoundToInt(lum * 255f);
-                        pixels[py * size + px] = new Color32(l, l, l, (byte)Mathf.RoundToInt(alpha * 255f));
-                    }
-                tex.SetPixels32(pixels);
-                tex.Apply(true, true);
-                chevronTexture = tex;
-                return tex;
-            }
-        }
-
-        private static float SegmentDistance(Vector2 p, Vector2 a, Vector2 b)
-        {
-            Vector2 ab = b - a;
-            float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude);
-            return (p - (a + ab * t)).magnitude;
-        }
-
         // ---- dots and glyphs --------------------------------------------------------------------
 
         private static Sprite dot;

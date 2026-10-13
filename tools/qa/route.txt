@@ -29,6 +29,13 @@ hc_click 1750 950 1
 hc_status
 hc_overlay
 hc_screenshot route_move
+@log === R2b the camera pans: the line stays the same (no new or jumping pieces)
+hc_cam sweep 18 12 3
+@wait 1
+hc_screenshot route_pan1
+@wait 0.4
+hc_screenshot route_pan2
+@wait 2
 @log === R3 the camera far out
 hc_cam dist 150
 @wait 2

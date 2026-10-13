@@ -83,7 +83,19 @@ namespace HighCommand.Orders
             points.Add(to);
             if (!found) return false;
 
-            // the nearest node can lie behind the hero or past the target: such a node would make a hook at the ends
+            // the path starts at the node nearest to the hero and ends at the one nearest to the target, which may lie
+            // behind the hero or past the target: such nodes would make a hook at the ends. Cut to the closest ones.
+            int n0 = points.Count;
+            int first = 1;
+            for (int i = 2; i < n0 - 1 && i <= 8; i++)
+                if ((points[i] - from).sqrMagnitude < (points[first] - from).sqrMagnitude) first = i;
+            if (first > 1) points.RemoveRange(1, first - 1);
+            n0 = points.Count;
+            int lastNode = n0 - 2;
+            for (int i = n0 - 3; i >= 1 && i >= n0 - 10; i--)
+                if ((points[i] - to).sqrMagnitude < (points[lastNode] - to).sqrMagnitude) lastNode = i;
+            if (lastNode < n0 - 2) points.RemoveRange(lastNode + 1, n0 - 2 - lastNode);
+
             while (points.Count > 3 && (points[2] - points[0]).sqrMagnitude < (points[2] - points[1]).sqrMagnitude)
                 points.RemoveAt(1);
             int n = points.Count;
@@ -93,12 +105,13 @@ namespace HighCommand.Orders
                 n--;
             }
             Soften(points);
+            Soften(points);
             return true;
         }
 
         private static readonly System.Collections.Generic.List<Vector3> SoftBuffer = new System.Collections.Generic.List<Vector3>(128);
 
-        // one pass of corner cutting (Chaikin): the ends stay, each inner corner becomes two points a quarter in
+        // one pass of corner cutting (Chaikin; two passes make the corners round): the ends stay, each inner corner becomes two points a quarter in
         private static void Soften(System.Collections.Generic.List<Vector3> points)
         {
             if (points.Count < 3) return;
