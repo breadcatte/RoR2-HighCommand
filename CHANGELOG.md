@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+* Commander abilities: a new look for the strip at the bottom. Each ability is a tile of its own colour with its
+  picture lit in a coloured well; new pictures with a meaning: a satellite beaming down on a target (orbital strike), a
+  first aid kit (medic), a war horn (war cry), a skull in a sight (mark). A charge line along the bottom of the tile
+  fills while it recharges, the seconds sit on a clock sweep over the picture, and the tile flashes once when it is
+  ready again. While a target is chosen the tile pulses and the cursor takes the ability's picture and colour.
+  Scenario `tools\qa\abilities.txt`; before / after in `docs\dev\ui-rework\abilities-*.png`.
+
 ## 0.13.0 - order lines along the real way, interface hidden in the pause menu
 
 * The pause menu and its settings: the mode's interface is hidden while they are open (dimmed, it still covered their

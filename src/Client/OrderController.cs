@@ -342,11 +342,9 @@ namespace HighCommand.Client
                 case Pending.Rally: color = FollowColor; return Glyph.Rally;
                 case Pending.AbilityPoint:
                 case Pending.AbilityTarget:
-                {
-                    Glyph[] abilities = { Glyph.OrbitalStrike, Glyph.Medic, Glyph.WarCry, Glyph.Mark };
-                    color = OrangeColor;
-                    return abilities[Mathf.Clamp(abilityIndex, 0, abilities.Length - 1)];
-                }
+                    // the ability's own picture and colour, as on its tile
+                    color = AbilityTile.ColorOf(abilityIndex);
+                    return AbilityTile.GlyphOf(abilityIndex);
                 default: color = OrangeColor; return Glyph.Focus;
             }
         }

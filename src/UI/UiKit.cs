@@ -30,6 +30,7 @@ namespace HighCommand.UI
         private static Sprite white;
         private static Sprite circle;
         private static Sprite ring;
+        private static Sprite glow;
         private static Sprite square;
         private static Sprite arc;
         private static Sprite marker;
@@ -73,6 +74,13 @@ namespace HighCommand.UI
             float outer = Mathf.Clamp01((1f - d) * (s * 0.5f));
             float inner = Mathf.Clamp01((d - 0.78f) * (s * 0.5f));
             return outer * inner;
+        }));
+
+        /// <summary>A soft round light, brightest in the middle and fading to nothing at the edge (a glow behind a picture).</summary>
+        internal static Sprite Glow => glow ? glow : (glow = MakeSprite(64, (x, y, s) =>
+        {
+            float t = Mathf.Clamp01(1f - Mathf.Sqrt(x * x + y * y));
+            return t * t;
         }));
 
         internal static Sprite Square => square ? square : (square = MakeSprite(32, (x, y, s) =>

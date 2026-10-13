@@ -25,8 +25,10 @@ namespace HighCommand.UI
         private const float Head = 32f;      // the title strip above the buttons
         private const float RowH = 34f;      // the orders button / stance switch row
         private const float SkillH = 74f;
-        private const float AbilityH = 60f;
         private const float CardW = 4 * BtnW + 3 * Gap + 2 * Pad;
+
+        private const float AbilityW = 86f, AbilityH = 86f, AbilityGap = 8f;
+        private const float CommanderW = 4 * AbilityW + 3 * AbilityGap + 2 * Pad;
 
         private const float MenuW = 236f, MenuRowH = 32f, MenuPad = 8f, MenuGroupGap = 9f;
         private const float CancelW = 92f;
@@ -62,9 +64,8 @@ namespace HighCommand.UI
 
         private sealed class AbilityButton
         {
-            internal UiButton button;
+            internal AbilityTile tile;
             internal int index;
-            internal int badge = -1;
         }
 
         // title line: rebuilt when the selection changes, not every frame
@@ -89,7 +90,7 @@ namespace HighCommand.UI
             float height = Head + RowH + Gap + SkillH + Pad + 4f;
             root = UiKit.NewPanel("CommandCard", parent, UiKit.PanelColor);
             UiKit.Place(root, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-14f, 14f), new Vector2(CardW, height));
-            title = AddHeader(root);
+            title = AddHeader(root, CardW);
 
             var inner = UiKit.NewRect("Buttons", root);
             UiKit.Stretch(inner, 0, 0, 0, 0);
@@ -142,32 +143,16 @@ namespace HighCommand.UI
             // --- commander abilities: their own strip at the bottom centre (the selected heroes are already shown by
             // the roster on the left and the card's title) ---
             commanderRoot = UiKit.NewPanel("Commander", parent, UiKit.PanelColor);
-            UiKit.Place(commanderRoot, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 14f), new Vector2(CardW, Head + AbilityH + Pad));
-            commanderTitle = AddHeader(commanderRoot);
+            UiKit.Place(commanderRoot, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 14f), new Vector2(CommanderW, Head + AbilityH + Pad));
+            commanderTitle = AddHeader(commanderRoot, CommanderW);
 
-            Color[] colors =
-            {
-                new Color(1f, 0.5f, 0.25f, 0.9f),
-                new Color(0.4f, 0.9f, 0.5f, 0.9f),
-                new Color(1f, 0.85f, 0.3f, 0.9f),
-                new Color(0.8f, 0.5f, 1f, 0.9f)
-            };
-            Glyph[] glyphs = { Glyph.OrbitalStrike, Glyph.Medic, Glyph.WarCry, Glyph.Mark };
             for (int i = 0; i < CommanderAbilities.Count; i++)
             {
-                var b = new UiButton(commanderRoot, "Ability" + i, new Vector2(BtnW, AbilityH), withIcon: true);
-                b.SetPosition(Pad + i * (BtnW + Gap), Head);
-                b.Accent = colors[i];
-                b.Icon.enabled = false;
-                b.SetGlyph(glyphs[Mathf.Min(i, glyphs.Length - 1)], 18f);
-                // a smaller picture leaves two full lines for names like "Orbital strike" / "Удар с орбиты"
-                UiKit.Stretch(b.Label.rectTransform, 1, 2, 1, 24);
-                b.Label.fontSizeMin = 10f;
-                b.Label.fontSizeMax = 13f;
-                b.Label.lineSpacing = -12f;
-                b.Label.text = Loc.Get(CommanderAbilities.NameToken(i));
-                b.SetHint(Key(Settings.KeyAbility[i]));
-                abilityButtons.Add(new AbilityButton { button = b, index = i });
+                var t = new AbilityTile(commanderRoot, i, new Vector2(AbilityW, AbilityH));
+                t.SetPosition(Pad + i * (AbilityW + AbilityGap), Head);
+                t.Label.text = Loc.Get(CommanderAbilities.NameToken(i));
+                t.SetHint(Key(Settings.KeyAbility[i]));
+                abilityButtons.Add(new AbilityButton { tile = t, index = i });
             }
 
             ClientInput.RegisterUiHitTest(Contains);
@@ -184,17 +169,17 @@ namespace HighCommand.UI
         }
 
         /// <summary>The title strip of a card: a small orange bar, the text and a hairline under it.</summary>
-        private static TextMeshProUGUI AddHeader(RectTransform panel)
+        private static TextMeshProUGUI AddHeader(RectTransform panel, float width)
         {
             Image bar = UiKit.NewImage("HeadBar", panel, UiKit.White, UiKit.Accent);
             UiKit.Place(bar.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Pad, -10f), new Vector2(3f, 15f));
             TextMeshProUGUI text = UiKit.NewText("Title", panel, "", 17f, UiKit.Text, TextAlignmentOptions.Left);
-            UiKit.Place(text.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Pad + 10f, -7f), new Vector2(CardW - 2 * Pad - 10f, 22f));
+            UiKit.Place(text.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Pad + 10f, -7f), new Vector2(width - 2 * Pad - 10f, 22f));
             text.enableAutoSizing = true;
             text.fontSizeMin = 11f;
             text.fontSizeMax = 17f;
             Image line = UiKit.NewImage("HeadLine", panel, UiKit.White, new Color(0.6f, 0.7f, 0.82f, 0.22f));
-            UiKit.Place(line.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Pad, -Head + 3f), new Vector2(CardW - 2 * Pad, 1f));
+            UiKit.Place(line.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Pad, -Head + 3f), new Vector2(width - 2 * Pad, 1f));
             return text;
         }
 
@@ -381,20 +366,12 @@ namespace HighCommand.UI
             UiKit.SetText(commanderTitle, Loc.Get("HIGHCOMMAND_COMMANDER_TITLE"));
             foreach (AbilityButton a in abilityButtons)
             {
-                UiButton b = a.button;
+                AbilityTile b = a.tile;
                 float left = CommanderAbilities.Remaining(state, a.index);
                 float total = CommanderAbilities.Cooldown[a.index];
-                b.Enabled = true;
-                b.Active = orders.Mode == (CommanderAbilities.NeedsPoint(a.index) ? OrderController.Pending.AbilityPoint : OrderController.Pending.AbilityTarget)
-                           && orders.AbilityIndex == a.index;
-                b.Cooldown.fillAmount = left > 0f ? Mathf.Clamp01(left / total) : 0f;
-                int badge = left > 0f ? Mathf.CeilToInt(left) : 0;
-                if (a.badge != badge)
-                {
-                    a.badge = badge;
-                    UiKit.SetText(b.Badge, badge > 0 ? badge.ToString() : "");
-                }
-                bool hover = b.Refresh(mouse);
+                bool active = orders.Mode == (CommanderAbilities.NeedsPoint(a.index) ? OrderController.Pending.AbilityPoint : OrderController.Pending.AbilityTarget)
+                              && orders.AbilityIndex == a.index;
+                bool hover = b.Refresh(mouse, left, total, active);
                 if (hover)
                 {
                     string desc = Loc.Get(CommanderAbilities.DescToken(a.index));

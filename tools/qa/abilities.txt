@@ -1,0 +1,55 @@
+# The commander's ability strip (bottom centre): how the tiles look at rest, under the pointer, while a target is being
+# chosen, while they recharge and the moment one is ready again. Screenshots ab_*.png.
+@wait 4
+@log === A1 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 20
+hc_gold 6000
+hc_recruit Commando
+@wait 20
+hc_invulnerable true
+hc_cam army
+hc_cam dist 45
+hc_mouse 140 140
+@wait 2
+@log === A2 at rest
+hc_screenshot ab_rest
+@log === A3 the pointer over the war cry tile
+hc_mouse 1007 69
+@wait 0.6
+hc_screenshot ab_hover
+@log === A4 the mark waits for its enemy (F8, the real key; the strike starts the run recharging)
+hc_mouse 960 600
+hc_key F8
+@wait 0.4
+hc_screenshot ab_active
+@wait 0.25
+hc_screenshot ab_active2
+hc_key Escape
+@wait 0.5
+@log === A5 recharging
+hc_spawn 1 LemurianMaster 25
+@wait 3
+hc_ability 1
+hc_ability 2
+hc_ability 3
+hc_mouse 140 140
+@wait 3
+hc_screenshot ab_cooldown
+@log === A6 the mark is ready again (22 s): the flash
+@wait 18.9
+hc_screenshot ab_ready
+@wait 0.3
+hc_screenshot ab_ready2
+@wait 1
+hc_screenshot ab_ready3
+@log === END
+hc_input_end
+disconnect
+@norun
+@wait 4
+@quit
