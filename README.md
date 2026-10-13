@@ -2,7 +2,7 @@
 
 **Stop running. Start commanding.**
 
-[Русская версия](README.ru.md)
+[Русская версия](https://github.com/kantemiir/RoR2-HighCommand/blob/master/README.ru.md)
 
 ![The commander's orbital strike lands in the middle of a fight](https://raw.githubusercontent.com/kantemiir/RoR2-HighCommand/master/docs/screenshots/strike.jpg)
 
@@ -77,7 +77,11 @@ same button takes everyone to the next stage.
 You need Risk of Rain 2 (Steam) with **BepInEx** and **RoR2BepInExPack**. [Risk of Options](https://thunderstore.io/package/Rune580/Risk_Of_Options/)
 is optional and gives you an in-game settings window.
 
-**With r2modman / Thunderstore Mod Manager**
+**The easy way: Thunderstore.** Open [HighCommand on Thunderstore](https://thunderstore.io/c/riskofrain2/p/kantemiir/HighCommand/)
+and press *Install with App*, or search for "HighCommand" in r2modman / Thunderstore Mod Manager. The manager installs
+BepInEx with it.
+
+**From GitHub with a mod manager**
 1. Download `HighCommand-<version>.zip` from [Releases](https://github.com/kantemiir/RoR2-HighCommand/releases).
 2. In the manager: *Settings → Import local mod* and pick the zip.
 
@@ -131,7 +135,7 @@ survivor plays badly, if you have an idea for a feature, or if you want to work 
 * **Ideas and suggestions:** open an issue with the *Idea / suggestion* template, or start a thread in
   [Discussions](https://github.com/kantemiir/RoR2-HighCommand/discussions).
 * **Code, balance, AI profiles, translations:** pull requests are welcome. Small ones are the easiest to review. See
-  [CONTRIBUTING.md](CONTRIBUTING.md).
+  [CONTRIBUTING.md](https://github.com/kantemiir/RoR2-HighCommand/blob/master/CONTRIBUTING.md).
 
 ## For developers
 
@@ -145,5 +149,5 @@ survivor plays badly, if you have an idea for a feature, or if you want to work 
 
 ## License
 
-[MIT](LICENSE) © kantemiir. Risk of Rain 2 belongs to Hopoo Games and Gearbox. This is a fan-made mod and is not affiliated
+[MIT](https://github.com/kantemiir/RoR2-HighCommand/blob/master/LICENSE) © kantemiir. Risk of Rain 2 belongs to Hopoo Games and Gearbox. This is a fan-made mod and is not affiliated
 with them.

@@ -2,7 +2,7 @@
 
 **Хватит бегать. Пора командовать.**
 
-[English version](README.md)
+[English version](https://github.com/kantemiir/RoR2-HighCommand/blob/master/README.md)
 
 ![Удар с орбиты командира посреди боя](https://raw.githubusercontent.com/kantemiir/RoR2-HighCommand/master/docs/screenshots/strike.jpg)
 
@@ -77,7 +77,10 @@ High Command превращает Risk of Rain 2 в стратегию в реа
 Нужны Risk of Rain 2 (Steam), **BepInEx** и **RoR2BepInExPack**. По желанию —
 [Risk of Options](https://thunderstore.io/package/Rune580/Risk_Of_Options/): окно настроек в игре.
 
-**Через r2modman / Thunderstore Mod Manager**
+**Проще всего: Thunderstore.** Откройте [HighCommand на Thunderstore](https://thunderstore.io/c/riskofrain2/p/kantemiir/HighCommand/)
+и нажмите *Install with App* или найдите «HighCommand» в r2modman / Thunderstore Mod Manager. BepInEx менеджер поставит сам.
+
+**С GitHub через менеджер модов**
 1. Скачайте `HighCommand-<версия>.zip` в [Releases](https://github.com/kantemiir/RoR2-HighCommand/releases).
 2. В менеджере: *Settings → Import local mod* и выберите архив.
 
@@ -129,7 +132,7 @@ High Command превращает Risk of Rain 2 в стратегию в реа
 * **Идеи и предложения:** issue по шаблону *Idea / suggestion* или тема в
   [Discussions](https://github.com/kantemiir/RoR2-HighCommand/discussions).
 * **Код, баланс, профили ИИ, переводы:** pull request'ы приветствуются, небольшие проще всего проверить. См.
-  [CONTRIBUTING.md](CONTRIBUTING.md).
+  [CONTRIBUTING.md](https://github.com/kantemiir/RoR2-HighCommand/blob/master/CONTRIBUTING.md).
 
 ## Разработчикам
 
@@ -143,4 +146,4 @@ High Command превращает Risk of Rain 2 в стратегию в реа
 
 ## Лицензия
 
-[MIT](LICENSE) © kantemiir. Risk of Rain 2 принадлежит Hopoo Games и Gearbox. Это фанатский мод, не связанный с ними.
+[MIT](https://github.com/kantemiir/RoR2-HighCommand/blob/master/LICENSE) © kantemiir. Risk of Rain 2 принадлежит Hopoo Games и Gearbox. Это фанатский мод, не связанный с ними.
