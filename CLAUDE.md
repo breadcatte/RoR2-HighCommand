@@ -51,7 +51,9 @@ BepInEx-плагин `kantemiir.HighCommand`: отдельный RTS-режим 
   не наклоняется, чтобы заглянуть за холм; наклон до 4° («положить камеру к земле»), подъём только чтобы не уйти под
   землю (`GroundLift`/`InGround`). Мелкий кусок уровня (≤60 м) скрывается `forceRenderingOff` ТОЛЬКО если закрывает
   героя на экране (`CollectHeroCovers`/`HideOccluders`); пол под героем, большая земля и объекты игры — никогда.
-  Проверка — `camvillage.txt` («0 still in the ground»).
+  Проверка — `camvillage.txt` («0 still in the ground»). По образцу RTS (2026-10-13): зум к курсору (`ZoomToCursor`),
+  опускание вида при приближении (`ZoomTilt`, `ViewPitch`), Home — сброс вида, двойной Пробел — слежение,
+  силуэт героя за большой землёй (`IsBehindGround` → `WorldOverlay.DrawGhosts`).
 * Картинка миникарты строится в `MapInfo.BuildTexture` (покрытие + рельеф), рамка камеры и точки — в `UI\Minimap.cs`.
 
 ## Структура `src\`

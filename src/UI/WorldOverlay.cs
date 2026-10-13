@@ -97,6 +97,7 @@ namespace HighCommand.UI
             ringsUsed = 0;
             arcsUsed = 0;
             markersUsed = 0;
+            ghostsUsed = 0;
             linesUsed = 0;
             flowsUsed = 0;
             arrowsUsed = 0;
@@ -107,6 +108,7 @@ namespace HighCommand.UI
             {
                 DrawPriceTags(camera);
                 DrawRings(selection, heroes);
+                DrawGhosts(camera, selection, heroes);
                 DrawBars(camera, selection);
                 DrawOrders(selection, cursor);
                 DrawPings();
@@ -595,6 +597,41 @@ namespace HighCommand.UI
             fill.rectTransform.position = at;
         }
 
+        // ---- heroes behind big ground ----------------------------------------------------------------
+        //
+        // A rock or a roof in front of a hero is hidden (RtsCamera); a hill or a cliff cannot be. The hero is then
+        // drawn as a flat silhouette where it stands, as StarCraft II or Torchlight show units behind walls.
+
+        private readonly List<Image> ghosts = new List<Image>(8);
+        private int ghostsUsed;
+
+        private void DrawGhosts(RtsCamera camera, Selection selection, IReadOnlyList<Hero> heroes)
+        {
+            if (heroes == null) return;
+            Camera cam = camera.SceneCam;
+            float scale = Mathf.Max(0.0001f, layer.lossyScale.x);
+            for (int i = 0; i < heroes.Count; i++)
+            {
+                Hero hero = heroes[i];
+                CharacterBody body = hero != null ? hero.Body : null;
+                if (!body || !hero.IsAlive || !camera.IsBehindGround(hero)) continue;
+                if (!WorldPicker.ProjectPoint(cam, body.corePosition, out Vector2 s) || !WorldPicker.IsOnScreen(s)) continue;
+
+                if (ghostsUsed >= ghosts.Count)
+                {
+                    Image made = UiKit.NewImage("Ghost", layer, UiKit.GlyphSprite(Glyph.Person), Color.white);
+                    made.preserveAspect = true;
+                    ghosts.Add(made);
+                }
+                Image ghost = ghosts[ghostsUsed++];
+                if (!ghost.enabled) ghost.enabled = true;
+                bool selected = selection.Contains(hero);
+                ghost.color = selected ? new Color(0.5f, 1f, 0.55f, 0.75f) : new Color(0.55f, 0.85f, 1f, 0.6f);
+                ghost.rectTransform.sizeDelta = new Vector2(26f, 26f);
+                ghost.rectTransform.position = new Vector3(s.x, s.y + 2f * scale, 0f);
+            }
+        }
+
         private Image AcquireArc()
         {
             if (arcsUsed >= arcs.Count) arcs.Add(UiKit.NewImage("Arc", layer, UiKit.Arc, Color.white));
@@ -787,6 +824,8 @@ namespace HighCommand.UI
                 if (arcs[i].enabled) arcs[i].enabled = false;
             for (int i = markersUsed; i < markers.Count; i++)
                 if (markers[i].enabled) markers[i].enabled = false;
+            for (int i = ghostsUsed; i < ghosts.Count; i++)
+                if (ghosts[i].enabled) ghosts[i].enabled = false;
             for (int i = linesUsed; i < lines.Count; i++)
                 if (lines[i].enabled) lines[i].enabled = false;
             for (int i = flowsUsed; i < flows.Count; i++)

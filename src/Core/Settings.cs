@@ -16,6 +16,7 @@ namespace HighCommand
         internal static ConfigEntry<float> CameraZoomSpeed;
         internal static ConfigEntry<float> CameraMinDistance;
         internal static ConfigEntry<float> CameraMaxDistance;
+        internal static ConfigEntry<bool> ZoomToCursor, ZoomTilt;
         internal static ConfigEntry<float> CameraPitch;
         internal static ConfigEntry<float> CameraFov;
         internal static ConfigEntry<float> CameraRotateSpeed;
@@ -35,7 +36,7 @@ namespace HighCommand
         internal static ConfigEntry<KeyCode> KeyRevive, KeyTeleporter;
         internal static readonly ConfigEntry<KeyCode>[] KeyAbility = new ConfigEntry<KeyCode>[4];
         internal static ConfigEntry<KeyCode> KeyFormationCycle;
-        internal static ConfigEntry<KeyCode> KeyCycleSelection, KeySelectAll, KeyLastAlert;
+        internal static ConfigEntry<KeyCode> KeyCycleSelection, KeySelectAll, KeyLastAlert, KeyResetCamera;
 
         // ---- interface ----
         internal static ConfigEntry<float> UiScale;
@@ -103,7 +104,9 @@ namespace HighCommand
 
             CameraPanSpeed = F("Camera", "PanSpeed", 1.0f, 0.2f, 4f, "Camera pan speed multiplier (WASD and screen edge). The speed also scales with zoom.");
             CameraZoomSpeed = F("Camera", "ZoomSpeed", 1.0f, 0.2f, 4f, "Mouse wheel zoom speed multiplier.");
-            CameraMinDistance = F("Camera", "MinDistance", 10f, 4f, 60f, "Closest camera distance to the ground focus point, meters.");
+            CameraMinDistance = F("Camera", "MinDistance", 6f, 3f, 60f, "Closest camera distance to the ground focus point, meters.");
+            ZoomToCursor = cfg.Bind("Camera", "ZoomToCursor", true, "The wheel zooms towards the point under the mouse (it stays under the mouse), as in Company of Heroes or Total War. Off: towards the middle of the screen.");
+            ZoomTilt = cfg.Bind("Camera", "ZoomTilt", true, "Zooming in close also lowers the view towards the ground (a side view of the heroes at the closest zoom); zooming out brings your tilt back.");
             CameraMaxDistance = F("Camera", "MaxDistance", 95f, 30f, 300f, "Farthest camera distance, meters.");
             CameraPitch = F("Camera", "Pitch", 58f, 25f, 85f, "Camera tilt in degrees (90 = straight down). The starting tilt: middle mouse drag up / down and PageUp / PageDown change it during the game.");
             CameraTiltSpeed = F("Camera", "TiltSpeed", 1.0f, 0.2f, 4f, "Tilt speed multiplier for middle mouse drag up / down and the tilt keys.");
@@ -154,6 +157,7 @@ namespace HighCommand
             KeySelectAll = cfg.Bind("Keys", "SelectAll", KeyCode.A, "Together with Ctrl: select the whole army. (Digits 1-0 are the control groups: Ctrl+digit sets, digit recalls.)");
 
             KeyLastAlert = cfg.Bind("Keys", "LastAlert", KeyCode.Backspace, "Fly the camera to the place of the last alert (a fallen or nearly dead hero).");
+            KeyResetCamera = cfg.Bind("Keys", "ResetCamera", KeyCode.Home, "Reset the camera's turn, tilt and zoom to the start view (it stays where it looks).");
             Alerts = cfg.Bind("Interface", "Alerts", true, "Message, sound and a mark on the map when a hero falls or is nearly dead.");
 
             UiScale = F("Interface", "UiScale", 1.0f, 0.6f, 1.6f,
@@ -209,7 +213,7 @@ namespace HighCommand
         /// </summary>
         private static void Migrate()
         {
-            const int Current = 2;
+            const int Current = 3;
             if (ConfigVersion.Value >= Current) return;
 
             if (ConfigVersion.Value < 2)
@@ -219,6 +223,13 @@ namespace HighCommand
                 RemovePaidInteractables.Value = false;
                 Plugin.Log.LogInfo("Config: loot switched to chests on the map (Loot/ItemDropsEnabled = false, Loot/RemovePaidInteractables = false).");
             }
+            if (ConfigVersion.Value < 3 && Mathf.Approximately(CameraMinDistance.Value, 10f))
+            {
+                // 0.11: the camera may come closer (with ZoomTilt it then looks along the ground)
+                CameraMinDistance.Value = 6f;
+                Plugin.Log.LogInfo("Config: Camera/MinDistance 10 -> 6 (closer zoom).");
+            }
+
             ConfigVersion.Value = Current;
             cfg.Save();
         }

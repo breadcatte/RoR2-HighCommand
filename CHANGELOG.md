@@ -16,6 +16,17 @@ Camera height
 * A small piece of the level (a rock, a roof, a tree, a bridge, up to 60 m) is hidden only while it hides a hero on
   screen (the hero walked behind it, or the camera was turned behind it) and comes back half a second later. The floor
   a hero stands on, big ground and the game's objects are never hidden.
+* What other strategy games do, now here too:
+  * zoom to the cursor (Company of Heroes, Total War): the wheel zooms towards the point under the mouse, which stays
+    under the mouse (`Camera/ZoomToCursor`, on);
+  * zoom tilt (Company of Heroes, Total War): coming close also lowers the view, down to a side view of the heroes at
+    the nearest zoom; zooming out brings the player's tilt back (`Camera/ZoomTilt`, on). The nearest zoom is 6 m
+    instead of 10 (an untouched old value is updated once);
+  * Home resets the camera's turn, tilt and zoom to the start view (Age of Empires IV / Company of Heroes);
+  * Space twice locks the camera on the selected heroes (or the army) until it is moved by hand or Space is pressed
+    again (the follow camera of Warcraft III / StarCraft II);
+  * a hero hidden behind a hill or a cliff (too big to hide) is drawn as a flat silhouette where it stands (StarCraft II,
+    Torchlight).
 * Dev: `hc_cam audit` also tries the lowest tilt at the nearest distance on every point and counts where the camera
   had to tilt up and where it would stay in the ground; scenario `tools\qa\camvillage.txt`.
 * Dev: `hc_cam audit` pans along 32 lines across the map the old and the new way and counts the places where the camera

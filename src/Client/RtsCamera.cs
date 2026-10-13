@@ -29,15 +29,32 @@ namespace HighCommand.Client
 
         internal float Yaw => smoothYaw;
 
-        /// <summary>The tilt in degrees (90 = straight down), as shown now (with the extra tilt that looks past an obstacle).</summary>
-        internal float Pitch => Mathf.Min(SteepestPitch, (pitchReady ? smoothPitch : Settings.CameraPitch.Value) + liftPitch);
+        /// <summary>The tilt in degrees (90 = straight down), as shown now (with the zoom tilt and the lift off the ground).</summary>
+        internal float Pitch => Mathf.Min(SteepestPitch, ViewPitch() + liftPitch);
+
+        // ZoomTilt: from this far above the nearest zoom the view starts lowering, down to LowPitch at the nearest zoom
+        private const float ZoomTiltRange = 30f, LowPitch = 16f;
+
+        /// <summary>
+        /// The player's tilt, lowered towards the ground as the camera comes close (Company of Heroes, Total War: far
+        /// away a map, close up a side view of the heroes). A tilt already lower than that is left alone.
+        /// </summary>
+        private float ViewPitch()
+        {
+            float tilt = pitchReady ? smoothPitch : Settings.CameraPitch.Value;
+            if (!Settings.ZoomTilt.Value) return tilt;
+            float k = 1f - Mathf.Clamp01((smoothDistance - Settings.CameraMinDistance.Value) / ZoomTiltRange);
+            k = k * k * (3f - 2f * k);
+            return Mathf.Lerp(tilt, Mathf.Min(tilt, LowPitch), k);
+        }
 
         internal float Distance => smoothDistance;
 
         // wanted state
         private Vector3 focus;
-        private float yaw = 25f;
-        private float distance = 48f;
+        private const float StartYaw = 25f, StartDistance = 48f;
+        private float yaw = StartYaw;
+        private float distance = StartDistance;
         private float pitch;
         private bool pitchReady;
         private float configPitch;
@@ -240,7 +257,27 @@ namespace HighCommand.Client
             if (Mathf.Abs(scroll) > 0.01f)
             {
                 float factor = Mathf.Pow(0.88f, scroll * Settings.CameraZoomSpeed.Value);
+                float before = distance;
                 distance = Mathf.Clamp(distance * factor, Settings.CameraMinDistance.Value, Settings.CameraMaxDistance.Value);
+
+                // towards the point under the mouse: it stays under the mouse (Company of Heroes, Total War); the focus
+                // moves the same share of the way to it as the distance shrinks (and back out the same way)
+                if (Settings.ZoomToCursor.Value && FollowTarget == null && ClientInput.PointerInWindow
+                    && WorldPicker.GroundPoint(mouse, out Vector3 under))
+                {
+                    Vector3 shift = under - focus;
+                    shift.y = 0f;
+                    if (shift.magnitude < Settings.CameraMaxDistance.Value * 2f)
+                        focus = ClampToMap(focus + shift * (1f - distance / before), false);
+                }
+            }
+
+            // the start view again (Age of Empires IV / Company of Heroes): turn, tilt and zoom, not the place
+            if (ClientInput.KeyDown(Settings.KeyResetCamera.Value))
+            {
+                yaw = StartYaw;
+                pitch = Settings.CameraPitch.Value;
+                distance = Mathf.Clamp(StartDistance, Settings.CameraMinDistance.Value, Settings.CameraMaxDistance.Value);
             }
 
             // --- rotate ---
@@ -378,7 +415,7 @@ namespace HighCommand.Client
 
             Vector3 lookAt = smoothFocus + Vector3.up * 1.0f;
             float dt = Mathf.Max(0.0001f, Time.unscaledDeltaTime);
-            float basePitch = pitchReady ? smoothPitch : Settings.CameraPitch.Value;
+            float basePitch = ViewPitch();
 
             // The distance is the player's alone (the wheel) and so is the tilt: like in an RTS, the camera never moves
             // in by itself. It only tilts up as far as it must to stay above the ground (a low view on a slope).
@@ -461,6 +498,7 @@ namespace HighCommand.Client
         /// </summary>
         private void CollectHeroCovers(Vector3 cameraPosition)
         {
+            behindGround.Clear();
             HcState state = HcState.Instance;
             if (state == null) return;
             Camera cam = SceneCam;
@@ -486,12 +524,24 @@ namespace HighCommand.Client
                 {
                     Collider c = CastBuffer[k].collider;
                     Renderer[] parts = PieceOf(c);
-                    // big ground cannot be hidden; the floor the hero stands on never is
-                    if (parts == null || parts.Length == 0 || Underfoot(c.bounds, body.footPosition)) continue;
+                    if (parts == null) continue;
+                    if (parts.Length == 0)
+                    {
+                        // big ground cannot be hidden: the overlay draws the hero's silhouette instead (not for the
+                        // ground right at its feet, which a low view grazes)
+                        if (CastBuffer[k].distance < dist - 2.5f) behindGround.Add(hero);
+                        continue;
+                    }
+                    if (Underfoot(c.bounds, body.footPosition)) continue; // the floor the hero stands on: never
                     Occluders.AddRange(parts);
                 }
             }
         }
+
+        private readonly HashSet<Hero> behindGround = new HashSet<Hero>();
+
+        /// <summary>A hill or a cliff (too big to hide) stands between the camera and this hero on screen.</summary>
+        internal bool IsBehindGround(Hero hero) => hero != null && behindGround.Contains(hero);
 
         /// <summary>The piece lies under the hero and no higher than its knees: the floor there.</summary>
         private static bool Underfoot(Bounds box, Vector3 foot)

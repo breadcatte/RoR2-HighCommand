@@ -119,6 +119,7 @@ namespace HighCommand.Client
             HelpOverlay.Add($"{Loc.Get("HIGHCOMMAND_KEY_MMB_VERT")} / {KeyName(Settings.KeyTiltUp.Value)} {KeyName(Settings.KeyTiltDown.Value)}", Loc.Get("HIGHCOMMAND_HELP_TILT"));
             HelpOverlay.Add(Settings.KeyFocusSelected.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_FOCUS"));
             HelpOverlay.Add(Settings.KeyLastAlert.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_ALERT"));
+            HelpOverlay.Add(Settings.KeyResetCamera.Value.ToString(), Loc.Get("HIGHCOMMAND_HELP_RESETCAM"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_MINIMAP"), Loc.Get("HIGHCOMMAND_HELP_MINIMAP"));
             HelpOverlay.Add(Loc.Get("HIGHCOMMAND_KEY_LMB"), Loc.Get("HIGHCOMMAND_HELP_SELECT"));
             HelpOverlay.Add("Shift + " + Loc.Get("HIGHCOMMAND_KEY_LMB"), Loc.Get("HIGHCOMMAND_HELP_SELECT_ADD"));
@@ -430,8 +431,22 @@ namespace HighCommand.Client
                 Camera.FocusOn(new Vector3(world.Value.x, Camera.Focus.y, world.Value.z), deliberate: pressed);
         }
 
+        private float lastFocusPress = -10f;
+
+        // One press flies to the selected heroes (or the army); two quick presses lock the camera on them, as the follow
+        // camera of Warcraft III / StarCraft II, until the player pans by hand or presses once more.
         private void FocusSelectionOrArmy()
         {
+            float now = Time.unscaledTime;
+            bool twice = now - lastFocusPress < 0.35f;
+            lastFocusPress = now;
+            if (twice)
+            {
+                Camera.FollowTarget = () => Selection.Center() ?? ArmyCenter();
+                Toast.Show(Loc.Get("HIGHCOMMAND_CAMERA_FOLLOW"));
+                return;
+            }
+            if (Camera.IsFollowing) Camera.FollowTarget = null;
             Vector3? where = Selection.Center() ?? ArmyCenter();
             if (where.HasValue) Camera.FocusOn(where.Value);
         }
