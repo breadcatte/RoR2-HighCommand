@@ -24,7 +24,9 @@ namespace HighCommand.UI
         private readonly List<Image> dots = new List<Image>(128);
         private readonly List<Image> selectionRings = new List<Image>(16);
         private float refreshTimer;
-        private int dotsUsed, ringsUsed;
+        private int dotsUsed, ringsUsed, marksUsed;
+        private readonly RectTransform markLayer;
+        private readonly List<Image> marks = new List<Image>(64);
 
         internal Minimap(Transform parent)
         {
@@ -44,6 +46,10 @@ namespace HighCommand.UI
             map.enabled = false;
             mapRect = map.rectTransform;
             UiKit.Stretch(mapRect, 0, 0, 0, 0);
+
+            // objects found on the map (chests, shrines, the teleporter ...): under the view finder and the unit dots
+            markLayer = UiKit.NewRect("Marks", mapRect);
+            UiKit.Stretch(markLayer, 0, 0, 0, 0);
 
             // the camera's view finder: a faint tint, hairline edges and bright corner brackets
             viewBox = UiKit.NewRect("ViewBox", mapRect);
@@ -173,14 +179,85 @@ namespace HighCommand.UI
             viewBox.localRotation = Quaternion.Euler(0f, 0f, -yaw);
         }
 
+        private static readonly Color MarkChest = new Color(1f, 0.82f, 0.3f, 1f);
+        private static readonly Color MarkChestPoor = new Color(0.62f, 0.5f, 0.3f, 0.9f);
+        private static readonly Color MarkShop = new Color(1f, 0.6f, 0.25f, 1f);
+        private static readonly Color MarkLunar = new Color(0.55f, 0.75f, 1f, 1f);
+        private static readonly Color MarkShrine = new Color(0.8f, 0.55f, 1f, 1f);
+        private static readonly Color MarkDrone = new Color(0.35f, 0.95f, 0.95f, 1f);
+        private static readonly Color MarkPrinter = new Color(0.92f, 0.92f, 0.92f, 1f);
+        private static readonly Color MarkPortal = new Color(0.75f, 0.5f, 1f, 1f);
+        private static readonly Color MarkTeleporter = new Color(1f, 0.45f, 0.35f, 1f);
+
+        /// <summary>Marks for the objects the army has found and not used up yet (see <see cref="Scouting"/>).</summary>
+        private void RefreshMarks(Rect r)
+        {
+            List<IInteractable> all = InterfaceInstanceTracker<IInteractable>.GetInstancesList();
+            for (int i = 0; i < all.Count; i++)
+            {
+                var mb = all[i] as MonoBehaviour;
+                if (!mb || !mb.isActiveAndEnabled) continue;
+                GameObject thing = mb.gameObject;
+                Army.InteractKind kind = Army.Interactables.KindOf(thing);
+
+                Sprite sprite;
+                Color color;
+                float size;
+                bool diamond = false;
+                switch (kind)
+                {
+                    case Army.InteractKind.Chest:
+                        sprite = UiKit.White; diamond = true; size = 7f;
+                        color = Army.Interactables.Affordable(thing) ? MarkChest : MarkChestPoor;
+                        break;
+                    case Army.InteractKind.Shop: sprite = UiKit.White; diamond = true; size = 7f; color = MarkShop; break;
+                    case Army.InteractKind.Lunar: sprite = UiKit.White; diamond = true; size = 7f; color = MarkLunar; break;
+                    case Army.InteractKind.Shrine: sprite = UiKit.Dot; size = 8f; color = MarkShrine; break;
+                    case Army.InteractKind.Drone: sprite = UiKit.Dot; size = 8f; color = MarkDrone; break;
+                    case Army.InteractKind.Printer: sprite = UiKit.Dot; size = 8f; color = MarkPrinter; break;
+                    case Army.InteractKind.Portal: sprite = UiKit.Ring; size = 13f; color = MarkPortal; break;
+                    case Army.InteractKind.Teleporter: sprite = UiKit.Ring; size = 17f; color = MarkTeleporter; break;
+                    default: continue; // barrels and the rest: not worth a mark
+                }
+                if (kind != Army.InteractKind.Teleporter && Army.Interactables.IsUsed(thing)) continue;
+                if (!Scouting.IsKnown(thing)) continue;
+
+                Vector2 uv = MapInfo.WorldToMinimap01(thing.transform.position);
+                if (uv.x < 0f || uv.x > 1f || uv.y < 0f || uv.y > 1f) continue;
+
+                Image mark = AcquireMark();
+                if (mark.sprite != sprite) mark.sprite = sprite;
+                mark.color = color;
+                mark.rectTransform.sizeDelta = new Vector2(size, size);
+                mark.rectTransform.localRotation = diamond ? Quaternion.Euler(0f, 0f, 45f) : Quaternion.identity;
+                mark.rectTransform.anchoredPosition = new Vector2((uv.x - 0.5f) * r.width, (uv.y - 0.5f) * r.height);
+            }
+        }
+
+        private Image AcquireMark()
+        {
+            if (marksUsed >= marks.Count)
+            {
+                Image mark = UiKit.NewImage("Mark", markLayer, UiKit.Dot, Color.white);
+                mark.rectTransform.anchorMin = mark.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+                mark.raycastTarget = false;
+                marks.Add(mark);
+            }
+            Image m = marks[marksUsed++];
+            if (!m.enabled) m.enabled = true;
+            return m;
+        }
+
         private void RefreshDots(Selection selection)
         {
             dotsUsed = 0;
             ringsUsed = 0;
+            marksUsed = 0;
             if (!MapInfo.Valid) { HideUnused(); return; }
 
             var bodies = CharacterBody.readOnlyInstancesList;
             Rect r = mapRect.rect;
+            RefreshMarks(r);
             for (int i = 0; i < bodies.Count; i++)
             {
                 CharacterBody b = bodies[i];
@@ -257,6 +334,8 @@ namespace HighCommand.UI
                 if (dots[i].enabled) dots[i].enabled = false;
             for (int i = ringsUsed; i < selectionRings.Count; i++)
                 if (selectionRings[i].enabled) selectionRings[i].enabled = false;
+            for (int i = marksUsed; i < marks.Count; i++)
+                if (marks[i].enabled) marks[i].enabled = false;
         }
     }
 }

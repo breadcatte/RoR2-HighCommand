@@ -1,0 +1,99 @@
+# Chests on the map, paid from the army's purse: one hero (the nearest) goes on a right click and comes back.
+# Real clicks only (hc_click_found right-clicks the object found by hc_find). Screenshots loot_*.png.
+@wait 4
+@log === L0 run start (the config is new: the log must say the loot was switched to chests)
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 25
+hc_cfg verbose true
+hc_cfg autobarrels false
+hc_invulnerable true
+hc_interactables
+hc_loot
+@log === L1 nobody selected, gold 500: right click on the nearest chest, the nearest hero of the army goes
+hc_gold set 500
+hc_select none
+hc_find kind:Chest
+@wait 1
+hc_click_found 1 hover
+@wait 0.5
+hc_cursor
+hc_screenshot loot_hover
+hc_click_found 1
+@wait 1
+hc_loot
+@wait 15
+@log (the chest must be open, the gold lower, the item in the pool, the hero on its way back or home)
+hc_loot
+@wait 8
+hc_loot
+hc_screenshot loot_after
+@log === L2 hero 1 holds a spot, then gets a chest: afterwards it walks back and holds again
+hc_gold set 500
+hc_select 1
+hc_key R
+@wait 2
+hc_find kind:Chest
+@wait 1
+hc_click_found 1
+@wait 1
+hc_loot
+@wait 20
+hc_loot
+@wait 8
+@log (hero 1: order=Hold again)
+hc_loot
+@log === L3 everybody selected: a route through two chests with Shift (one hero takes both)
+hc_gold set 1000
+hc_select all
+hc_find kind:Chest
+@wait 1
+hc_click_found 1 shift
+@wait 1
+hc_find kind:Chest
+@wait 1
+hc_click_found 1 shift
+@wait 1
+hc_loot
+hc_screenshot loot_route
+@wait 30
+hc_loot
+@log === L4 no gold: the click is refused, nobody moves
+hc_gold set 0
+hc_find kind:Chest
+@wait 1
+hc_click_found 1
+@wait 1
+hc_loot
+@log === L5 the barrels: a hero sent beside one opens it by itself once it stands idle there
+hc_cfg autobarrels true
+hc_select all
+hc_key E
+@wait 1
+hc_select none
+hc_find kind:Barrel
+hc_move_found 1
+hc_move_found 2
+@wait 50
+@log (one barrel more must be open)
+hc_loot
+@log === L6 the minimap marks and price tags from far away
+hc_gold set 60
+hc_cam army
+hc_cam dist 90
+@wait 2
+hc_cam info
+hc_screenshot loot_map
+hc_cam dist 50
+@wait 2
+hc_cam info
+hc_screenshot loot_map2
+@log === END
+hc_input_end
+disconnect
+@norun
+@wait 4
+@quit

@@ -1,4 +1,4 @@
-# Context pointer badge, path preview and the orders list of the command card (screenshots cur_*.png).
+﻿# Context pointer badge, path preview and the orders list of the command card (screenshots cur_*.png).
 # Screen coordinates are 1920x1080 with the origin at the bottom left. The orders button is at (1657, 127); the list
 # opens above it, its rows (8, 32 px each, first = attack-move) are at x = 1686, y = 399 - 32 * row.
 @wait 4
@@ -38,7 +38,7 @@ hc_mouse_hero 2
 @wait 0.6
 hc_cursor
 hc_screenshot cur_follow
-@log === C5 pointer on the selected hero itself (expect Select)
+@log === C5 pointer on the selected hero itself (expect Move: the click moves there)
 hc_mouse_hero 1
 @wait 0.6
 hc_cursor

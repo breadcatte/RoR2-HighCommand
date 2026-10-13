@@ -217,11 +217,17 @@ namespace HighCommand.Dev
             }
         }
 
-        [ConCommand(commandName = "hc_gold", flags = HostOnly, helpText = "hc_gold <amount>: gives the army gold (host).")]
+        [ConCommand(commandName = "hc_gold", flags = HostOnly, helpText = "hc_gold <amount> | hc_gold set <amount>: gives the army gold / sets the purse (host).")]
         private static void CcGold(ConCommandArgs args)
         {
             if (!UnityEngine.Networking.NetworkServer.active || !Mode.HighCommandRun.IsActive)
                 throw new ConCommandException("Only the host can do this during a High Command run.");
+            if (args.Count > 1 && args.GetArgString(0) == "set")
+            {
+                Mode.HighCommandRun.Instance.State.ServerSetGold((uint)Mathf.Max(0, args.GetArgInt(1)));
+                Debug.Log($"HighCommand: gold is now {Army.Economy.Gold}.");
+                return;
+            }
             uint amount = (uint)Mathf.Max(0, args.GetArgInt(0));
             Army.Economy.Add(amount, null, applyMultiplier: false);
             Debug.Log($"HighCommand: gold is now {Army.Economy.Gold}.");
@@ -453,6 +459,7 @@ namespace HighCommand.Dev
                 case "herobaseprice": Settings.HeroBasePrice.Value = int.Parse(value); break;
                 case "autoretreat": Settings.AutoRetreat.Value = bool.Parse(value); break;
                 case "verbose": Settings.VerboseLog.Value = bool.Parse(value); break;
+                case "autobarrels": Settings.AutoOpenBarrels.Value = bool.Parse(value); break;
                 case "uiscale": Settings.UiScale.Value = float.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
                 case "allowhidden": Settings.AllowHiddenSurvivors.Value = bool.Parse(value); break;
                 default: throw new ConCommandException("Unknown setting.");
@@ -636,6 +643,127 @@ namespace HighCommand.Dev
             Debug.Log(sb.ToString());
         }
 
+        private static GameObject foundThing;
+
+        [ConCommand(commandName = "hc_find", flags = HostOnly, helpText = "hc_find <name or kind fragment>: the nearest usable object of that kind (chest, shrine, barrel ...) to the army; the camera flies to it (testing).")]
+        private static void CcFind(ConCommandArgs args)
+        {
+            string what = args.Count > 0 ? args.GetArgString(0) : "chest";
+            Vector3 from = Client.ClientRoot.ArmyCenter() ?? Vector3.zero;
+            GameObject best = null;
+            float bestD = float.MaxValue;
+            foreach (IInteractable i in InterfaceInstanceTracker<IInteractable>.GetInstancesList())
+            {
+                var mb = i as MonoBehaviour;
+                if (!mb || !mb.isActiveAndEnabled || !Army.Interactables.Usable(mb.gameObject) || Targeted(mb.gameObject)) continue;
+                string kind = Army.Interactables.KindOf(mb.gameObject).ToString();
+                if (what.StartsWith("kind:", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!string.Equals(kind, what.Substring(5), System.StringComparison.OrdinalIgnoreCase)) continue;
+                }
+                else if (mb.gameObject.name.IndexOf(what, System.StringComparison.OrdinalIgnoreCase) < 0
+                         && kind.IndexOf(what, System.StringComparison.OrdinalIgnoreCase) < 0) continue;
+                float d = (mb.transform.position - from).sqrMagnitude;
+                if (d < bestD) { bestD = d; best = mb.gameObject; }
+            }
+            foundThing = best;
+            if (!best) { Debug.Log($"HighCommand find: no usable '{what}'"); return; }
+            Army.Interactables.TryGetPrice(best, out CostTypeIndex type, out int cost);
+            Debug.Log($"HighCommand find: {best.name} kind={Army.Interactables.KindOf(best)} at {best.transform.position:0} " +
+                      $"dist={Mathf.Sqrt(bestD):0} price={type}:{cost} affordable={Army.Interactables.Affordable(best)}");
+            var cam = Client.RtsCamera.Instance;
+            if (cam) cam.FocusOn(best.transform.position, snap: true);
+        }
+
+        // an object some hero is already on the way to (hc_find looks for the next one)
+        private static bool Targeted(GameObject thing)
+        {
+            var run = Mode.HighCommandRun.Instance;
+            if (run == null) return false;
+            foreach (var h in run.Army.Heroes)
+            {
+                Orders.HeroBrain b = h.Brain;
+                if (!b) continue;
+                if (b.Current != null && b.Current.Target == thing) return true;
+                foreach (var o in b.Queue) if (o.Target == thing) return true;
+            }
+            return false;
+        }
+
+        [ConCommand(commandName = "hc_click_found", flags = HostOnly, helpText = "hc_click_found [button] [shift] [hover]: clicks on the object found by hc_find (right button by default); hover only puts the pointer on it.")]
+        private static void CcClickFound(ConCommandArgs args)
+        {
+            if (!foundThing) throw new ConCommandException("Nothing found (hc_find first).");
+            int button = args.Count > 0 ? args.GetArgInt(0) : 1;
+            // aim at the middle of its colliders, where the pointer would be put by a player
+            Vector3 aim = foundThing.transform.position + Vector3.up * 0.8f;
+            Bounds b = default;
+            bool any = false;
+            foreach (Collider c in foundThing.GetComponentsInChildren<Collider>())
+            {
+                if (!c || !c.enabled) continue;
+                if (!any) { b = c.bounds; any = true; } else b.Encapsulate(c.bounds);
+            }
+            if (any) aim = b.center;
+            if (!Client.WorldPicker.Project(aim, 1f, out Vector2 at, out float _))
+                throw new ConCommandException("The object is behind the camera.");
+            GameObject picked = Client.WorldPicker.PickInteractable(at);
+            Debug.Log($"HighCommand: pointer on {foundThing.name} at ({at.x:0},{at.y:0}); picked={(picked ? picked.name : "nothing")}");
+            if (HasFlag(args, 1, "hover")) Client.ClientInput.InjectMove(at, HasFlag(args, 1, "shift"));
+            else Client.ClientInput.InjectClick(at, button, HasFlag(args, 1, "shift"));
+        }
+
+        [ConCommand(commandName = "hc_move_found", flags = HostOnly, helpText = "hc_move_found <heroId>: orders the hero to stand 6 m beside the object found by hc_find (testing what heroes do near it).")]
+        private static void CcMoveFound(ConCommandArgs args)
+        {
+            if (!foundThing) throw new ConCommandException("Nothing found (hc_find first).");
+            Vector3 at = Orders.Formation.SnapToGround(foundThing.transform.position + new Vector3(6f, 0f, 0f));
+            Orders.OrderService.Execute(new Orders.OrderCommand { HeroIds = new[] { args.GetArgInt(0) }, Kind = Orders.OrderKind.Move, Point = at });
+            Debug.Log($"HighCommand: hero {args.GetArgInt(0)} sent beside {foundThing.name} at {at:0}");
+        }
+
+        [ConCommand(commandName = "hc_invulnerable", flags = HostOnly, helpText = "hc_invulnerable <true|false>: heroes take no damage (a test that must not be cut short by a death).")]
+        private static void CcInvulnerable(ConCommandArgs args)
+        {
+            var run = Mode.HighCommandRun.Instance;
+            if (run == null) throw new ConCommandException("Not in a High Command run.");
+            bool on = args.Count == 0 || bool.Parse(args.GetArgString(0));
+            int n = 0;
+            foreach (var h in run.Army.Heroes)
+                if (h.Body && h.Body.healthComponent) { h.Body.healthComponent.godMode = on; n++; }
+            Debug.Log($"HighCommand: {n} hero(es) invulnerable={on}.");
+        }
+
+        [ConCommand(commandName = "hc_loot", flags = HostOnly, helpText = "Prints the purse, the pool, the stage's chests and what every hero is doing.")]
+        private static void CcLoot(ConCommandArgs args)
+        {
+            var run = Mode.HighCommandRun.Instance;
+            var s = Mode.HcState.Instance;
+            if (run == null || !s) throw new ConCommandException("Not in a High Command run.");
+            Army.Interactables.CountChests(out int opened, out int chests);
+            Inventory pool = Army.LootService.Pool;
+            int items = 0;
+            if (pool)
+                foreach (ItemIndex idx in pool.itemAcquisitionOrder) items += pool.GetItemCountPermanent(idx);
+            int barrels = 0, barrelsOpen = 0;
+            foreach (BarrelInteraction b in InstanceTracker.GetInstancesList<BarrelInteraction>())
+            {
+                if (!b) continue;
+                barrels++;
+                if (b.Networkopened) barrelsOpen++;
+            }
+            var sb = new StringBuilder($"HighCommand loot: gold={s.Gold} poolItems={items} chests={opened}/{chests} barrels={barrelsOpen}/{barrels} known={Client.Scouting.KnownCount} droplets={InstanceTracker.GetInstancesList<PickupDropletController>().Count}");
+            foreach (var h in run.Army.Heroes)
+            {
+                Orders.HeroBrain b = h.Brain;
+                if (!b) continue;
+                sb.Append($"\n  {h} order={(b.Current != null ? b.Current.ToString() + (b.Current.Errand ? "*" : "") : "-")} queue=[");
+                foreach (var o in b.Queue) sb.Append(o).Append(o.Errand ? "* " : " ");
+                sb.Append($"] state={b.DebugState} pos={h.Position:0} anchor={b.Anchor:0}");
+            }
+            Debug.Log(sb.ToString());
+        }
+
         [ConCommand(commandName = "hc_economy", flags = HostOnly, helpText = "Prints gold, income and prices.")]
         private static void CcEconomy(ConCommandArgs args)
         {
@@ -784,7 +912,15 @@ namespace HighCommand.Dev
             if (!best) throw new ConCommandException("No enemy on screen.");
             Client.WorldPicker.Project(best.corePosition, 1f, out Vector2 at, out float _);
             Debug.Log($"HighCommand: pointer on enemy {best.name} at ({at.x:0},{at.y:0})");
-            Client.ClientInput.InjectMove(at, HasFlag(args, 0, "shift"));
+            // the pointer stays on the enemy while it walks (a fixed pixel would be on bare ground a moment later)
+            CharacterBody tracked = best;
+            Client.ClientInput.InjectTrack(() => TrackBody(tracked), HasFlag(args, 0, "shift"));
+        }
+
+        private static Vector2? TrackBody(CharacterBody body)
+        {
+            if (!body || !body.healthComponent || !body.healthComponent.alive) return null;
+            return Client.WorldPicker.Project(body.corePosition, 1f, out Vector2 s, out float _) ? s : (Vector2?)null;
         }
 
         [ConCommand(commandName = "hc_mouse_hero", flags = HostOnly, helpText = "hc_mouse_hero <heroId>: moves the synthetic pointer onto the hero's body.")]
@@ -797,9 +933,10 @@ namespace HighCommand.Dev
             {
                 if (h.Id != id) continue;
                 if (!h.Body) throw new ConCommandException("Hero has no body.");
-                if (!Client.WorldPicker.Project(h.Body.corePosition, 1f, out Vector2 s, out float _))
+                if (!Client.WorldPicker.Project(h.Body.corePosition, 1f, out Vector2 _, out float _))
                     throw new ConCommandException("Hero is behind the camera.");
-                Client.ClientInput.InjectMove(s);
+                var tracked = h;
+                Client.ClientInput.InjectTrack(() => TrackBody(tracked.Body));
                 return;
             }
             throw new ConCommandException("No such hero.");

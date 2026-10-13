@@ -181,7 +181,10 @@ namespace HighCommand.UI
                 DifficultyDef dd = DifficultyCatalog.GetDifficultyDef(difficultyIndex);
                 if (dd != null) difficulty = Language.GetString(dd.nameToken);
                 UiKit.SetText(stageText, $"{Loc.Format("HIGHCOMMAND_TOP_STAGE", cleared + 1)}  <color=#A6B3C7>{stage}</color>");
-                UiKit.SetText(metaText, $"{time}    {difficulty}");
+                // the chests of the stage, opened / all: a reason to look round the whole map
+                Army.Interactables.CountChests(out int opened, out int chests);
+                string chestText = chests > 0 ? "    <color=#E8C060>" + Loc.Format("HIGHCOMMAND_TOP_CHESTS", opened, chests) + "</color>" : "";
+                UiKit.SetText(metaText, $"{time}    {difficulty}{chestText}");
             }
 
             // --- purse ---
@@ -233,7 +236,16 @@ namespace HighCommand.UI
             }
 
             if (UiKit.Contains(economyPanel, ClientInput.Mouse) && !ClientInput.MouseBlocked)
-                Tooltip.Show(Loc.Get("HIGHCOMMAND_TOP_NEXTHERO") + ": $" + price, Loc.Get("HIGHCOMMAND_TOP_BARRACKS_TIP") + "\n\n[" + Settings.KeyBarracks.Value + "]");
+            {
+                // the texts are built when the price changes, not every frame the pointer rests here
+                if (tipPrice != price || tipTitle == null)
+                {
+                    tipPrice = price;
+                    tipTitle = Loc.Get("HIGHCOMMAND_TOP_NEXTHERO") + ": $" + price;
+                    tipBody = Loc.Get("HIGHCOMMAND_TOP_BARRACKS_TIP") + "\n\n[" + Settings.KeyBarracks.Value + "]";
+                }
+                Tooltip.Show(tipTitle, tipBody);
+            }
 
             TickTeleporter(state);
             TickDefeat(state);
@@ -246,6 +258,8 @@ namespace HighCommand.UI
         private int shownGoldInt = int.MinValue;
         private int subAlive = -1, subHeroes = -1, subLimit = -1, subIncome = -1, subPrice = -1;
         private bool subAffordable;
+        private int tipPrice = -1;
+        private string tipTitle, tipBody;
         private int teleporterKey = int.MinValue;
         private int defeatKey = int.MinValue;
 

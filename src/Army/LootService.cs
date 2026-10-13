@@ -8,10 +8,10 @@ using UnityEngine.Networking;
 namespace HighCommand.Army
 {
     /// <summary>
-    /// Items without chests. Enemies drop items with a chance tied to the gold they would give (so loot follows the
-    /// same difficulty curve as chest prices did), the item goes straight into the army's pool (the commander's
-    /// inventory) and the HUD feed announces it. Every other way an item could reach the ground (boss rewards,
-    /// shrines, scrapper ...) is caught at the pickup-creation functions and routed to the pool too.
+    /// Items come from the map as in the stock game: chests, shrines, bosses and the teleporter drop them, they fly out
+    /// and land, and where they land they go into the army's pool (the commander's inventory) instead of lying on the
+    /// ground; the HUD feed announces them. Optionally (Loot/ItemDropsEnabled, the mode's old way) enemies drop items
+    /// too, with a chance tied to the gold they give.
     /// </summary>
     internal static class LootService
     {
@@ -145,18 +145,26 @@ namespace HighCommand.Army
 
     internal static class LootPatches
     {
-        /// <summary>Every dropped item (chests, bosses, shrines ...) is added to the pool instead of falling to the ground.</summary>
-        [HarmonyPatch(typeof(PickupDropletController), nameof(PickupDropletController.CreatePickupDroplet),
-            typeof(GenericPickupController.CreatePickupInfo), typeof(Vector3), typeof(Vector3))]
-        internal static class Droplets
+        /// <summary>
+        /// An item flying out of a chest (or a boss, a shrine ...) is seen on its way, as in the stock game; it joins the
+        /// pool where it lands (see <see cref="WorldPickups"/>). One that never lands (it falls off the map, the stage
+        /// ends while it flies) is granted when it disappears.
+        /// </summary>
+        [HarmonyPatch(typeof(PickupDropletController), "OnDisable")]
+        internal static class LostDroplets
         {
-            private static bool Prefix(GenericPickupController.CreatePickupInfo pickupInfo, Vector3 position)
+            private static readonly AccessTools.FieldRef<PickupDropletController, bool> Alive =
+                AccessTools.FieldRefAccess<PickupDropletController, bool>("alive");
+
+            private static void Postfix(PickupDropletController __instance)
             {
-                if (!HighCommandRun.IsActive || !NetworkServer.active) return true;
-                return !LootService.Grant(pickupInfo.pickup, position);
+                if (!HighCommandRun.IsActive || !NetworkServer.active || !Alive(__instance)) return;
+                Alive(__instance) = false;
+                LootService.Grant(__instance.pickupState, __instance.transform.position);
             }
         }
 
+        /// <summary>Every item that would lie on the ground (a landed droplet, a boss reward ...) goes into the pool.</summary>
         [HarmonyPatch(typeof(GenericPickupController), nameof(GenericPickupController.CreatePickup))]
         internal static class WorldPickups
         {

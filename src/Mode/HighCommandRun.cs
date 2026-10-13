@@ -68,6 +68,7 @@ namespace HighCommand.Mode
             if (NetworkServer.active && !subscribed)
             {
                 Stage.onServerStageBegin += OnServerStageBegin;
+                PurchaseInteraction.onPurchaseGlobalServer += Purse.OnPurchase;
                 subscribed = true;
                 Economy.ResetForNewRun();
                 RunStats.Reset();
@@ -89,6 +90,7 @@ namespace HighCommand.Mode
             if (subscribed)
             {
                 Stage.onServerStageBegin -= OnServerStageBegin;
+                PurchaseInteraction.onPurchaseGlobalServer -= Purse.OnPurchase;
                 subscribed = false;
                 RunStats.Unsubscribe();
             }
@@ -101,6 +103,7 @@ namespace HighCommand.Mode
 
         private void OnServerStageBegin(Stage stage)
         {
+            Interactables.ResetForStage();
             try
             {
                 if (Army.Count == 0)

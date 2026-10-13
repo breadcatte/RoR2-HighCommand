@@ -92,6 +92,7 @@ namespace HighCommand.Client
             internal Vector3 Point;
             internal bool Preview;       // draw the line from the selected heroes
             internal bool Queued;        // Shift held: the line starts at the end of the queue
+            internal Hero Runner;        // an object under the pointer: only this hero would go (the line starts at it)
         }
 
         internal CursorInfo Cursor { get; private set; }
@@ -155,66 +156,13 @@ namespace HighCommand.Client
                 return;
             }
 
-            Hover kind = Hover.None;
-            if (selection.Count == 0)
-            {
-                if (!overUi && overlay.HoveredHero != null) kind = Hover.Select;
-            }
-            else if (onMap.HasValue)
-            {
-                kind = Hover.Move;
-                info.HasPoint = true;
-                info.Point = Orders.Formation.SnapToGround(WithGround(onMap.Value));
-            }
-            else if (!overUi)
-            {
-                CharacterBody enemy = overlay.HoveredHero == null ? overlay.HoveredEnemy : WorldPicker.PickEnemy(mouse);
-                Hero friend = null;
-                if (!enemy)
-                {
-                    friend = overlay.HoveredHero != null ? overlay.HoveredHero : WorldPicker.PickHero(mouse, heroes);
-                    if (friend != null && (selection.Contains(friend) || !friend.Body)) friend = null;
-                }
-
-                if (enemy)
-                {
-                    kind = Hover.Attack;
-                    info.HasPoint = true;
-                    info.Point = enemy.corePosition;
-                }
-                else if (friend != null)
-                {
-                    kind = Hover.Follow;
-                    info.HasPoint = true;
-                    info.Point = friend.Body.corePosition;
-                }
-                else
-                {
-                    GameObject interactable = WorldPicker.PickInteractable(mouse);
-                    if (interactable)
-                    {
-                        kind = Hover.Interact;
-                        info.HasPoint = true;
-                        info.Point = interactable.transform.position;
-                    }
-                    else if (overlay.HoveredHero != null)
-                    {
-                        kind = Hover.Select; // a selected hero: a click would only select it
-                    }
-                    else if (WorldPicker.GroundPoint(mouse, out Vector3 ground))
-                    {
-                        kind = Hover.Move;
-                        info.HasPoint = true;
-                        info.Point = ground;
-                    }
-                }
-            }
-
-            if (kind == Hover.None) return;
+            Target t = Resolve(mouse, heroes);
+            if (t.Kind == Hover.None) return;
 
             info.Show = true;
-            info.Label = LabelFor(kind, info.Queued && kind != Hover.Select);
-            switch (kind)
+            info.HasPoint = t.HasPoint;
+            info.Point = t.Point;
+            switch (t.Kind)
             {
                 case Hover.Select: info.Glyph = Glyph.Select; info.Color = Color.white; break;
                 case Hover.Move: info.Glyph = Glyph.Move; info.Color = MoveColor; break;
@@ -222,11 +170,151 @@ namespace HighCommand.Client
                 case Hover.Follow: info.Glyph = Glyph.Follow; info.Color = FollowColor; break;
                 case Hover.Interact: info.Glyph = Glyph.Interact; info.Color = InteractColor; break;
             }
+            if (t.Kind == Hover.Interact)
+            {
+                info.Label = InteractLabel(t.Object, info.Queued, out bool affordable);
+                if (!affordable) info.Color = AttackColor;
+                info.Runner = RunnerPreview(t.Object, heroes);
+            }
+            else info.Label = LabelFor(t.Kind, info.Queued && t.Kind != Hover.Select);
+
             // the line shows only when the pointer is on something (an enemy, a friend, an object) or the player is
             // planning a queue with Shift; over bare ground the badge alone is enough
-            bool onSomething = kind == Hover.Attack || kind == Hover.Follow || kind == Hover.Interact;
-            info.Preview = info.HasPoint && (onSomething || (kind == Hover.Move && info.Queued));
+            bool onSomething = t.Kind == Hover.Attack || t.Kind == Hover.Follow || t.Kind == Hover.Interact;
+            info.Preview = info.HasPoint && (onSomething || (t.Kind == Hover.Move && info.Queued))
+                           && (selection.Count > 0 || info.Runner != null);
             Cursor = info;
+        }
+
+        // ---- what is under the pointer: one answer for the badge and for the click --------------------------
+
+        private struct Target
+        {
+            internal Hover Kind;
+            internal CharacterBody Enemy;
+            internal Hero Friend;
+            internal GameObject Object;
+            internal bool HasPoint;
+            internal Vector3 Point;
+        }
+
+        /// <summary>
+        /// What a right click on <paramref name="mouse"/> means. Both the pointer badge and the click itself ask this, so
+        /// what the badge promises is what the click does. With heroes selected: on the minimap = move; an enemy =
+        /// attack; another hero = follow; a usable object = send the nearest hero; the ground = move. With nobody
+        /// selected only objects take orders (the nearest hero of the whole army goes); a hero shows "select".
+        /// </summary>
+        private Target Resolve(Vector2 mouse, IReadOnlyList<Hero> heroes)
+        {
+            var t = new Target();
+            bool any = selection.Count > 0;
+
+            Vector3? onMap = minimap.ScreenToWorld(mouse);
+            if (onMap.HasValue)
+            {
+                if (!any) return t;
+                t.Kind = Hover.Move;
+                t.HasPoint = true;
+                t.Point = Orders.Formation.SnapToGround(WithGround(onMap.Value));
+                return t;
+            }
+            if (ClientInput.PointerOverUi) return t;
+
+            if (any)
+            {
+                CharacterBody enemy = WorldPicker.PickEnemy(mouse);
+                if (enemy)
+                {
+                    t.Kind = Hover.Attack;
+                    t.Enemy = enemy;
+                    t.HasPoint = true;
+                    t.Point = enemy.corePosition;
+                    return t;
+                }
+                Hero friend = WorldPicker.PickHero(mouse, heroes);
+                if (friend != null && !selection.Contains(friend) && friend.Body)
+                {
+                    t.Kind = Hover.Follow;
+                    t.Friend = friend;
+                    t.HasPoint = true;
+                    t.Point = friend.Body.corePosition;
+                    return t;
+                }
+            }
+
+            GameObject thing = WorldPicker.PickInteractable(mouse);
+            if (thing && Interactables.Usable(thing))
+            {
+                t.Kind = Hover.Interact;
+                t.Object = thing;
+                t.HasPoint = true;
+                t.Point = thing.transform.position;
+                return t;
+            }
+
+            if (!any)
+            {
+                if (WorldPicker.PickHero(mouse, heroes) != null) t.Kind = Hover.Select;
+                return t;
+            }
+            if (WorldPicker.GroundPoint(mouse, out Vector3 ground))
+            {
+                t.Kind = Hover.Move;
+                t.HasPoint = true;
+                t.Point = ground;
+            }
+            return t;
+        }
+
+        // the badge text of an object: the game's own verb and the price, built again only when one of them changes
+        private GameObject labelObject;
+        private int labelCost = -1;
+        private bool labelAffordable, labelQueued;
+        private string labelText;
+
+        private string InteractLabel(GameObject thing, bool queued, out bool affordable)
+        {
+            bool priced = Interactables.TryGetPrice(thing, out CostTypeIndex type, out int cost);
+            affordable = Interactables.Affordable(thing);
+            if (thing == labelObject && cost == labelCost && affordable == labelAffordable && queued == labelQueued && labelText != null)
+                return labelText;
+
+            labelObject = thing;
+            labelCost = cost;
+            labelAffordable = affordable;
+            labelQueued = queued;
+            string text = Interactables.ActionText(thing);
+            if (priced)
+            {
+                string price = Interactables.PriceText(type, cost);
+                if (price.Length > 0) text += "  " + (affordable ? price : "<color=#FF6B5E>" + price + "</color>");
+            }
+            if (queued) text += Loc.Get("HIGHCOMMAND_CURSOR_QUEUE");
+            return labelText = text;
+        }
+
+        // who would go (by the straight line: the click itself measures the walk); asked again twice a second
+        private GameObject runnerObject;
+        private Hero runnerHero;
+        private float runnerAt;
+
+        private Hero RunnerPreview(GameObject thing, IReadOnlyList<Hero> heroes)
+        {
+            if (thing == runnerObject && Time.unscaledTime < runnerAt) return runnerHero;
+            runnerObject = thing;
+            runnerAt = Time.unscaledTime + 0.5f;
+            runnerHero = null;
+            float best = float.MaxValue;
+            IReadOnlyList<Hero> pool = selection.Count > 0 ? selection.Heroes : heroes;
+            Vector3 at = thing.transform.position;
+            for (int i = 0; i < pool.Count; i++)
+            {
+                Hero h = pool[i];
+                if (!h.IsAlive || !h.Body) continue;
+                float d = (h.Body.footPosition - at).sqrMagnitude;
+                if (d < best) { best = d; runnerHero = h; }
+            }
+            return runnerHero;
         }
 
         private void FindPoint(Vector2 mouse, Vector3? onMap, ref CursorInfo info)
@@ -461,42 +549,53 @@ namespace HighCommand.Client
 
         private void ContextOrder(IReadOnlyList<Hero> heroes)
         {
-            if (selection.Count == 0) return;
-            Vector2 mouse = ClientInput.Mouse;
             bool queued = ClientInput.Shift;
-
-            // minimap: right click = move there
-            Vector3? onMap = minimap.ScreenToWorld(mouse);
-            if (onMap.HasValue)
+            Target t = Resolve(ClientInput.Mouse, heroes);
+            switch (t.Kind)
             {
-                SendPoint(OrderKind.Move, Orders.Formation.SnapToGround(WithGround(onMap.Value)), queued);
-                return;
+                case Hover.Move: SendPoint(OrderKind.Move, t.Point, queued); break;
+                case Hover.Attack: SendTargeted(OrderKind.Attack, t.Enemy, focus: ClientInput.Ctrl, queued: queued); break;
+                case Hover.Follow: SendTargeted(OrderKind.Follow, t.Friend.Body, focus: false, queued: queued); break;
+                case Hover.Interact: SendRunner(t.Object, heroes, queued); break;
             }
-            if (ClientInput.PointerOverUi) return;
+        }
 
-            CharacterBody enemy = WorldPicker.PickEnemy(mouse);
-            if (enemy)
+        /// <summary>
+        /// An object under the pointer: the teleporter takes the selected heroes (or, with nobody selected, starts the
+        /// whole teleporter routine); anything else gets one hero, the nearest of the selected ones (of the army when
+        /// nobody is selected), who comes back to what it was doing afterwards.
+        /// </summary>
+        private void SendRunner(GameObject target, IReadOnlyList<Hero> heroes, bool queued)
+        {
+            if (target.GetComponent<TeleporterInteraction>())
             {
-                SendTargeted(OrderKind.Attack, enemy, focus: ClientInput.Ctrl, queued: queued);
-                return;
-            }
-
-            Hero friend = WorldPicker.PickHero(mouse, heroes);
-            if (friend != null && !selection.Contains(friend) && friend.Body)
-            {
-                SendTargeted(OrderKind.Follow, friend.Body, focus: false, queued: queued);
-                return;
-            }
-
-            GameObject interactable = WorldPicker.PickInteractable(mouse);
-            if (interactable)
-            {
-                SendObject(OrderKind.Interact, interactable, queued);
+                if (selection.Count == 0) TeleporterAction();
+                else SendObject(OrderKind.Interact, target, queued, SelectedIds());
                 return;
             }
 
-            if (WorldPicker.GroundPoint(mouse, out Vector3 ground))
-                SendPoint(OrderKind.Move, ground, queued);
+            if (!Interactables.Affordable(target))
+            {
+                Interactables.TryGetPrice(target, out CostTypeIndex type, out int cost);
+                Toast.Error(type == CostTypeIndex.Money
+                    ? Loc.Format("HIGHCOMMAND_LOOT_NEEDGOLD", cost)
+                    : Loc.Get("HIGHCOMMAND_LOOT_CANNOTPAY"));
+                return;
+            }
+
+            int[] ids;
+            if (selection.Count > 0) ids = SelectedIds();
+            else
+            {
+                var all = new List<int>(heroes.Count);
+                for (int i = 0; i < heroes.Count; i++) if (heroes[i].IsAlive) all.Add(heroes[i].Id);
+                ids = all.ToArray();
+            }
+            if (ids.Length == 0) return;
+
+            SendObject(OrderKind.Interact, target, queued, ids);
+            Hero runner = OrderService.LastRunner;
+            if (runner != null && !queued) Toast.Show(Loc.Format("HIGHCOMMAND_LOOT_GOING", runner.DisplayName, Interactables.ActionText(target)));
         }
 
         private void ConfirmMode(IReadOnlyList<Hero> heroes)
@@ -617,12 +716,12 @@ namespace HighCommand.Client
             Feedback.Confirm();
         }
 
-        private void SendObject(OrderKind kind, GameObject target, bool queued)
+        private void SendObject(OrderKind kind, GameObject target, bool queued, int[] heroIds)
         {
             var id = target.GetComponent<NetworkIdentity>();
             if (!id) id = target.GetComponentInParent<NetworkIdentity>();
             if (!id) return;
-            var cmd = new OrderCommand { HeroIds = SelectedIds(), Kind = kind, TargetId = id.netId, Queue = queued, Point = target.transform.position };
+            var cmd = new OrderCommand { HeroIds = heroIds, Kind = kind, TargetId = id.netId, Queue = queued, Point = target.transform.position };
             OrderService.Submit(cmd);
             Feedback.Ping(target.transform.position, new Color(1f, 0.9f, 0.3f, 1f), 1.1f);
             Feedback.Confirm();

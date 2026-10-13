@@ -69,6 +69,7 @@ namespace HighCommand.Client
 
         internal static void InjectClick(Vector2 at, int button = 0, bool shift = false, bool ctrl = false)
         {
+            track = null;
             Script.Enqueue(new Step { mouse = at, buttonDown = -1, buttonUp = -1 });
             Script.Enqueue(new Step { mouse = at, buttonDown = button, buttonUp = -1, shift = shift, ctrl = ctrl, keepModifiers = true });
             Script.Enqueue(new Step { mouse = at, buttonDown = -1, buttonUp = button, shift = shift, ctrl = ctrl, keepModifiers = true });
@@ -78,6 +79,7 @@ namespace HighCommand.Client
         /// <param name="release">False keeps the button down after the move (testing the picture of a box being dragged).</param>
         internal static void InjectDrag(Vector2 from, Vector2 to, int button = 0, bool shift = false, bool release = true)
         {
+            track = null;
             Script.Enqueue(new Step { mouse = from, buttonDown = -1, buttonUp = -1 });
             Script.Enqueue(new Step { mouse = from, buttonDown = button, buttonUp = -1, shift = shift, keepModifiers = true });
             for (int i = 1; i <= 4; i++)
@@ -90,8 +92,22 @@ namespace HighCommand.Client
         /// <summary>Puts the (synthetic) pointer somewhere and leaves it there until <see cref="EndSynthetic"/>.</summary>
         internal static void InjectMove(Vector2 at, bool shift = false)
         {
+            track = null;
             Script.Enqueue(new Step { mouse = at, buttonDown = -1, buttonUp = -1, shift = shift, keepModifiers = true });
         }
+
+        /// <summary>
+        /// Keeps the (synthetic) pointer on a moving thing (a hero, an enemy): <paramref name="where"/> is asked every
+        /// frame; null leaves the pointer where it is. A test that aims at a unit stays on it while the unit walks.
+        /// </summary>
+        internal static void InjectTrack(Func<Vector2?> where, bool shift = false)
+        {
+            Vector2? now = where();
+            Script.Enqueue(new Step { mouse = now ?? Mouse, buttonDown = -1, buttonUp = -1, shift = shift, keepModifiers = true });
+            track = where;
+        }
+
+        private static Func<Vector2?> track;
 
         internal static void InjectKey(KeyCode key, bool ctrl = false, bool shift = false, bool alt = false)
         {
@@ -105,6 +121,7 @@ namespace HighCommand.Client
         internal static void EndSynthetic()
         {
             Script.Clear();
+            track = null;
             fakeMouse = null;
             fakeButton0 = fakeButton1 = fakeButton2 = false;
             fakeKeyHeld = KeyCode.None;
@@ -162,6 +179,15 @@ namespace HighCommand.Client
         internal static void Refresh()
         {
             AdvanceScript();
+            if (track != null && Script.Count == 0 && fakeMouse.HasValue)
+            {
+                Vector2? followed = null;
+                try { followed = track(); }
+                catch (Exception) { track = null; }
+                if (followed.HasValue) fakeMouse = followed;
+            }
+
+            if (swallowed >= 0 && !RawMouseHeld(swallowed) && !RawMouseUp(swallowed)) swallowed = -1;
 
             Mouse = fakeMouse ?? (Vector2)Input.mousePosition;
             PointerInWindow = fakeMouse.HasValue || (Application.isFocused
@@ -187,25 +213,37 @@ namespace HighCommand.Client
 
         internal static bool MouseDown(int button)
         {
-            if (MouseBlocked) return false;
-            if (fakeMouse.HasValue) return fakeDown == button;
-            return Input.GetMouseButtonDown(button);
+            if (MouseBlocked || button == swallowed) return false;
+            return RawMouseDown(button);
         }
 
         internal static bool MouseUp(int button)
         {
-            if (MouseBlocked) return false;
-            if (fakeMouse.HasValue) return fakeUp == button;
-            return Input.GetMouseButtonUp(button);
+            if (MouseBlocked || button == swallowed) return false;
+            return RawMouseUp(button);
         }
 
         internal static bool MouseHeld(int button)
         {
-            if (MouseBlocked) return false;
-            if (fakeMouse.HasValue)
-                return button == 0 ? fakeButton0 : button == 1 ? fakeButton1 : fakeButton2;
+            if (MouseBlocked || button == swallowed) return false;
+            return RawMouseHeld(button);
+        }
+
+        private static bool RawMouseDown(int button) => fakeMouse.HasValue ? fakeDown == button : Input.GetMouseButtonDown(button);
+
+        private static bool RawMouseUp(int button) => fakeMouse.HasValue ? fakeUp == button : Input.GetMouseButtonUp(button);
+
+        private static bool RawMouseHeld(int button)
+        {
+            if (fakeMouse.HasValue) return button == 0 ? fakeButton0 : button == 1 ? fakeButton1 : fakeButton2;
             return Input.GetMouseButton(button);
         }
+
+        // a press that only closed something (an open list) must not also act in the world: hidden until released
+        private static int swallowed = -1;
+
+        /// <summary>The press of <paramref name="button"/> going on now is used up: nobody else sees it until it is released.</summary>
+        internal static void Swallow(int button) => swallowed = button;
 
         internal static float Scroll => MouseBlocked ? 0f : fakeMouse.HasValue ? fakeScroll : Input.mouseScrollDelta.y;
 

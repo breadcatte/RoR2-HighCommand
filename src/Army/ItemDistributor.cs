@@ -23,6 +23,26 @@ namespace HighCommand.Army
 
         internal void Reset() => distributedTotal.Clear();
 
+        /// <summary>
+        /// Units the army no longer owns (a hero paid a printer with them): they are not handed out again. In the mirror
+        /// mode every other hero holds a copy of them too, and those copies go as well.
+        /// </summary>
+        internal void Forget(ItemIndex idx, int count, Hero payer = null)
+        {
+            if (count <= 0) return;
+            distributedTotal.TryGetValue(idx, out int given);
+            distributedTotal[idx] = Mathf.Max(0, given - count);
+
+            HighCommand.Mode.HighCommandRun run = HighCommand.Mode.HighCommandRun.Instance;
+            if (!HighCommand.Mode.LobbyRules.ItemMirror || run == null) return;
+            foreach (Hero h in run.Army.Heroes)
+            {
+                if (h == payer || !h.Master || !h.Master.inventory) continue;
+                int remove = Mathf.Min(count, h.Master.inventory.GetItemCountPermanent(idx));
+                if (remove > 0) h.Master.inventory.RemoveItemPermanent(idx, remove);
+            }
+        }
+
         /// <summary>Hands out whatever the pool gained since the last call.</summary>
         internal void Sync(ArmyManager army)
         {

@@ -48,6 +48,10 @@ namespace HighCommand.UI
             // Without this the static panels would be re-batched together with them each frame.
             layer.gameObject.AddComponent<Canvas>();
 
+            // price tags lie under everything else of the overlay
+            tagLayer = UiKit.NewRect("PriceTags", layer);
+            UiKit.Stretch(tagLayer);
+
             // The selection box: a faint mint tint, a hairline border and brighter corner brackets. The children are
             // anchored to the box, so they follow its size without being touched again.
             dragBox = UiKit.NewImage("DragBox", layer, UiKit.White, new Color(0.6f, 1f, 0.8f, 0.08f));
@@ -97,9 +101,11 @@ namespace HighCommand.UI
             flowsUsed = 0;
             arrowsUsed = 0;
             pingsUsed = 0;
+            tagsUsed = 0;
 
             if (camera && camera.SceneCam)
             {
+                DrawPriceTags(camera);
                 DrawRings(selection, heroes);
                 DrawBars(camera, selection);
                 DrawOrders(selection, cursor);
@@ -112,6 +118,89 @@ namespace HighCommand.UI
             HideUnused();
             DrawDragRect();
             DrawCursorBadge(cursor);
+        }
+
+        // ---- price tags over chests, shrines, shops ... -------------------------------------------
+        //
+        // The stock game shows a price hologram only next to a player's body; the commander has none. A small tag above
+        // every priced object in view says what it costs, gold when the purse can pay, red when it cannot.
+
+        private sealed class PriceTag
+        {
+            internal TMPro.TextMeshProUGUI text;
+            internal int cost = -1;
+            internal bool affordable;
+            internal CostTypeIndex type;
+        }
+
+        private readonly RectTransform tagLayer;
+        private readonly List<PriceTag> tags = new List<PriceTag>(32);
+        private int tagsUsed;
+        private const int TagLimit = 40;
+        private const float TagRange = 160f;
+
+        private static readonly Color TagGold = new Color(1f, 0.85f, 0.35f, 1f);
+        private static readonly Color TagRed = new Color(1f, 0.45f, 0.4f, 1f);
+        private static readonly Color TagOther = new Color(0.8f, 0.85f, 1f, 1f);
+
+        private void DrawPriceTags(RtsCamera camera)
+        {
+            Camera cam = camera.SceneCam;
+            Vector3 eye = cam.transform.position;
+            var list = InstanceTracker.GetInstancesList<PurchaseInteraction>();
+            for (int i = 0; i < list.Count && tagsUsed < TagLimit; i++)
+            {
+                PurchaseInteraction p = list[i];
+                if (!p || !p.available || p.costType == CostTypeIndex.None) continue;
+                if (p.costType == CostTypeIndex.Money && p.cost <= 0) continue;
+                GameObject thing = p.gameObject;
+                InteractKind kind = Interactables.KindOf(thing);
+                if (kind == InteractKind.Unsupported || kind == InteractKind.Teleporter) continue;
+
+                Vector3 at = thing.transform.position + Vector3.up * 1.8f;
+                if ((at - eye).sqrMagnitude > TagRange * TagRange) continue;
+                if (!WorldPicker.ProjectPoint(cam, at, out Vector2 s) || !WorldPicker.IsOnScreen(s, -10f)) continue;
+                if (OverlapsTag(s, p.costType, p.cost)) continue; // the three terminals of a shop: one tag says it
+
+                bool affordable = Interactables.Affordable(thing);
+                PriceTag tag = AcquireTag();
+                if (tag.cost != p.cost || tag.affordable != affordable || tag.type != p.costType)
+                {
+                    tag.cost = p.cost;
+                    tag.affordable = affordable;
+                    tag.type = p.costType;
+                    tag.text.text = "<mark=#05080CC8> " + Interactables.PriceText(p.costType, p.cost) + " </mark>";
+                    tag.text.color = !affordable ? TagRed : p.costType == CostTypeIndex.Money ? TagGold : TagOther;
+                }
+                tag.text.rectTransform.position = new Vector3(s.x, s.y, 0f);
+            }
+        }
+
+        // a tag of the same price already placed close by
+        private bool OverlapsTag(Vector2 screen, CostTypeIndex type, int cost)
+        {
+            float near = 34f * Mathf.Max(0.0001f, layer.lossyScale.x);
+            for (int i = 0; i < tagsUsed; i++)
+            {
+                PriceTag t = tags[i];
+                if (t.type != type || t.cost != cost) continue;
+                if (((Vector2)t.text.rectTransform.position - screen).sqrMagnitude < near * near) return true;
+            }
+            return false;
+        }
+
+        private PriceTag AcquireTag()
+        {
+            if (tagsUsed >= tags.Count)
+            {
+                var t = new PriceTag { text = UiKit.NewText("Price", tagLayer, "", 15f, TagGold, TMPro.TextAlignmentOptions.Center) };
+                t.text.rectTransform.sizeDelta = new Vector2(160f, 22f);
+                t.text.enableWordWrapping = false;
+                tags.Add(t);
+            }
+            PriceTag tag = tags[tagsUsed++];
+            if (!tag.text.enabled) tag.text.enabled = true;
+            return tag;
         }
 
         // ---- orders: destination markers, lines and pings ----------------------------------------
@@ -165,11 +254,21 @@ namespace HighCommand.UI
                 }
 
                 // where a click would send this hero: from its feet, or from the end of its queue with Shift held
-                if (cursor.Preview && cursor.HasPoint && previews < PreviewLimit)
+                if (cursor.Preview && cursor.HasPoint && cursor.Runner == null && previews < PreviewLimit)
                 {
                     previews++;
                     DrawPreview(cursor.Queued ? last : from, cursor.Point, cursor.Color);
                 }
+            }
+
+            // an object under the pointer: one hero would go, the line starts at it (with Shift: where its trips end)
+            Hero runner = cursor.Runner;
+            if (cursor.Preview && cursor.HasPoint && runner != null && runner.Body)
+            {
+                Vector3 start = runner.Body.footPosition + Vector3.up * 0.2f;
+                Orders.HeroBrain brain = runner.Brain;
+                if (cursor.Queued && brain != null) start = brain.ErrandsEnd(start);
+                DrawPreview(start, cursor.Point, cursor.Color);
             }
         }
 
@@ -696,6 +795,8 @@ namespace HighCommand.UI
                 if (arrows[i].enabled) arrows[i].enabled = false;
             for (int i = pingsUsed; i < pings.Count; i++)
                 if (pings[i].enabled) pings[i].enabled = false;
+            for (int i = tagsUsed; i < tags.Count; i++)
+                if (tags[i].text.enabled) tags[i].text.enabled = false;
         }
     }
 }

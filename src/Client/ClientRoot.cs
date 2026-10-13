@@ -83,6 +83,7 @@ namespace HighCommand.Client
             Stage.onStageStartGlobal += OnStageStart;
             Economy.OnGoldGained += OnGoldGained;
             ArmyUpgrades.RankedUp += OnRankedUp;
+            HighCommand.Orders.HeroBrain.InteractFailed += OnInteractFailed;
         }
 
         private void OnDestroy()
@@ -90,6 +91,7 @@ namespace HighCommand.Client
             Stage.onStageStartGlobal -= OnStageStart;
             Economy.OnGoldGained -= OnGoldGained;
             ArmyUpgrades.RankedUp -= OnRankedUp;
+            HighCommand.Orders.HeroBrain.InteractFailed -= OnInteractFailed;
             minimap?.Destroy();
             help?.Destroy();
             overlay?.Destroy();
@@ -199,6 +201,8 @@ namespace HighCommand.Client
         {
             mapDirty = true;
             focusedThisStage = false;
+            Scouting.Reset();
+            Interactables.ResetForStage();
         }
 
         private static void OnGoldGained(uint amount, Vector3? at)
@@ -211,6 +215,24 @@ namespace HighCommand.Client
             Toast.Show(Loc.Format("HIGHCOMMAND_RANK_UP", hero.DisplayName, hero.Rank));
             CharacterBody body = hero.Body;
             if (body) Feedback.Popup(new string('★', hero.Rank), body.corePosition + Vector3.up * 2f, UiKit.Gold);
+        }
+
+        private static void OnInteractFailed(Hero hero, GameObject target, HighCommand.Orders.InteractFailure why)
+        {
+            string name = hero != null ? hero.DisplayName : "?";
+            switch (why)
+            {
+                case HighCommand.Orders.InteractFailure.NoGold:
+                    Interactables.TryGetPrice(target, out CostTypeIndex _, out int cost);
+                    Toast.Error(Loc.Format("HIGHCOMMAND_LOOT_FAILED_GOLD", name, cost));
+                    break;
+                case HighCommand.Orders.InteractFailure.CannotPay:
+                    Toast.Error(Loc.Format("HIGHCOMMAND_LOOT_FAILED_PRICE", name));
+                    break;
+                case HighCommand.Orders.InteractFailure.Unreachable:
+                    Toast.Error(Loc.Format("HIGHCOMMAND_LOOT_FAILED_REACH", name));
+                    break;
+            }
         }
 
         private IReadOnlyList<Hero> CurrentHeroes()
@@ -273,6 +295,18 @@ namespace HighCommand.Client
                 inventory.Hide();
             }
 
+            // A click beside the open orders list only closes it, as in any menu: in the world it would also have
+            // deselected the army or sent it somewhere. (Over another panel the click still does its job there.)
+            if (commandCard.MenuOpen && !commandCard.Contains(ClientInput.Mouse))
+            {
+                for (int b = 0; b < 2; b++)
+                {
+                    if (!ClientInput.MouseDown(b)) continue;
+                    commandCard.CloseMenu();
+                    if (!ClientInput.PointerOverUi) ClientInput.Swallow(b);
+                }
+            }
+
             IReadOnlyList<Hero> heroes = CurrentHeroes();
             bool inputAllowed = inStage && !PauseManager.isPaused && !help.Visible;
 
@@ -282,7 +316,11 @@ namespace HighCommand.Client
                 if (ClientInput.KeyDown(Settings.KeyFocusSelected.Value)) FocusSelectionOrArmy();
                 if (alerts.HasAlert && ClientInput.KeyDown(Settings.KeyLastAlert.Value)) Camera.FocusOn(alerts.LastPosition);
             }
-            if (inStage) alerts.Tick(heroes);
+            if (inStage)
+            {
+                alerts.Tick(heroes);
+                Scouting.Tick(heroes, Camera);
+            }
             else alerts.Reset();
 
             long t = Dev.Perf.Begin();

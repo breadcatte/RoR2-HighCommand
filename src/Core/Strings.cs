@@ -217,6 +217,18 @@ namespace HighCommand
                 "Стоп, держать, отход, патруль, фокус, точка сбора, строй. Остальное делает правая кнопка мыши: идти, атаковать, следовать, использовать.");
             Loc.Add("HIGHCOMMAND_MENU_STANCE", "Stance", "Стойка");
 
+            // objects on the map: prices, the hero who goes, why it came back
+            Loc.Add("HIGHCOMMAND_PRICE_LUNAR", "{0} lunar", "{0} лун.");
+            Loc.Add("HIGHCOMMAND_PRICE_HEALTH", "{0}% HP", "{0}% здоровья");
+            Loc.Add("HIGHCOMMAND_PRICE_ITEM", "{0} item", "предмет x{0}");
+            Loc.Add("HIGHCOMMAND_LOOT_NEEDGOLD", "Not enough gold: ${0}", "Не хватает золота: ${0}");
+            Loc.Add("HIGHCOMMAND_LOOT_CANNOTPAY", "The army cannot pay for this", "Армии нечем за это заплатить");
+            Loc.Add("HIGHCOMMAND_LOOT_GOING", "{0} — {1}", "{0} — {1}");
+            Loc.Add("HIGHCOMMAND_LOOT_FAILED_GOLD", "{0}: not enough gold (${1})", "{0}: не хватило золота (${1})");
+            Loc.Add("HIGHCOMMAND_LOOT_FAILED_PRICE", "{0} has nothing to pay with", "{0}: нечем заплатить");
+            Loc.Add("HIGHCOMMAND_LOOT_FAILED_REACH", "{0} cannot get there", "{0}: не может туда дойти");
+            Loc.Add("HIGHCOMMAND_TOP_CHESTS", "chests {0}/{1}", "сундуки {0}/{1}");
+
             // the top strip
             Loc.Add("HIGHCOMMAND_TOP_ARMYLIMIT", "limit {0}", "лимит {0}");
             Loc.Add("HIGHCOMMAND_TOP_NEXTHERO", "Next hero", "Следующий герой");

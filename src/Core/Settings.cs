@@ -68,6 +68,8 @@ namespace HighCommand
         internal static ConfigEntry<string> KeepInteractables;
         internal static ConfigEntry<Army.ItemDistributor.SharingMode> ItemSharing;
         internal static ConfigEntry<bool> RebalanceOnRecruit;
+        internal static ConfigEntry<bool> AutoOpenBarrels;
+        internal static ConfigEntry<int> ConfigVersion;
 
         private static string[] keepCache;
         private static string keepCacheSource;
@@ -178,11 +180,14 @@ namespace HighCommand
             ThreatPerExtraHero = F("Run", "ThreatPerExtraHero", 0.65f, 0f, 2f,
                 "How much each hero beyond the first counts as an extra player for the game's difficulty scaling (monster credits, boss count, loot). 1 = like a real co-op player.");
 
-            ItemDropsEnabled = cfg.Bind("Loot", "ItemDropsEnabled", true, "Enemies drop items straight into the army's pool.");
-            ItemGoldFactor = F("Loot", "ItemGoldFactor", 2.5f, 0.2f, 30f, "An item is worth this many chests' worth of gold: bigger = fewer drops. At 2.5 a normal run gives about as many items as vanilla.");
-            ItemDropMultiplier = F("Loot", "ItemDropMultiplier", 1.0f, 0f, 10f, "Multiplier on the chance of every item drop.");
-            RemovePaidInteractables = cfg.Bind("Loot", "RemovePaidInteractables", true, "Do not place chests, printers, shrines of chance and other interactables that cost something.");
-            KeepInteractables = cfg.Bind("Loot", "KeepInteractables", "", "Comma separated name fragments of paid interactables that should stay (for example: ShrineBoss,Duplicator).");
+            ItemDropsEnabled = cfg.Bind("Loot", "ItemDropsEnabled", false, "Enemies also drop items straight into the army's pool (the old way of the mode; normally items come from chests).");
+            ItemGoldFactor = F("Loot", "ItemGoldFactor", 2.5f, 0.2f, 30f, "With ItemDropsEnabled: an item is worth this many chests' worth of gold: bigger = fewer drops.");
+            ItemDropMultiplier = F("Loot", "ItemDropMultiplier", 1.0f, 0f, 10f, "With ItemDropsEnabled: multiplier on the chance of every item drop.");
+            RemovePaidInteractables = cfg.Bind("Loot", "RemovePaidInteractables", false, "Do not place chests, printers, shrines of chance and other interactables that cost something (the old way of the mode).");
+            KeepInteractables = cfg.Bind("Loot", "KeepInteractables", "", "With RemovePaidInteractables: comma separated name fragments of paid interactables that should stay (for example: ShrineBoss,Duplicator).");
+            AutoOpenBarrels = cfg.Bind("Loot", "AutoOpenBarrels", true, "Heroes with nothing to do open barrels (free gold) near their post by themselves. Chests and everything that costs something are only opened on an order.");
+            ConfigVersion = cfg.Bind("Dev", "ConfigVersion", 0, "Version of this file's defaults (the mod updates old values once; do not change).");
+            Migrate();
 
             ItemSharing = cfg.Bind("Loot", "ItemSharing", Army.ItemDistributor.SharingMode.Split,
                 "Split: every item unit belongs to one hero (like a normal co-op run). Mirror: every hero gets a copy of every item (much stronger).");
@@ -195,6 +200,26 @@ namespace HighCommand
                 "Place the audio listener on the ground below the camera focus instead of on the high camera, so battle sounds stay audible.");
 
             VerboseLog = cfg.Bind("Dev", "VerboseLog", false, "Write extra diagnostic lines to the BepInEx log.");
+        }
+
+        /// <summary>
+        /// Values written by an older version that the new design overrides. BepInEx keeps a value once it is in the file,
+        /// so a changed default never reaches an existing player: these are set once, and the file remembers it.
+        /// </summary>
+        private static void Migrate()
+        {
+            const int Current = 2;
+            if (ConfigVersion.Value >= Current) return;
+
+            if (ConfigVersion.Value < 2)
+            {
+                // 0.11: items come from chests on the map again (paid from the army's purse), not from kills
+                ItemDropsEnabled.Value = false;
+                RemovePaidInteractables.Value = false;
+                Plugin.Log.LogInfo("Config: loot switched to chests on the map (Loot/ItemDropsEnabled = false, Loot/RemovePaidInteractables = false).");
+            }
+            ConfigVersion.Value = Current;
+            cfg.Save();
         }
 
         private static ConfigEntry<float> F(string section, string key, float value, float min, float max, string description)

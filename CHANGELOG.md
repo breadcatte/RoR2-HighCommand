@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+The map is the source of items
+* Items no longer drop from killed enemies. Chests, shrines, multishops, broken drones, printers, lunar pods and the
+  rest are placed on the stages as in the stock game again, and the army's purse pays for them (gold; lunar coins come
+  from the player). Bosses and the teleporter give items as before.
+* A right click on such an object sends ONE hero: the nearest of the selected ones by the walk along the ground (not as
+  the crow flies), or of the whole army when nobody is selected. The others carry on. Afterwards the hero takes up what
+  it was doing (walks back to its hold spot, goes on patrolling ...) or returns to its post.
+* Shift + right click on several objects: one hero's route through all of them, drawn on the ground.
+* The item flies out of the chest as in the stock game and joins the pool where it lands (the loot feed shows it).
+* Price tags over the priced objects in view (gold when the purse can pay, red when not); the pointer badge says what
+  a click does and what it costs ("Open chest  $25"). Not enough gold: the click is refused with a message, nobody walks.
+* The minimap marks found objects (chests, shops, shrines, drones, printers, portals, the teleporter); an object is
+  found when a hero comes near it or the camera looks at it. The top strip counts the stage's chests (opened / all).
+* Idle heroes open barrels (free gold) near their post by themselves (`Loot/AutoOpenBarrels`); anything with a price
+  waits for an order.
+* A hero that cannot get to an object or pay at the last moment comes back and says why.
+* Config: `Loot/ItemDropsEnabled` and `Loot/RemovePaidInteractables` now default to false; an existing config file is
+  switched once (`Dev/ConfigVersion` = 2). Setting them back gives the old way.
+
+Audit of the interface rework (fixes)
+* A click beside the open "Orders" list only closes it (it used to deselect the army or send it somewhere).
+* The pointer badge and the right click ask one shared function: a selected hero under the pointer showed "Select"
+  while the click moved the army.
+* Camera: a ridge or a tree between the camera and the focus first tilts the view further down (up to 30 degrees);
+  ground right behind the focus no longer pulls the camera down onto it. Stacked surfaces of one mesh (a ramp over a
+  passage) are found now.
+* The top strip's tooltip text is no longer rebuilt every frame.
+
+Dev
+* `hc_find <kind:Chest|name>`, `hc_click_found [button] [shift] [hover]`, `hc_move_found <hero>`, `hc_loot`,
+  `hc_invulnerable`, `hc_gold set <n>`, `hc_cfg autobarrels`; scenario `tools\qa\loot.txt`.
+* `hc_mouse_hero` / `hc_mouse_enemy` keep the pointer on the moving unit (the cursor tests were flaky: units walked
+  out from under a fixed pixel).
+
 Interface
 * The red "all heroes have fallen" strip is clickable: a click revives the first fallen hero (the text says so).
 * The teleporter strip no longer claims "Teleporter ready" while the teleporter has not been started: "Teleporter found:

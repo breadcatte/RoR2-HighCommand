@@ -132,6 +132,75 @@ namespace HighCommand.Orders
             if (Current == null) thinkTimer = 0f; // react immediately
         }
 
+        /// <summary>
+        /// A trip to an object (a chest, a shrine ...) that goes in front of what the hero was doing: afterwards the hero
+        /// takes up its own order again (walks back to its hold spot, goes on patrolling ...) or, with no order, returns
+        /// to its post. With <paramref name="queued"/> the trip is added after the trips already planned (a route through
+        /// several chests); without it, planned trips are dropped.
+        /// </summary>
+        public void Errand(Order order, bool queued)
+        {
+            if (order == null) return;
+            order.Issued = Time.time;
+            order.Errand = true;
+
+            if (!queued)
+            {
+                queue.RemoveAll(o => o.Errand);
+                if (Current != null && Current.Errand) Current = null;
+            }
+
+            // the hero's own order waits behind the trips
+            if (Current != null && !Current.Errand)
+            {
+                Order own = Current;
+                Current = null;
+                switch (own.Kind)
+                {
+                    case OrderKind.Hold:
+                        // back to the spot first: a hold order starts where the hero stands
+                        queue.Insert(0, own);
+                        queue.Insert(0, new Order { Kind = OrderKind.Move, Point = own.Point, Issued = Time.time });
+                        break;
+                    case OrderKind.Cast:
+                    case OrderKind.Stop:
+                        break; // a moment's order: not worth taking up again
+                    default:
+                        queue.Insert(0, own);
+                        break;
+                }
+            }
+
+            int at = 0;
+            if (Current == null || Current.Errand)
+                for (int i = 0; i < queue.Count; i++) if (queue[i].Errand) at = i + 1;
+            queue.Insert(at, order);
+            if (Current == null) thinkTimer = 0f;
+        }
+
+        /// <summary>True while trips to objects are going on or planned.</summary>
+        public bool HasErrands
+        {
+            get
+            {
+                if (Current != null && Current.Errand) return true;
+                for (int i = 0; i < queue.Count; i++) if (queue[i].Errand) return true;
+                return false;
+            }
+        }
+
+        /// <summary>Where the last planned trip ends (the hero's own position when none is planned).</summary>
+        public Vector3 ErrandsEnd(Vector3 here)
+        {
+            Vector3 end = here;
+            if (Current != null && Current.Errand) end = Current.Destination();
+            for (int i = 0; i < queue.Count; i++) if (queue[i].Errand) end = queue[i].Destination();
+            return end;
+        }
+
+        /// <summary>A hero could not use an object it was sent to (no gold, nothing left, unreachable). Host only.</summary>
+        public static event System.Action<Hero, GameObject, InteractFailure> InteractFailed;
+
         public void ClearOrders(bool setAnchorHere)
         {
             queue.Clear();
@@ -177,6 +246,7 @@ namespace HighCommand.Orders
             {
                 lastBody = self;
                 initialised = false;
+                skipBarrels.Clear();
                 queue.Clear();
                 Current = null;
                 Enemy = null;
@@ -275,7 +345,8 @@ namespace HighCommand.Orders
             float frac = hc && hc.fullCombinedHealth > 0f ? hc.combinedHealth / hc.fullCombinedHealth : 1f;
 
             bool fleeable = order == null || order.Kind == OrderKind.AttackMove || order.Kind == OrderKind.Attack
-                            || order.Kind == OrderKind.Patrol || order.Kind == OrderKind.Follow;
+                            || order.Kind == OrderKind.Patrol || order.Kind == OrderKind.Follow
+                            || (order.Kind == OrderKind.Interact && order.Errand); // a trip to a chest is not worth dying for
 
             if (!Fleeing)
             {
@@ -440,6 +511,8 @@ namespace HighCommand.Orders
             }
 
             Enemy = null;
+            if (TryFetchBarrel(self, pos)) return;
+
             float away = (pos - Anchor).magnitude;
             if (away > ArriveDistance + 1f)
             {
@@ -454,6 +527,53 @@ namespace HighCommand.Orders
                 Mode = BrainMode.Idle;
                 DebugState = "idle";
             }
+        }
+
+        private float barrelScanAt;
+        private readonly HashSet<GameObject> skipBarrels = new HashSet<GameObject>();
+
+        // A hero with nothing to do opens a barrel near its post (free gold; anything with a price waits for an order).
+        // Only in calm: no enemy near, not hit lately, no zone to hold.
+        private bool TryFetchBarrel(CharacterBody self, Vector3 pos)
+        {
+            if (!Settings.AutoOpenBarrels.Value || ZoneRadius > 0f || enemiesNear > 0 || !self.outOfDanger) return false;
+            if (Time.time < barrelScanAt) return false;
+            barrelScanAt = Time.time + 1f;
+
+            const float FromPost = 22f, FromHero = 28f;
+            BarrelInteraction best = null;
+            float bestDist = float.MaxValue;
+            var barrels = InstanceTracker.GetInstancesList<BarrelInteraction>();
+            for (int i = 0; i < barrels.Count; i++)
+            {
+                BarrelInteraction b = barrels[i];
+                if (!b || b.Networkopened || skipBarrels.Contains(b.gameObject)) continue;
+                Vector3 bp = b.transform.position;
+                if ((bp - Anchor).sqrMagnitude > FromPost * FromPost || Mathf.Abs(bp.y - pos.y) > 6f) continue;
+                float d = (bp - pos).sqrMagnitude;
+                if (d > FromHero * FromHero || d >= bestDist || ClaimedByAnother(b.gameObject)) continue;
+                bestDist = d;
+                best = b;
+            }
+            if (!best) return false;
+
+            Errand(new Order { Kind = OrderKind.Interact, Target = best.gameObject, Point = best.transform.position, auto = true }, queued: false);
+            if (Settings.VerboseLog.Value) Plugin.Log.LogInfo($"{Hero}: opening a barrel at {best.transform.position:0}");
+            return false; // the trip starts at the next think
+        }
+
+        private bool ClaimedByAnother(GameObject target)
+        {
+            HighCommandRun run = HighCommandRun.Instance;
+            if (run == null) return false;
+            foreach (Hero h in run.Army.Heroes)
+            {
+                HeroBrain other = h.Brain;
+                if (!other || other == this) continue;
+                if (other.Current != null && other.Current.Target == target) return true;
+                for (int i = 0; i < other.queue.Count; i++) if (other.queue[i].Target == target) return true;
+            }
+            return false;
         }
 
         // A stable place for this hero inside the zone (heroes must not all stack on the centre).
@@ -614,23 +734,64 @@ namespace HighCommand.Orders
 
         private void ThinkInteract(Order o, CharacterBody self, Vector3 pos)
         {
-            if (!o.Target)
+            GameObject target = o.Target;
+            bool teleporter = target && target.GetComponent<TeleporterInteraction>();
+            if (!target || (!teleporter && Interactables.IsUsed(target)))
             {
+                // gone, or somebody else got it first: nothing to say, the hero goes back to what it was doing
+                DebugState = "interact: nothing left";
                 Finish();
                 return;
             }
-            Vector3 tp = o.Target.transform.position;
-            float dist = (new Vector3(tp.x, pos.y, tp.z) - pos).magnitude;
-            if (dist > 3.5f && Time.time - o.startedAt < 40f)
+
+            // the spot beside the object (a big chest or a shop is wider than the reach around its centre)
+            if (!o.reachKnown)
             {
-                GoTo(tp, pos, sprintFar: true, skills: false);
-                DebugState = "interact: walking";
-                return;
+                o.reach = Interactables.ReachPoint(target, pos);
+                o.reachKnown = true;
+            }
+            Vector3 to = o.reach - pos;
+            float dy = to.y;
+            to.y = 0f;
+            bool there = to.magnitude <= 3f && Mathf.Abs(dy) < 4.5f;
+
+            if (!there)
+            {
+                bool gaveUp = Time.time - o.startedAt > o.walkBudget || (Stuck && Time.time - progressTime > 8f);
+                if (!gaveUp)
+                {
+                    GoTo(o.reach, pos, sprintFar: true, skills: false);
+                    DebugState = "interact: walking";
+                    return;
+                }
+                if (!teleporter)
+                {
+                    DebugState = "interact: unreachable";
+                    if (!o.auto) InteractFailed?.Invoke(Hero, target, InteractFailure.Unreachable);
+                    else skipBarrels.Add(target); // not tried again from here
+                    Finish();
+                    return;
+                }
+                // the teleporter is used from wherever the hero got to: a hero stuck on the way must not hold up the stage
             }
 
             var interactor = self.GetComponent<Interactor>();
-            if (interactor) interactor.AttemptInteraction(o.Target);
-            DebugState = "interact: used";
+            var interactable = target.GetComponent<IInteractable>();
+            if (interactor && interactable != null)
+            {
+                Interactability can = interactable.GetInteractability(interactor);
+                if (can == Interactability.Available)
+                {
+                    interactor.AttemptInteraction(target);
+                    DebugState = "interact: used";
+                }
+                else if (can == Interactability.ConditionsNotMet)
+                {
+                    bool gold = Interactables.TryGetPrice(target, out CostTypeIndex type, out int _) && type == CostTypeIndex.Money;
+                    InteractFailed?.Invoke(Hero, target, gold ? InteractFailure.NoGold : InteractFailure.CannotPay);
+                    DebugState = "interact: cannot pay";
+                }
+            }
             Finish();
         }
 

@@ -67,6 +67,14 @@ namespace HighCommand.Orders
 
             GameObject target = command.TargetId != NetworkInstanceId.Invalid ? NetworkServer.FindLocalObject(command.TargetId) : null;
 
+            // An object on the map (a chest, a shrine, a drone ...): one hero goes, the nearest by the walk, and comes
+            // back to what it was doing. The teleporter keeps its own routine (ArmyService.ExecTeleporter).
+            if (command.Kind == OrderKind.Interact && target && !target.GetComponent<TeleporterInteraction>())
+            {
+                SendRunner(heroes, target, command);
+                return;
+            }
+
             // Stop / Hold use each hero's own position; point orders are spread in a formation.
             bool pointOrder = command.Kind == OrderKind.Move || command.Kind == OrderKind.AttackMove
                               || command.Kind == OrderKind.Retreat || command.Kind == OrderKind.Patrol;
@@ -108,6 +116,55 @@ namespace HighCommand.Orders
 
             if (Settings.VerboseLog.Value)
                 Plugin.Log.LogInfo($"Order {command.Kind} -> {heroes.Count} hero(es), queue={command.Queue}");
+        }
+
+        /// <summary>The hero sent by the last object order (host only; the interface names it).</summary>
+        internal static Hero LastRunner { get; private set; }
+
+        private static void SendRunner(List<Hero> heroes, GameObject target, OrderCommand command)
+        {
+            Hero previous = LastRunner;
+            LastRunner = null;
+            Hero best = null;
+            float bestCost = float.MaxValue;
+            Vector3 goal = target.transform.position;
+
+            // Shift-clicks on several objects make one hero's route: the hero of the last trip takes the next one too
+            if (command.Queue && previous != null && previous.IsAlive && previous.Body && heroes.Contains(previous))
+            {
+                HeroBrain prevBrain = BrainOf(previous);
+                if (prevBrain != null && prevBrain.HasErrands)
+                {
+                    best = previous;
+                    bestCost = PathCost.Walk(prevBrain.ErrandsEnd(previous.Body.footPosition), goal);
+                }
+            }
+
+            // otherwise the hero with the shortest walk (with Shift: from where its planned trips end)
+            if (best == null)
+            {
+                foreach (Hero h in heroes)
+                {
+                    HeroBrain brain = BrainOf(h);
+                    CharacterBody body = h.Body;
+                    if (brain == null || !h.IsAlive || !body || body.currentVehicle) continue;
+
+                    Vector3 from = command.Queue ? brain.ErrandsEnd(body.footPosition) : body.footPosition;
+                    float cost = PathCost.Walk(from, goal);
+                    if (brain.Fleeing) cost += 80f; // hurt and running: the last choice
+                    if (cost < bestCost) { bestCost = cost; best = h; }
+                }
+            }
+            if (best == null) return;
+
+            // a long way round takes long: about 4 m/s counted (fights on the way), never less than 45 s
+            // (no path found: a short try - the graph may miss a way a hero can still take)
+            float budget = bestCost >= 50000f ? 60f : Mathf.Clamp(30f + bestCost / 4f, 45f, 300f);
+            var order = new Order { Kind = OrderKind.Interact, Target = target, TargetId = command.TargetId, Point = goal, walkBudget = budget };
+            BrainOf(best).Errand(order, command.Queue);
+            LastRunner = best;
+            if (Settings.VerboseLog.Value)
+                Plugin.Log.LogInfo($"Errand {target.name} -> {best} (walk {bestCost:0} m, queued={command.Queue})");
         }
 
         internal static HeroBrain BrainOf(Hero hero)

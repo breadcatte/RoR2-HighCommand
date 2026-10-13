@@ -25,8 +25,8 @@ namespace HighCommand.Client
 
         internal float Yaw => smoothYaw;
 
-        /// <summary>The tilt in degrees (90 = straight down), as shown now.</summary>
-        internal float Pitch => pitchReady ? smoothPitch : Settings.CameraPitch.Value;
+        /// <summary>The tilt in degrees (90 = straight down), as shown now (with the extra tilt that looks past an obstacle).</summary>
+        internal float Pitch => Mathf.Min(SteepestPitch, (pitchReady ? smoothPitch : Settings.CameraPitch.Value) + liftPitch);
 
         internal float Distance => smoothDistance;
 
@@ -98,6 +98,7 @@ namespace HighCommand.Client
                 Plugin.Log.LogWarning("RtsCamera: could not release the camera rig: " + e.Message);
             }
             Rig = null;
+            silencedRig = null;
         }
 
         // ---- public commands ---------------------------------------------------------------------
@@ -164,7 +165,7 @@ namespace HighCommand.Client
             {
                 sweepLogAt += 0.4f;
                 Plugin.Log.LogInfo($"RtsCamera sweep t={sweepTime:0.0} xz=({at.x:0},{at.z:0}) wantedY={focus.y:0.0} shownY={smoothFocus.y:0.0} " +
-                                   $"surfaces={surfaces} lowestSurfaceY={(surfaces > 0 ? lowestSurface : 0f):0.0} legacyY={legacy:0.0} abyss={overAbyss} dwell={abyssTime:0.0} arm={armFactor:0.00}");
+                                   $"surfaces={surfaces} lowestSurfaceY={(surfaces > 0 ? lowestSurface : 0f):0.0} legacyY={legacy:0.0} abyss={overAbyss} dwell={abyssTime:0.0} arm={armFactor:0.00} lift={liftPitch:0}");
             }
             if (k >= 1f) sweeping = false;
         }
@@ -300,7 +301,11 @@ namespace HighCommand.Client
                 CameraRigController rig = rigs[i];
                 if (!rig || !rig.sceneCam || rig.localUserViewer == null) continue;
                 if (!rig.IsOverrideCam(this)) rig.SetOverrideCam(this, 0f);
-                SilenceSpectateControls(rig);
+                if (rig != silencedRig)
+                {
+                    SilenceSpectateControls(rig);
+                    silencedRig = rig;
+                }
                 if (Rig != rig)
                 {
                     Rig = rig;
@@ -315,6 +320,8 @@ namespace HighCommand.Client
         // The game's spectator controls listen to the player's buttons while there is no body: one of them opens the
         // "remote operation" drone picker (a big dark panel in the middle of the screen) on a key press the commander
         // never meant. The commander is not a spectator, so the component is switched off while the mode runs.
+        private CameraRigController silencedRig;
+
         private void SilenceSpectateControls(CameraRigController rig)
         {
             var spectate = rig.GetComponent<CameraRigControllerSpectateControls>();
@@ -361,31 +368,49 @@ namespace HighCommand.Client
         {
             if (!initialised) return;
 
-            Quaternion rotation = Quaternion.Euler(Pitch, smoothYaw, 0f);
-            Vector3 forward = rotation * Vector3.forward;
-
             Vector3 lookAt = smoothFocus + Vector3.up * 1.0f;
-            Vector3 position = lookAt - forward * smoothDistance;
+            float dt = Mathf.Max(0.0001f, Time.unscaledDeltaTime);
+            float basePitch = pitchReady ? smoothPitch : Settings.CameraPitch.Value;
 
-            // Keep the camera out of hills and walls: pull it in front of whatever is between it and the focus. The
-            // pull-in is smoothed: quick to go in, slow to come back out, so passing under a bridge or a ramp does not
-            // make the picture jump in and out.
-            Vector3 toCamera = position - lookAt;
-            float length = toCamera.magnitude;
-            if (length > 0.01f)
+            // A ridge, a tree or an arch between the camera and the focus: first the camera looks more from above (an
+            // RTS view stays an RTS view); only when even a steep view is blocked (a tunnel, a roof) is it pulled in
+            // front of the obstacle. Both are smoothed: quick to react, slow to come back, so passing a ridge does not
+            // make the picture jump.
+            float wantLift = 0f, wantArm = 1f;
+            float length = Mathf.Max(0.01f, smoothDistance);
+            for (int step = 0; step <= LiftSteps; step++)
             {
-                float blocked = NearestStaticHit(lookAt, toCamera / length, length);
-                float want = blocked >= 0f ? Mathf.Clamp(Mathf.Max(1.5f, blocked - 0.2f) / length, 0.02f, 1f) : 1f;
-                float dt = Mathf.Max(0.0001f, Time.unscaledDeltaTime);
-                armFactor = Mathf.SmoothDamp(armFactor, want, ref armFactorVelocity, want < armFactor ? 0.07f : 0.45f, float.PositiveInfinity, dt);
-                armFactor = Mathf.Clamp(armFactor, 0.02f, 1f); // the smoothing may overshoot: never past the focus
-                position = lookAt + (toCamera / length) * (length * armFactor);
+                float lift = step * (MaxLift / LiftSteps);
+                float tryPitch = Mathf.Min(SteepestPitch, basePitch + lift);
+                Vector3 back = -(Quaternion.Euler(tryPitch, smoothYaw, 0f) * Vector3.forward);
+                // the first meters are skipped: ground rising right behind the focus (a slope, a step) would
+                // otherwise pull the camera down onto the focus, which is far worse than a corner of hidden ground
+                float blocked = length > SkipNear + 1f ? NearestStaticHit(lookAt + back * SkipNear, back, length - SkipNear) : -1f;
+                if (blocked >= 0f) blocked += SkipNear;
+                wantLift = tryPitch - basePitch;
+                if (blocked < 0f) { wantArm = 1f; break; }
+                wantArm = Mathf.Clamp(Mathf.Max(1.5f, blocked - 0.2f) / length, 0.02f, 1f);
+                if (tryPitch >= SteepestPitch) break;
             }
+
+            liftPitch = Mathf.SmoothDamp(liftPitch, wantLift, ref liftVelocity, wantLift > liftPitch ? 0.12f : 0.7f, float.PositiveInfinity, dt);
+            liftPitch = Mathf.Clamp(liftPitch, 0f, MaxLift);
+            armFactor = Mathf.SmoothDamp(armFactor, wantArm, ref armFactorVelocity, wantArm < armFactor ? 0.07f : 0.45f, float.PositiveInfinity, dt);
+            armFactor = Mathf.Clamp(armFactor, 0.02f, 1f); // the smoothing may overshoot: never past the focus
+
+            Quaternion rotation = Quaternion.Euler(Mathf.Min(SteepestPitch, basePitch + liftPitch), smoothYaw, 0f);
+            Vector3 position = lookAt - (rotation * Vector3.forward) * (length * armFactor);
 
             cameraState.position = position;
             cameraState.rotation = rotation;
             cameraState.fov = Settings.CameraFov.Value;
         }
+
+        // the view tilts up to this much further down to see past an obstacle, checked in this many steps
+        private const float MaxLift = 30f, SteepestPitch = 88f;
+        private const int LiftSteps = 3;
+        private const float SkipNear = 5f;
+        private float liftPitch, liftVelocity;
 
         private static readonly RaycastHit[] CastBuffer = new RaycastHit[64];
 
@@ -436,7 +461,7 @@ namespace HighCommand.Client
             return p;
         }
 
-        private static readonly RaycastHit[] LevelHits = new RaycastHit[32];
+        private const int MaxSurfaces = 10;
 
         /// <summary>
         /// The height the focus should have above <paramref name="p"/> (p.y is the level the camera is on now, or the
@@ -463,16 +488,22 @@ namespace HighCommand.Client
             }
 
             overAbyss = false;
-            int count = Physics.RaycastNonAlloc(new Vector3(p.x, top, p.z), Vector3.down, LevelHits, length,
-                LayerIndex.world.mask, QueryTriggerInteraction.Ignore);
 
+            // One ray at a time, each starting just below the last surface: a single cast through all colliders
+            // reports a collider once, so a ramp over a passage that belong to one mesh would show only the ramp.
             bool found = false;
             float best = level, bestGap = float.MaxValue;
             lowestSurface = float.MaxValue;
             surfaces = 0;
-            for (int i = 0; i < count; i++)
+            Vector3 origin = new Vector3(p.x, top, p.z);
+            float remaining = length;
+            for (int n = 0; n < MaxSurfaces && remaining > 0f; n++)
             {
-                RaycastHit hit = LevelHits[i];
+                if (!Physics.Raycast(origin, Vector3.down, out RaycastHit hit, remaining, LayerIndex.world.mask, QueryTriggerInteraction.Ignore))
+                    break;
+                float step = hit.distance + 0.05f;
+                origin.y -= step;
+                remaining -= step;
                 if (!IsLevelGeometry(hit.collider)) continue;
                 surfaces++;
                 if (hit.point.y < lowestSurface) lowestSurface = hit.point.y;

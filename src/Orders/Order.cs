@@ -18,6 +18,14 @@ namespace HighCommand.Orders
         Cast         // use one skill once, at a point or an enemy
     }
 
+    /// <summary>Why a hero sent to an object came back without using it.</summary>
+    public enum InteractFailure : byte
+    {
+        NoGold,       // the purse cannot pay (any more)
+        CannotPay,    // another price (an item the hero lacks, lunar coins ...)
+        Unreachable   // the hero did not get there
+    }
+
     public enum Stance : byte
     {
         Aggressive = 0, // chase anything seen
@@ -36,10 +44,15 @@ namespace HighCommand.Orders
         public int Slot = -1;            // Cast: 0..3 skill, 4 equipment
         public bool Focus;               // Attack as focus fire: all other targets are ignored
         public float Issued;
+        public bool Errand;              // a trip to an object put in front of the hero's own orders (see HeroBrain.Errand)
 
         // runtime
         internal bool patrolToSecond;
         internal float startedAt;
+        internal bool auto;              // the hero's own idea (a barrel nearby): a failure is not reported
+        internal float walkBudget = 45f; // Interact: seconds of walking before the hero gives up (set from the walk's length)
+        internal bool reachKnown;        // Interact: the spot next to the object the hero walks to
+        internal Vector3 reach;
 
         public bool HasPoint => Kind == OrderKind.Move || Kind == OrderKind.AttackMove || Kind == OrderKind.Retreat
                                 || Kind == OrderKind.Patrol || Kind == OrderKind.Hold || Kind == OrderKind.Cast;
