@@ -1,0 +1,126 @@
+# Camera smoothness while panning: sweeps over several stages at the usual view and at a close, low view. Each sweep
+# ends with "RtsCamera sweep done: camera height speed max ..., tilt speed max ..., lift max ...": a jump shows as a
+# height speed far above the pan speed (~26 m/s at 31 m) or a tilt speed of hundreds of deg/s. Shots mid-sweep.
+@wait 4
+@log === S1 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 15
+@log === S2 golemplains
+hc_next_stage golemplains
+@wait 25
+hc_cam army
+hc_cam dist 31
+hc_cam pitch 58
+@wait 2
+hc_cam sweep 140 0 6
+@wait 3
+hc_screenshot camsmooth_golem_pan
+@wait 4
+hc_cam sweep 0 140 6
+@wait 7
+hc_cam dist 12
+hc_cam pitch 18
+@wait 2
+hc_cam sweep -100 0 7
+@wait 4
+hc_screenshot camsmooth_golem_low
+@wait 4
+hc_cam sweep 0 -100 7
+@wait 8
+@log === S3 wispgraveyard
+hc_next_stage wispgraveyard
+@wait 25
+hc_cam army
+hc_cam dist 31
+hc_cam pitch 58
+@wait 2
+hc_cam sweep 140 0 6
+@wait 3
+hc_screenshot camsmooth_wisp_pan
+@wait 4
+hc_cam sweep 0 140 6
+@wait 7
+hc_cam dist 12
+hc_cam pitch 18
+@wait 2
+hc_cam sweep -100 0 7
+@wait 4
+hc_screenshot camsmooth_wisp_low
+@wait 4
+hc_cam sweep 0 -100 7
+@wait 8
+@log === S4 rootjungle
+hc_next_stage rootjungle
+@wait 25
+hc_cam army
+hc_cam dist 31
+hc_cam pitch 58
+@wait 2
+hc_cam sweep 140 0 6
+@wait 3
+hc_screenshot camsmooth_root_pan
+@wait 4
+hc_cam sweep 0 140 6
+@wait 7
+hc_cam dist 12
+hc_cam pitch 18
+@wait 2
+hc_cam sweep -100 0 7
+@wait 4
+hc_screenshot camsmooth_root_low
+@wait 4
+hc_cam sweep 0 -100 7
+@wait 8
+@log === S5 dampcavesimple
+hc_next_stage dampcavesimple
+@wait 25
+hc_cam army
+hc_cam dist 31
+hc_cam pitch 58
+@wait 2
+hc_cam sweep 140 0 6
+@wait 3
+hc_screenshot camsmooth_cave_pan
+@wait 4
+hc_cam sweep 0 140 6
+@wait 7
+hc_cam dist 12
+hc_cam pitch 18
+@wait 2
+hc_cam sweep -100 0 7
+@wait 4
+hc_screenshot camsmooth_cave_low
+@wait 4
+hc_cam sweep 0 -100 7
+@wait 8
+@log === S6 village
+hc_next_stage village
+@wait 25
+hc_cam army
+hc_cam dist 31
+hc_cam pitch 58
+@wait 2
+hc_cam sweep 140 0 6
+@wait 3
+hc_screenshot camsmooth_village_pan
+@wait 4
+hc_cam sweep 0 140 6
+@wait 7
+hc_cam dist 12
+hc_cam pitch 18
+@wait 2
+hc_cam sweep -100 0 7
+@wait 4
+hc_screenshot camsmooth_village_low
+@wait 4
+hc_cam sweep 0 -100 7
+@wait 8
+@log === END
+disconnect
+@norun
+@wait 4
+@quit

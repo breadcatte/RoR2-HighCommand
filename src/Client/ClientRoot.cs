@@ -221,6 +221,7 @@ namespace HighCommand.Client
         private void OnStageStart(Stage stage)
         {
             mapDirty = true;
+            CameraGround.Clear(); // the old stage's ground until the new one is read
             focusedThisStage = false;
             Scouting.Reset();
             Interactables.ResetForStage();
@@ -439,8 +440,7 @@ namespace HighCommand.Client
             if (!draggingMinimap) return;
 
             Vector3? world = minimap.ScreenToWorld(ClientInput.Mouse);
-            if (world.HasValue)
-                Camera.FocusOn(new Vector3(world.Value.x, Camera.Focus.y, world.Value.z), deliberate: pressed);
+            if (world.HasValue) Camera.PanTo(world.Value);
         }
 
         private float lastFocusPress = -10f;

@@ -1,6 +1,7 @@
 # Camera height audit: on every stage hc_cam audit pans along 32 lines across the whole map through the real height
-# code, once the old way (any surface) and once the new way (only ground a hero can stand on), and counts the places
-# where the focus ends up more than 10 m above any walkable ground nearby. Expect "new: ... 0 too high" everywhere.
+# code (the camera's own smoothed ground, CameraGround) and reports how steep the focus height gets (m per m of pan:
+# p95 well under 1, no worst far above ~1.5), how often it is 10 m above / below all walkable ground near (few), and
+# whether the lowest view at the nearest zoom stays in the ground after tilting up (expect "0 still in the ground").
 @wait 4
 @log === H1 run start
 hc_start

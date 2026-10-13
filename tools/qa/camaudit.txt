@@ -1,0 +1,26 @@
+# Short camera audit on three stages (plains, cliffs, a cave): hc_cam audit, see camheight.txt for the long one.
+@wait 4
+@log === A1 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 15
+@log === A2 golemplains
+hc_next_stage golemplains
+@wait 25
+hc_cam audit
+@log === A3 blackbeach
+hc_next_stage blackbeach
+@wait 25
+hc_cam audit
+@log === A4 dampcavesimple
+hc_next_stage dampcavesimple
+@wait 25
+hc_cam audit
+@log === END
+disconnect
+@norun
+@wait 4
+@quit

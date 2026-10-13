@@ -1,0 +1,80 @@
+# Where the usual view is still in the ground (hc_cam audit finds the places, hc_cam spot goes there): a shot of each.
+@wait 4
+@log === X1 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 15
+@log === X blackbeach
+hc_next_stage blackbeach
+@wait 25
+hc_cam audit
+hc_cam spot 0
+@wait 2
+hc_screenshot xray2_blackbeach_0
+hc_cam spot 1
+@wait 2
+hc_screenshot xray2_blackbeach_1
+hc_cam spot 2
+@wait 2
+hc_screenshot xray2_blackbeach_2
+hc_cam spot 3
+@wait 2
+hc_screenshot xray2_blackbeach_3
+hc_cam spot 4
+@wait 2
+hc_screenshot xray2_blackbeach_4
+hc_cam spot 5
+@wait 2
+hc_screenshot xray2_blackbeach_5
+@log === X golemplains
+hc_next_stage golemplains
+@wait 25
+hc_cam audit
+hc_cam spot 0
+@wait 2
+hc_screenshot xray2_golemplains_0
+hc_cam spot 1
+@wait 2
+hc_screenshot xray2_golemplains_1
+hc_cam spot 2
+@wait 2
+hc_screenshot xray2_golemplains_2
+hc_cam spot 3
+@wait 2
+hc_screenshot xray2_golemplains_3
+hc_cam spot 4
+@wait 2
+hc_screenshot xray2_golemplains_4
+hc_cam spot 5
+@wait 2
+hc_screenshot xray2_golemplains_5
+@log === X dampcavesimple
+hc_next_stage dampcavesimple
+@wait 25
+hc_cam audit
+hc_cam spot 0
+@wait 2
+hc_screenshot xray2_dampcavesimple_0
+hc_cam spot 1
+@wait 2
+hc_screenshot xray2_dampcavesimple_1
+hc_cam spot 2
+@wait 2
+hc_screenshot xray2_dampcavesimple_2
+hc_cam spot 3
+@wait 2
+hc_screenshot xray2_dampcavesimple_3
+hc_cam spot 4
+@wait 2
+hc_screenshot xray2_dampcavesimple_4
+hc_cam spot 5
+@wait 2
+hc_screenshot xray2_dampcavesimple_5
+@log === END
+disconnect
+@norun
+@wait 4
+@quit

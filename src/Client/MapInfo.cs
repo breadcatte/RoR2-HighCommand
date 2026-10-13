@@ -55,6 +55,7 @@ namespace HighCommand.Client
             BuildWalkGrid(positions, box);
             LowestWalkable = min.y;
             HighestWalkable = max.y;
+            CameraGround.Build(ground, nodes, box);
 
             MinimapTexture = BuildTexture(ground, nodes, min.y, max.y, box);
             Valid = true;

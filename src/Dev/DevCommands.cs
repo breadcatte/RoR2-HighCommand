@@ -202,7 +202,7 @@ namespace HighCommand.Dev
                     cam.FollowTarget = () => Client.ClientRoot.ArmyCenter();
                     break;
                 case "at":
-                    cam.FocusOn(new Vector3(args.GetArgFloat(1), cam.Focus.y, args.GetArgFloat(2)));
+                    cam.PanTo(new Vector3(args.GetArgFloat(1), cam.Focus.y, args.GetArgFloat(2)));
                     break;
                 case "sweep":
                 {
@@ -220,6 +220,21 @@ namespace HighCommand.Dev
                 }
                 case "audit":
                     Debug.Log("HighCommand camera audit: " + cam.AuditHeights());
+                    break;
+                case "spot":
+                    // hc_cam spot <i>: the usual view over the i-th place where the last audit found it in the ground
+                    Debug.Log("HighCommand camera: " + cam.GoToSpot(args.GetArgInt(1)));
+                    break;
+                case "lift":
+                    // hc_cam lift <0|1>: never tilt up / tilt up out of big ground when that gets the camera out
+                    Client.RtsCamera.LiftMode = Mathf.Clamp(args.GetArgInt(1), 0, 1);
+                    Debug.Log("HighCommand camera: lift mode " + Client.RtsCamera.LiftMode);
+                    break;
+                case "rock":
+                    // hc_cam rock <0|1>: whether big ground nobody walks on lifts the camera's ground (rebuilds it)
+                    Client.CameraGround.RaiseByRock = args.GetArgInt(1) != 0;
+                    Client.CameraGround.Rebuild();
+                    Debug.Log("HighCommand camera: rock " + Client.CameraGround.RaiseByRock + ", " + Client.CameraGround.Describe());
                     break;
                 case "info":
                 {
