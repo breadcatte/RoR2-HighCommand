@@ -31,8 +31,11 @@ The map is the source of items
   a click does and what it costs ("Open chest  $25"). Not enough gold: the click is refused with a message, nobody walks.
 * The minimap marks found objects (chests, shops, shrines, drones, printers, portals, the teleporter); an object is
   found when a hero comes near it or the camera looks at it. The top strip counts the stage's chests (opened / all).
-* Idle heroes open barrels (free gold) near their post by themselves (`Loot/AutoOpenBarrels`); anything with a price
-  waits for an order.
+* Idle heroes open barrels (free gold) near their post by themselves (`Loot/AutoOpenBarrels`).
+* Idle heroes also open a chest near their post (within 30 m of it, 35 m of the hero) by themselves when no enemy is
+  near, they have not been hit lately, there is no zone to hold, and the purse can pay; the gold other heroes are
+  already walking to spend is kept for them, and a chest that turns out too dear on arrival is left without a message
+  (`Loot/AutoOpenChests`, `hc_cfg autochests`). Only chests: shops, shrines, printers and drones wait for an order.
 * A hero that cannot get to an object or pay at the last moment comes back and says why.
 * Config: `Loot/ItemDropsEnabled` and `Loot/RemovePaidInteractables` now default to false; an existing config file is
   switched once (`Dev/ConfigVersion` = 2). Setting them back gives the old way.

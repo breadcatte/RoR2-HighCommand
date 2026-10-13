@@ -68,7 +68,7 @@ namespace HighCommand
         internal static ConfigEntry<string> KeepInteractables;
         internal static ConfigEntry<Army.ItemDistributor.SharingMode> ItemSharing;
         internal static ConfigEntry<bool> RebalanceOnRecruit;
-        internal static ConfigEntry<bool> AutoOpenBarrels;
+        internal static ConfigEntry<bool> AutoOpenBarrels, AutoOpenChests;
         internal static ConfigEntry<int> ConfigVersion;
 
         private static string[] keepCache;
@@ -185,7 +185,8 @@ namespace HighCommand
             ItemDropMultiplier = F("Loot", "ItemDropMultiplier", 1.0f, 0f, 10f, "With ItemDropsEnabled: multiplier on the chance of every item drop.");
             RemovePaidInteractables = cfg.Bind("Loot", "RemovePaidInteractables", false, "Do not place chests, printers, shrines of chance and other interactables that cost something (the old way of the mode).");
             KeepInteractables = cfg.Bind("Loot", "KeepInteractables", "", "With RemovePaidInteractables: comma separated name fragments of paid interactables that should stay (for example: ShrineBoss,Duplicator).");
-            AutoOpenBarrels = cfg.Bind("Loot", "AutoOpenBarrels", true, "Heroes with nothing to do open barrels (free gold) near their post by themselves. Chests and everything that costs something are only opened on an order.");
+            AutoOpenBarrels = cfg.Bind("Loot", "AutoOpenBarrels", true, "Heroes with nothing to do open barrels (free gold) near their post by themselves.");
+            AutoOpenChests = cfg.Bind("Loot", "AutoOpenChests", true, "Heroes with nothing to do, with no enemy near, open a chest near their post by themselves when the purse can pay for it. Only chests: shops, shrines, printers and drones wait for an order.");
             ConfigVersion = cfg.Bind("Dev", "ConfigVersion", 0, "Version of this file's defaults (the mod updates old values once; do not change).");
             Migrate();
 

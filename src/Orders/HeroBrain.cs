@@ -246,7 +246,7 @@ namespace HighCommand.Orders
             {
                 lastBody = self;
                 initialised = false;
-                skipBarrels.Clear();
+                skipNearby.Clear();
                 queue.Clear();
                 Current = null;
                 Enemy = null;
@@ -512,6 +512,7 @@ namespace HighCommand.Orders
 
             Enemy = null;
             if (TryFetchBarrel(self, pos)) return;
+            if (TryFetchChest(self, pos)) return;
 
             float away = (pos - Anchor).magnitude;
             if (away > ArriveDistance + 1f)
@@ -530,7 +531,7 @@ namespace HighCommand.Orders
         }
 
         private float barrelScanAt;
-        private readonly HashSet<GameObject> skipBarrels = new HashSet<GameObject>();
+        private readonly HashSet<GameObject> skipNearby = new HashSet<GameObject>();
 
         // A hero with nothing to do opens a barrel near its post (free gold; anything with a price waits for an order).
         // Only in calm: no enemy near, not hit lately, no zone to hold.
@@ -547,7 +548,7 @@ namespace HighCommand.Orders
             for (int i = 0; i < barrels.Count; i++)
             {
                 BarrelInteraction b = barrels[i];
-                if (!b || b.Networkopened || skipBarrels.Contains(b.gameObject)) continue;
+                if (!b || b.Networkopened || skipNearby.Contains(b.gameObject)) continue;
                 Vector3 bp = b.transform.position;
                 if ((bp - Anchor).sqrMagnitude > FromPost * FromPost || Mathf.Abs(bp.y - pos.y) > 6f) continue;
                 float d = (bp - pos).sqrMagnitude;
@@ -560,6 +561,64 @@ namespace HighCommand.Orders
             Errand(new Order { Kind = OrderKind.Interact, Target = best.gameObject, Point = best.transform.position, auto = true }, queued: false);
             if (Settings.VerboseLog.Value) Plugin.Log.LogInfo($"{Hero}: opening a barrel at {best.transform.position:0}");
             return false; // the trip starts at the next think
+        }
+
+        private float chestScanAt;
+
+        // A hero with nothing to do opens a chest near its post when the purse can pay for it - chests only (not
+        // shops, shrines, printers, drones: those are the player's choice). Same calm as for barrels; the gold other
+        // heroes are already walking to spend is kept for them.
+        private bool TryFetchChest(CharacterBody self, Vector3 pos)
+        {
+            if (!Settings.AutoOpenChests.Value || ZoneRadius > 0f || enemiesNear > 0 || !self.outOfDanger) return false;
+            if (Time.time < chestScanAt) return false;
+            chestScanAt = Time.time + 1f;
+
+            const float FromPost = 30f, FromHero = 35f;
+            long spare = (long)Economy.Gold - GoldClaimedByOthers();
+            PurchaseInteraction best = null;
+            float bestDist = float.MaxValue;
+            var all = InstanceTracker.GetInstancesList<PurchaseInteraction>();
+            for (int i = 0; i < all.Count; i++)
+            {
+                PurchaseInteraction p = all[i];
+                if (!p || !p.available || p.costType != CostTypeIndex.Money || p.cost > spare) continue;
+                GameObject go = p.gameObject;
+                if (skipNearby.Contains(go) || Interactables.KindOf(go) != InteractKind.Chest) continue;
+                Vector3 cp = p.transform.position;
+                if ((cp - Anchor).sqrMagnitude > FromPost * FromPost || Mathf.Abs(cp.y - pos.y) > 6f) continue;
+                float d = (cp - pos).sqrMagnitude;
+                if (d > FromHero * FromHero || d >= bestDist || ClaimedByAnother(go)) continue;
+                bestDist = d;
+                best = p;
+            }
+            if (!best) return false;
+
+            Errand(new Order { Kind = OrderKind.Interact, Target = best.gameObject, Point = best.transform.position, auto = true }, queued: false);
+            if (Settings.VerboseLog.Value) Plugin.Log.LogInfo($"{Hero}: opening a chest (${best.cost}) at {best.transform.position:0}");
+            return false; // the trip starts at the next think
+        }
+
+        /// <summary>The gold of the chests and shops other heroes are on their way to (it will be spent there).</summary>
+        private long GoldClaimedByOthers()
+        {
+            HighCommandRun run = HighCommandRun.Instance;
+            if (run == null) return 0;
+            long sum = 0;
+            foreach (Hero h in run.Army.Heroes)
+            {
+                HeroBrain other = h.Brain;
+                if (!other || other == this) continue;
+                if (other.Current != null) sum += GoldOf(other.Current);
+                for (int i = 0; i < other.queue.Count; i++) sum += GoldOf(other.queue[i]);
+            }
+            return sum;
+        }
+
+        private static long GoldOf(Order o)
+        {
+            if (o.Kind != OrderKind.Interact || !o.Target) return 0;
+            return Interactables.TryGetPrice(o.Target, out CostTypeIndex type, out int cost) && type == CostTypeIndex.Money ? cost : 0;
         }
 
         private bool ClaimedByAnother(GameObject target)
@@ -768,7 +827,7 @@ namespace HighCommand.Orders
                 {
                     DebugState = "interact: unreachable";
                     if (!o.auto) InteractFailed?.Invoke(Hero, target, InteractFailure.Unreachable);
-                    else skipBarrels.Add(target); // not tried again from here
+                    else skipNearby.Add(target); // not tried again from here
                     Finish();
                     return;
                 }
@@ -788,7 +847,8 @@ namespace HighCommand.Orders
                 else if (can == Interactability.ConditionsNotMet)
                 {
                     bool gold = Interactables.TryGetPrice(target, out CostTypeIndex type, out int _) && type == CostTypeIndex.Money;
-                    InteractFailed?.Invoke(Hero, target, gold ? InteractFailure.NoGold : InteractFailure.CannotPay);
+                    // a trip of the hero's own (a chest it went for) ends quietly: the purse was spent meanwhile
+                    if (!o.auto) InteractFailed?.Invoke(Hero, target, gold ? InteractFailure.NoGold : InteractFailure.CannotPay);
                     DebugState = "interact: cannot pay";
                 }
             }

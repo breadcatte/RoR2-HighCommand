@@ -477,6 +477,7 @@ namespace HighCommand.Dev
                 case "autoretreat": Settings.AutoRetreat.Value = bool.Parse(value); break;
                 case "verbose": Settings.VerboseLog.Value = bool.Parse(value); break;
                 case "autobarrels": Settings.AutoOpenBarrels.Value = bool.Parse(value); break;
+                case "autochests": Settings.AutoOpenChests.Value = bool.Parse(value); break;
                 case "uiscale": Settings.UiScale.Value = float.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
                 case "allowhidden": Settings.AllowHiddenSurvivors.Value = bool.Parse(value); break;
                 default: throw new ConCommandException("Unknown setting.");
