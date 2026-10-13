@@ -211,7 +211,7 @@ namespace HighCommand.Orders
             var sb = new System.Text.StringBuilder();
             sb.Append("{\n");
             sb.Append("  \"version\": 1,\n");
-            sb.Append("  // rules per skill slot: auto | never | escape | engage | burst (see the mod's STATUS.md)\n");
+            sb.Append("  // rules per skill slot: auto | never | escape | engage | burst (see the mod's README)\n");
             sb.Append("  \"profiles\": [\n");
             for (int i = 0; i < profiles.Count; i++)
             {

@@ -1,8 +1,8 @@
 {
   "name": "HighCommand",
-  "version_number": "0.10.0",
-  "website_url": "",
-  "description": "Strategy game mode: command an AI army of survivors from an RTS camera. Buy heroes with gold, share loot, run the teleporter.",
+  "version_number": "0.11.0",
+  "website_url": "https://github.com/kantemiir/RoR2-HighCommand",
+  "description": "An RTS mode: command an AI army of real survivors from a strategy camera. Recruit heroes, buy upgrades, loot the map with one shared purse.",
   "dependencies": [
     "RiskofThunder-RoR2BepInExPack-1.43.0"
   ]

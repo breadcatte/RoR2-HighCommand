@@ -41,6 +41,7 @@ namespace HighCommand.UI
 
         private readonly RectTransform itemsPanel;
         private readonly Image itemsFrame;
+        private readonly Image itemsInside;
         private readonly TextMeshProUGUI itemsText;
         private readonly TextMeshProUGUI itemsSubText;
         private readonly TextMeshProUGUI itemsKey;
@@ -122,11 +123,16 @@ namespace HighCommand.UI
             // --- the army's items: left of the purse, a click opens the item panel (same as its key) ---
             itemsPanel = UiKit.NewPanel("ItemsPanel", parent, UiKit.PanelColor);
             UiKit.Place(itemsPanel, new Vector2(0.5f, 1f), new Vector2(1f, 1f), new Vector2(-EconomyW * 0.5f - 8f, -Top), new Vector2(ItemsW, Height));
+            // while the panel is open: a green frame (a green shape with the panel's own fill inside it)
             itemsFrame = UiKit.NewImage("Open", itemsPanel, UiKit.White, UiKit.Good);
             UiKit.StyleOutline(itemsFrame, 7f);
             UiKit.Stretch(itemsFrame.rectTransform, 0, 0, 0, 0);
             itemsFrame.raycastTarget = false;
             itemsFrame.enabled = false;
+            Color inside = UiKit.PanelColor;
+            inside.a = 1f; // opaque: the green must not shine through
+            itemsInside = UiKit.NewFill("OpenInside", itemsFrame.rectTransform, inside, 7f, 2f);
+            itemsInside.raycastTarget = false;
             Image chest = UiKit.NewImage("Chest", itemsPanel, UiKit.GlyphSprite(Glyph.Chest), UiKit.Gold);
             UiKit.Place(chest.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(14f, 0f), new Vector2(26f, 26f));
             itemsText = UiKit.NewText("Items", itemsPanel, "", 19f, UiKit.Text, TextAlignmentOptions.Left);

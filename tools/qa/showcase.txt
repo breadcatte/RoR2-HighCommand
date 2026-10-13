@@ -1,0 +1,123 @@
+# Screenshots for the README (show_*.png): a full army in a fight, the commander's strike, a close view, a queued
+# route, a chest with its price, the barracks, the item panel, the teleporter and a high overview. The game language
+# is switched to English for the shots and back to the player's own at the end.
+@wait 4
+language en
+@wait 2
+@log === S1 run start
+hc_start
+@scene lobby
+@wait 3
+pregame_start_run
+@run
+@wait 15
+hc_cfg ignoreunlocks true
+hc_cfg armylimit 8
+hc_next_stage golemplains
+@wait 25
+hc_gold 30000
+hc_recruit Huntress
+hc_recruit Mage
+hc_recruit Engi
+hc_recruit Toolbot
+hc_recruit Loader
+hc_recruit Croco
+@wait 28
+hc_invulnerable true
+hc_drop_random 40
+@wait 4
+hc_select all
+hc_cam army
+hc_cam yaw 35
+hc_cam pitch 52
+hc_cam dist 34
+# the pointer rests on the minimap: no pointer badge in the middle of the picture
+hc_mouse 140 140
+@wait 4
+@log === S2 a fight
+hc_spawn 10 LemurianMaster
+hc_spawn 3 BeetleGuardMaster
+hc_spawn 2 GolemMaster
+@wait 7
+hc_cam army
+@wait 2
+hc_screenshot show_battle
+hc_ability 0
+@wait 1.2
+hc_screenshot show_strike
+@wait 3
+hc_ability 2
+hc_cam army
+hc_cam dist 8
+@wait 3
+hc_screenshot show_close
+@wait 1
+hc_screenshot show_close2
+hc_kill_enemies
+@wait 3
+@log === S3 a queued route (one hero: a clean line)
+hc_select 2
+hc_cam army
+hc_cam pitch 58
+hc_cam dist 55
+@wait 3
+hc_click 640 380 1 shift
+@wait 0.3
+hc_click 980 300 1 shift
+@wait 0.3
+hc_click 1320 420 1 shift
+@wait 0.3
+hc_mouse 1450 640 shift
+@wait 0.6
+hc_screenshot show_orders
+hc_mouse 140 140
+hc_key E
+@wait 1
+@log === S4 a chest and its price
+hc_select none
+hc_find kind:Chest
+hc_cam dist 26
+hc_cam pitch 50
+@wait 3
+hc_click_found 1 hover
+@wait 1.5
+hc_screenshot show_loot
+hc_mouse 140 140
+@wait 1
+@log === S5 barracks and items
+hc_cam army
+hc_cam dist 45
+@wait 3
+hc_select all
+hc_key B
+@wait 1.5
+hc_screenshot show_barracks
+hc_key B
+@wait 1
+hc_key I
+@wait 1.5
+hc_screenshot show_items
+hc_key I
+@wait 1
+@log === S6 the teleporter
+hc_tp
+@wait 6
+hc_tp
+@wait 30
+hc_cam army
+hc_cam pitch 55
+hc_cam dist 60
+@wait 4
+hc_screenshot show_teleporter
+@log === S7 overview
+hc_cam dist 95
+hc_cam pitch 70
+@wait 4
+hc_screenshot show_overview
+@log === END
+language platform
+@wait 1
+disconnect
+@norun
+@wait 4
+@quit

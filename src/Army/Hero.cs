@@ -123,13 +123,14 @@ namespace HighCommand.Army
         /// <summary>
         /// A name as the interface prints it. The game's own Russian text for the Void Fiend is damaged at the source
         /// (the file reads "「И??адие Пустоты』": two question marks where "сч" belongs and corner brackets that are not in
-        /// the font), so the brackets are dropped and that one word is put right.
+        /// the font), so the brackets are dropped and that one word is put right. The English text has the same damage
+        /// ("V??oid Fiend").
         /// </summary>
         internal static string Plain(string name)
         {
             if (string.IsNullOrEmpty(name)) return name;
             return name.Replace("「", "").Replace("」", "").Replace("『", "").Replace("』", "")
-                .Replace("И??адие", "Исчадие").Trim();
+                .Replace("И??адие", "Исчадие").Replace("V??oid", "Void").Trim();
         }
 
         public Vector3 Position

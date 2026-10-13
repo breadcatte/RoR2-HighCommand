@@ -1,6 +1,6 @@
 {
   "version": 1,
-  // rules per skill slot: auto | never | escape | engage | burst (see the mod's STATUS.md)
+  // rules per skill slot: auto | never | escape | engage | burst (see the mod's README)
   "profiles": [
     {
       "survivor": "*",

@@ -150,6 +150,13 @@ namespace HighCommand.Client
             distance = Mathf.Clamp(meters, Settings.CameraMinDistance.Value, Settings.CameraMaxDistance.Value);
         }
 
+        /// <summary>Turns / tilts the camera (testing, screenshots).</summary>
+        internal void SetAngles(float? newYaw, float? newPitch)
+        {
+            if (newYaw.HasValue) yaw = newYaw.Value;
+            if (newPitch.HasValue) pitch = Mathf.Clamp(newPitch.Value, MinPitch, MaxPitch);
+        }
+
         // ---- testing (hc_cam sweep) --------------------------------------------------------------
 
         private bool sweeping;

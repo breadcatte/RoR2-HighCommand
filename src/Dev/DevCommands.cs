@@ -192,6 +192,12 @@ namespace HighCommand.Dev
                 case "dist":
                     cam.SetDistance(args.GetArgFloat(1));
                     break;
+                case "yaw":
+                    cam.SetAngles(args.GetArgFloat(1), null);
+                    break;
+                case "pitch":
+                    cam.SetAngles(null, args.GetArgFloat(1));
+                    break;
                 case "follow":
                     cam.FollowTarget = () => Client.ClientRoot.ArmyCenter();
                     break;

@@ -43,7 +43,9 @@ BepInEx-плагин `kantemiir.HighCommand`: отдельный RTS-режим 
   через `UiKit.White` с рамкой 2 px.
 * Картинки кнопок приказов рисуются кодом в `src\UI\GlyphArt.cs` (без файлов). Посмотреть без игры:
   `dotnet run --project tools\glyph-preview -- <файл.png>` (SDK: `%LOCALAPPDATA%\dotnet-sdk`).
-* Вид интерфейса проверять сценарием `uishot` (`qa-run.ps1 uishot`) и скриншотами; «до/после» — `docs\ui-rework\`.
+* Вид интерфейса проверять сценарием `uishot` (`qa-run.ps1 uishot`) и скриншотами; «до/после» — `docs\dev\ui-rework\`.
+  Скриншоты для README (`docs\screenshots\*.jpg`) снимает сценарий `showcase` (язык игры на время → en, затем обратно).
+* Внутренние заметки (HANDOFF, STATUS, AUDIT, DESIGN, промты) — в `docs\dev\`.
 * Высота камеры (`RtsCamera.FocusHeight`) берётся только с земли, где есть узлы графа героев (`MapInfo.WalkableHeightsNear`);
   стоящая камера над более низкой землёй оседает через 1.5 с (`Settle`). Проверка — `tools\qa\camheight.txt`
   (`hc_cam audit`, ждать «0 climbed», «0 of N stops left hanging»; сценарий длинный — `qa-run -TimeoutMin 30`).
@@ -108,10 +110,14 @@ Opus дороже. По каждой задаче заранее решать и
 * Проверка: `qa-run.ps1 loot` (+ `hc_loot`, `hc_find kind:Chest`, `hc_click_found`).
 
 ## Известное состояние (обновлять)
+* 0.11.0 (2026-10-13): первый публичный релиз — GitHub `kantemiir/RoR2-HighCommand` (MIT). README.md (en) +
+  README.ru.md, скриншоты `docs\screenshots\` (картинки в README — по ссылкам raw.githubusercontent, чтобы работали и в
+  пакете Thunderstore). Почта в истории коммитов заменена на noreply GitHub (решение пользователя) — новые коммиты
+  делать с тем же адресом (`git config user.email`).
 * 0.10.0 (2026-10-12): этап 3 частично — улучшения армии и ранги (`Army\ArmyUpgrades.cs`, бонусы постфиксом на
   `CharacterBody.RecalculateStats`), 2 стартовых героя, цены по «соло»-сложности (`HcState.SoloDifficulty`), маршрут
   очереди. Проверка без приказов: 3/3 забега оба героя живы 165 с. Не сделано: события на карте (спасение героя).
-* 0.9.2: этапы 1–2 пройдены. HANDOFF.md писал Sonnet — местами неточен; верить коду и логам.
+* 0.9.2: этапы 1–2 пройдены. docs\dev\HANDOFF.md писал Sonnet — местами неточен; верить коду и логам.
 * Корень «герой сам умирает»: ванильные AISkillDriver выживших (`_ref\ai_drivers.txt`) всегда сближаются с целью
   (стиль Умбры). Исправлено полями профиля `standoff`/`fleeSlot` + автовоскрешение. Одинокий герой всё ещё хрупок —
   это баланс/ИИ (этап 3), а не баг.

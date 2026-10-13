@@ -1,6 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.11.0 - loot from the map, a real strategy camera, first public release
+
+Public release
+* The source is on GitHub: https://github.com/kantemiir/RoR2-HighCommand (MIT license), with a new README (English and
+  Russian) and screenshots, issue templates and CONTRIBUTING.md. Internal working notes moved to `docs/dev/`.
+* The English name of the Void Fiend is printed properly (the game's own text reads "V??oid Fiend").
+* The Items button's open frame no longer covers its text.
+* Dev: `hc_cam yaw <deg>` / `hc_cam pitch <deg>`; scenario `tools\qa\showcase.txt` takes the README's screenshots
+  (it switches the game to English for the shots and back).
 
 Camera height
 * The camera only follows ground a hero can stand on (the stock node graph): a rock spire, a roof or a decoration high
